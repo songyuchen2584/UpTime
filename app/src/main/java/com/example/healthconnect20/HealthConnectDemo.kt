@@ -75,6 +75,25 @@ class HealthConnectRepository(private val context: Context) {
         return response[StepsRecord.COUNT_TOTAL] ?: 0L
     }
 
+    suspend fun readTotalStepsToday(): Long {
+        val c = client ?: return 0L
+
+        val end = Instant.now()
+        val start = java.time.LocalDate.now()
+            .atStartOfDay(java.time.ZoneId.systemDefault())
+            .toInstant()
+
+        val response = c.aggregate(
+            AggregateRequest(
+                metrics = setOf(StepsRecord.COUNT_TOTAL),
+                timeRangeFilter = TimeRangeFilter.between(start, end)
+            )
+        )
+
+        return response[StepsRecord.COUNT_TOTAL] ?: 0L
+    }
+
+
     suspend fun readExerciseSessionsLast7d(): List<ExerciseSessionUi> {
         val c = client ?: return emptyList()
         val end = Instant.now()
