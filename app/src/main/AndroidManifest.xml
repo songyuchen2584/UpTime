@@ -36,7 +36,8 @@
             android:name=".PermissionsRationaleActivity"
             android:exported="true">
             <intent-filter>
-                <action android:name="androidx.health.ACTION_SHOW_PERMISSIONS_RATIONALE" />
+                <action android:name="androidx.health.connect.client.ACTION_SHOW_PERMISSIONS_RATIONALE" />
+
             </intent-filter>
         </activity>
 

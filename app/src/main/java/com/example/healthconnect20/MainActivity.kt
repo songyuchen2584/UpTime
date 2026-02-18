@@ -16,6 +16,7 @@ import androidx.compose.ui.unit.dp
 import androidx.health.connect.client.HealthConnectClient
 import androidx.health.connect.client.PermissionController
 import androidx.health.connect.client.permission.HealthPermission
+import androidx.health.connect.client.records.ExerciseSessionRecord
 import androidx.health.connect.client.records.StepsRecord
 import java.time.ZoneId
 import java.time.format.DateTimeFormatter
@@ -29,20 +30,16 @@ class MainActivity : ComponentActivity() {
 
         setContent {
             MaterialTheme {
+                LaunchedEffect(Unit) {
+                    vm.refreshPermissions()
+                }
+
                 val state by vm.state.collectAsState()
 
                 val permissionLauncher = rememberLauncherForActivityResult(
                     contract = PermissionController.createRequestPermissionResultContract()
-                ) { grantedPermissions: Set<String> ->
-                    if (
-                        grantedPermissions.contains(
-                            HealthPermission.getReadPermission(StepsRecord::class)
-                        )
-                    ) {
-                        // Permission granted
-                    } else {
-                        // Permission denied
-                    }
+                ) { _: Set<String> ->
+                    vm.refreshPermissions()
                 }
 
                 // Your Compose UI
@@ -76,10 +73,13 @@ private fun HealthConnectScreen(
     onRefreshData: () -> Unit,
     onInstall: () -> Unit
 ) {
-    val hasAllPerms = remember(state.granted) {
-        // We requested two permissions; treat “granted contains both” as ready
-        state.granted.any { it.contains("READ_STEPS") } && state.granted.any { it.contains("READ_EXERCISE") }
-    }
+    val hasAllPerms = state.granted.containsAll(
+        setOf(
+            HealthPermission.getReadPermission(StepsRecord::class),
+            HealthPermission.getReadPermission(ExerciseSessionRecord::class)
+        )
+    )
+
 
     val formatter = remember {
         DateTimeFormatter.ofPattern("yyyy-MM-dd HH:mm")
