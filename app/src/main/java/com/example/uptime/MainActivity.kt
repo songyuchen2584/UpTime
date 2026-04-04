@@ -52,7 +52,7 @@ fun AppScaffold() {
     val windowSizeClass = currentWindowAdaptiveInfo().windowSizeClass
     val isLandscape = windowSizeClass.isWidthAtLeastBreakpoint(WindowSizeClass.WIDTH_DP_MEDIUM_LOWER_BOUND)
 
-    var selectedDestination by remember { mutableStateOf<NavDestination>(NavDestination.Dashboard) }
+    var selectedDestination by remember { mutableStateOf(NavDestination.Dashboard) }
 
     Scaffold(
         topBar = {
@@ -115,6 +115,7 @@ fun TopBar(onSettingsClick: () -> Unit) {
     )
 }
 
+// Handles navigation between app pages
 @Composable
 fun CurrentScreen(
     destination: NavDestination, onNavigate: (NavDestination) -> Unit) {
@@ -122,9 +123,9 @@ fun CurrentScreen(
         NavDestination.Dashboard -> DashboardScreen(
             onNavigateToStreak = { onNavigate(NavDestination.Streak) }
         )
-        NavDestination.Streak    -> StreakScreen()
-        NavDestination.Room      -> RoomScreen()
-        NavDestination.Settings  -> SettingsScreen()
+        NavDestination.Streak -> StreakScreen()
+        NavDestination.Room -> RoomScreen()
+        NavDestination.Settings -> SettingsScreen()
     }
 }
 
