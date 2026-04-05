@@ -124,7 +124,10 @@ fun CurrentScreen(
             onNavigateToStreak = { onNavigate(NavDestination.Streak) }
         )
         NavDestination.Streak -> StreakScreen()
-        NavDestination.Room -> RoomScreen()
+        NavDestination.Room -> RoomScreen(
+            state = RoomRepository.state,
+            onDisplayNameChange = { RoomRepository.updateDisplayName(it) }
+        )
         NavDestination.Settings -> SettingsScreen()
     }
 }

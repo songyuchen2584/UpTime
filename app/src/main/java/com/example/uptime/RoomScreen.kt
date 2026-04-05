@@ -1,6 +1,8 @@
 package com.example.uptime
 
-import android.R.attr.y
+import android.R.attr.mode
+import android.R.attr.name
+import android.R.id.edit
 import androidx.compose.animation.AnimatedVisibility
 import androidx.compose.animation.fadeIn
 import androidx.compose.animation.fadeOut
@@ -39,6 +41,8 @@ import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.SnackbarHost
 import androidx.compose.material3.SnackbarHostState
 import androidx.compose.material3.Text
+import androidx.compose.material3.TextField
+import androidx.compose.material3.TextFieldDefaults
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
@@ -47,12 +51,10 @@ import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
-import androidx.compose.ui.composed
 import androidx.compose.ui.geometry.Offset
 import androidx.compose.ui.geometry.Size
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.Path
-import androidx.compose.ui.graphics.drawscope.DrawStyle
 import androidx.compose.ui.graphics.drawscope.Stroke
 import androidx.compose.ui.graphics.drawscope.rotate
 import androidx.compose.ui.graphics.drawscope.scale
@@ -95,55 +97,12 @@ data class Achievement(
     val isUnlocked: Boolean = false
 )
 
-val achievements = listOf(
-    Achievement("streak_7",
-        "One Week Streak",
-        "7 day streak",
-        R.drawable.trophy_24px,
-        isUnlocked = true),
-    Achievement("streak_14",
-        "Two Week Streak",
-        "14 day streak",
-        R.drawable.trophy_24px,
-        isUnlocked = false),
-    Achievement("streak_21",
-        "Three Week Streak",
-        "21 day streak",
-        R.drawable.trophy_24px,
-        isUnlocked = false),
-    Achievement("streak_28",
-        "One Month Streak",
-        "28 day streak",
-        R.drawable.trophy_24px,
-        isUnlocked = false),
-    Achievement("walk_60",
-        "One Hour Walker",
-        "Walk 60 total mins",
-        R.drawable.trophy_24px,
-        isUnlocked = true),
-    Achievement("walk_120",
-        "Two Hour Walker",
-        "Walk 120 total mins",
-        R.drawable.trophy_24px,
-        isUnlocked = true),
-)
-
-val themeOptions = listOf(
-    RoomThemeOption("default",     "Default",       RoomTheme(Color(0xFFDCCDC5), Color(0xFFD58B46), Color(0xFFE0C4B3)), isUnlocked = true),
-    RoomThemeOption("moody",  "Moody",    RoomTheme(Color(0xFF606791), Color(0xFF403E4B), Color(0xFF6374A1)), isUnlocked = true),
-    RoomThemeOption("warm",     "Warm",       RoomTheme(Color(0xFFC4856A), Color(0xFF6B4226), Color(0xFFE0A882)), isUnlocked = true),
-    RoomThemeOption("icy",     "Icy",       RoomTheme(Color(0xFF79B9C4), Color(0xFF4B719A), Color(0xFF93C5D2)), isUnlocked = true),
-    RoomThemeOption("forest",   "Forest",     RoomTheme(Color(0xFF4A7C59), Color(0xFF2D4A35), Color(0xFF7AAF8A)), isUnlocked = false),
-    RoomThemeOption("ocean",    "Ocean",      RoomTheme(Color(0xFF3A6B8A), Color(0xFF1A3A4A), Color(0xFF5B9BBF)), isUnlocked = false),
-    RoomThemeOption("midnight", "Midnight",   RoomTheme(Color(0xFF2C2C54), Color(0xFF1A1A2E), Color(0xFF4A4A8A)), isUnlocked = false),
-)
-
 data class RoomState(
     val layout: RoomLayout = RoomLayout.Default,
-    val theme: RoomTheme = RoomTheme(),
+    val selectedThemeId: String = "default",
     val availableItems: List<RoomItem> = emptyList(),
-    val achievements: List<Achievement> = com.example.uptime.achievements,
-    val themeOptions: List<RoomThemeOption> = com.example.uptime.themeOptions,
+    val achievements: List<Achievement> = emptyList(),
+    val themeOptions: List<RoomThemeOption> = emptyList(),
     val displayName: String = "My Room",
     val currentPoints: Int = 0
 )
@@ -156,13 +115,13 @@ enum class RoomLayout {
 enum class RoomPanel { Achievements, Exchange }
 
 @Composable
-fun RoomScreen(state: RoomState = RoomState()) {
+fun RoomScreen(state: RoomState = RoomRepository.getPlaceholderState(), onDisplayNameChange: (String) -> Unit = {}) {
     var roomMode by remember { mutableStateOf(RoomMode.View) }
     var activePanel by remember { mutableStateOf<RoomPanel?>(null) }
     var showThemePicker by remember { mutableStateOf(false) }
 
     Box(modifier = Modifier.fillMaxSize()) {
-        RoomScaffold(state, roomMode)
+        RoomScaffold(state, roomMode, onDisplayNameChange)
 
         Row(modifier = Modifier
             .align(Alignment.BottomCenter)
@@ -210,7 +169,11 @@ fun RoomScreen(state: RoomState = RoomState()) {
             ThemePickerRow(
                 themes = state.themeOptions,
                 modifier = Modifier
-                    .padding(bottom = 96.dp)
+                    .padding(bottom = 96.dp),
+                selectedThemeId = state.selectedThemeId,
+                onThemeSelected = { themeId ->
+                    RoomRepository.selectTheme(themeId)
+                }
             )
         }
     }
@@ -239,7 +202,9 @@ fun RoomScreen(state: RoomState = RoomState()) {
 @Composable
 fun ThemePickerRow(
     themes: List<RoomThemeOption>,
-    modifier: Modifier
+    modifier: Modifier,
+    selectedThemeId: String,
+    onThemeSelected: (String) -> Unit
 ) {
     LazyRow(
         modifier = modifier,
@@ -249,8 +214,8 @@ fun ThemePickerRow(
         items(themes) { option ->
             ThemeCard(
                 option = option,
-                isSelected = option.id == "moody", // replace with data logic later
-                onSelect = {}
+                isSelected = option.id == selectedThemeId,
+                onSelect = {if (option.isUnlocked) onThemeSelected(option.id)}
             )
         }
     }
@@ -838,13 +803,16 @@ fun ExchangePanel(onClick: () -> Unit = {}) {
 }
 
 @Composable
-fun RoomScaffold(state: RoomState, mode: RoomMode) {
+fun RoomScaffold(state: RoomState, mode: RoomMode, onDisplayNameChange: (String) -> Unit = {}) {
+    val activeTheme = state.themeOptions
+        .find { it.id == state.selectedThemeId }?.theme ?: RoomTheme()
+
     Box(
         modifier = Modifier
             .fillMaxSize()
             .background(MaterialTheme.colorScheme.surfaceVariant)
     )
-    RoomCanvas(theme = state.theme, layout = state.layout)
+    RoomCanvas(theme = activeTheme, layout = state.layout)
 
     if (mode == RoomMode.Edit) {
         Box(
@@ -857,7 +825,7 @@ fun RoomScaffold(state: RoomState, mode: RoomMode) {
                         alpha = 0.6f
                     )
                 ),
-                modifier = Modifier.padding(top = 52.dp)
+                modifier = Modifier.padding(top = 68.dp)
             ) {
                 Text(
                     text = "Edit Mode",
@@ -869,21 +837,44 @@ fun RoomScaffold(state: RoomState, mode: RoomMode) {
         }
     }
 
+    NameHeader(mode, state, onDisplayNameChange)
+}
+
+@Composable
+fun NameHeader(mode: RoomMode, state: RoomState, onNameChange: (String) -> Unit) {
+    var textValue by remember(state.displayName) { mutableStateOf(state.displayName) }
+
     Card(
         modifier = Modifier.padding(6.dp),
-        onClick = {changeName(mode)},
         elevation = CardDefaults.cardElevation(defaultElevation = 6.dp)
     ) {
         Box(
             modifier = Modifier.fillMaxWidth(),
             contentAlignment = Alignment.Center
         ) {
-            Text(
-                state.displayName,
-                style = MaterialTheme.typography.bodyLarge,
-                modifier = Modifier.padding(6.dp),
-                textAlign = TextAlign.Center
-            )
+            if (mode == RoomMode.Edit) {
+                TextField(
+                    value = textValue,
+                    onValueChange = {textValue = it
+                        onNameChange(it)},
+                    singleLine = true,
+                    textStyle = MaterialTheme.typography.titleMedium.copy(
+                        fontWeight = FontWeight.SemiBold
+                    ),
+                    colors = TextFieldDefaults.colors(
+                        focusedContainerColor = Color.Transparent,
+                        unfocusedContainerColor = Color.Transparent
+                    ),
+                    modifier = Modifier.align(Alignment.Center)
+                )
+            } else {
+                Text(
+                    state.displayName,
+                    style = MaterialTheme.typography.bodyLarge,
+                    modifier = Modifier.padding(6.dp),
+                    textAlign = TextAlign.Center
+                )
+            }
             androidx.compose.animation.AnimatedVisibility(
                 visible = mode == RoomMode.Edit,
                 enter = fadeIn() + slideInHorizontally(initialOffsetX = { it }),
@@ -897,12 +888,6 @@ fun RoomScaffold(state: RoomState, mode: RoomMode) {
                 )
             }
         }
-    }
-}
-
-fun changeName(mode: RoomMode) {
-    if (mode == RoomMode.Edit) {
-        // Update name in DB
     }
 }
 
