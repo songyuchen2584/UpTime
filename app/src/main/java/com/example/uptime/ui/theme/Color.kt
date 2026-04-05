@@ -17,7 +17,7 @@ val Amber40 = Color(0xFFF9A825)
 
 // Error / Warning - Coral
 val Coral80 = Color(0xFFF5C4B3)
-val Coral40 = Color(0xFFD85A30)
+val Coral40 = Color(0xFFF44336)
 
 // Surfaces
 val DarkSurface = Color(0xFF1A1C1E)
