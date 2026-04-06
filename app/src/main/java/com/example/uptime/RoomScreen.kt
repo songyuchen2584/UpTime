@@ -1,9 +1,11 @@
 package com.example.uptime
 
-import android.R.attr.mode
-import android.R.attr.name
-import android.R.id.edit
 import androidx.compose.animation.AnimatedVisibility
+import androidx.compose.animation.core.EaseInOut
+import androidx.compose.animation.core.RepeatMode
+import androidx.compose.animation.core.animateFloatAsState
+import androidx.compose.animation.core.infiniteRepeatable
+import androidx.compose.animation.core.tween
 import androidx.compose.animation.fadeIn
 import androidx.compose.animation.fadeOut
 import androidx.compose.animation.slideInHorizontally
@@ -22,6 +24,7 @@ import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
+import androidx.compose.foundation.layout.offset
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
@@ -44,6 +47,7 @@ import androidx.compose.material3.Text
 import androidx.compose.material3.TextField
 import androidx.compose.material3.TextFieldDefaults
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
@@ -51,10 +55,12 @@ import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.geometry.CornerRadius
 import androidx.compose.ui.geometry.Offset
 import androidx.compose.ui.geometry.Size
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.Path
+import androidx.compose.ui.graphics.drawscope.DrawScope
 import androidx.compose.ui.graphics.drawscope.Stroke
 import androidx.compose.ui.graphics.drawscope.rotate
 import androidx.compose.ui.graphics.drawscope.scale
@@ -65,7 +71,9 @@ import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.tooling.preview.Preview
 import androidx.compose.ui.unit.dp
+import androidx.compose.ui.zIndex
 import kotlinx.coroutines.launch
+import kotlin.collections.find
 
 // Placeholder data for now
 data class RoomItem(
@@ -75,6 +83,8 @@ data class RoomItem(
     val isPlaced: Boolean = false,
     val placedCoordinates: LayoutCoordinates // subject to change if this doesn't work how I think it does
 )
+
+enum class RoomMode { View, Edit }
 
 data class RoomTheme(
     val wallColor: Color = Color(0xFF606791),
@@ -94,17 +104,21 @@ data class Achievement(
     val title: String,
     val description: String,
     val icon: Int,
+    val size: AchievementSize = AchievementSize.Small,
     val isUnlocked: Boolean = false
 )
 
 data class RoomState(
     val layout: RoomLayout = RoomLayout.Default,
-    val selectedThemeId: String = "default",
+    val selectedRoomThemeId: String = "default",
+    val selectedWoodThemeId: String = "default",
     val availableItems: List<RoomItem> = emptyList(),
     val achievements: List<Achievement> = emptyList(),
-    val themeOptions: List<RoomThemeOption> = emptyList(),
+    val roomThemeOptions: List<RoomThemeOption> = emptyList(),
+    val woodThemeOptions: List<WoodThemeOption> = emptyList(),
     val displayName: String = "My Room",
-    val currentPoints: Int = 0
+    val currentPoints: Int = 0,
+    val shelfSlots: List<ShelfSlot> = defaultShelfSlots()
 )
 
 enum class RoomLayout {
@@ -113,6 +127,31 @@ enum class RoomLayout {
 }
 
 enum class RoomPanel { Achievements, Exchange }
+
+data class WoodTheme(
+    val woodFront: Color = Color(0xFF8B5E3C),
+    val woodTop: Color = Color(0xFFA0714F),
+    val woodSide: Color = Color(0xFF6B4226),
+    val woodDark: Color = Color(0xFF4E2E14)
+)
+
+data class WoodThemeOption(
+    val id: String,
+    val name: String,
+    val theme: WoodTheme,
+    val isUnlocked: Boolean = false
+)
+
+enum class AchievementSize { Large, Medium, Small }
+
+enum class ShelfSection { TopRow, MidRow1, MidRow2, BottomRow }
+
+data class ShelfSlot(
+    val id: String,
+    val section: ShelfSection,
+    val acceptedSizes: List<AchievementSize>,
+    val placedAchievementId: String? = null
+)
 
 @Composable
 fun RoomScreen(state: RoomState = RoomRepository.getPlaceholderState(), onDisplayNameChange: (String) -> Unit = {}) {
@@ -138,7 +177,7 @@ fun RoomScreen(state: RoomState = RoomRepository.getPlaceholderState(), onDispla
             ExchangePanel(onClick = {
                 activePanel = if (activePanel == RoomPanel.Exchange) null
                 else RoomPanel.Exchange
-            })
+            }, points = state.currentPoints, roomMode = roomMode)
         }
 
         AnimatedVisibility(
@@ -167,10 +206,10 @@ fun RoomScreen(state: RoomState = RoomRepository.getPlaceholderState(), onDispla
             modifier = Modifier.align(Alignment.BottomCenter)
         ) {
             ThemePickerRow(
-                themes = state.themeOptions,
+                themes = state.roomThemeOptions,
                 modifier = Modifier
                     .padding(bottom = 96.dp),
-                selectedThemeId = state.selectedThemeId,
+                selectedThemeId = state.selectedRoomThemeId,
                 onThemeSelected = { themeId ->
                     RoomRepository.selectTheme(themeId)
                 }
@@ -187,6 +226,9 @@ fun RoomScreen(state: RoomState = RoomRepository.getPlaceholderState(), onDispla
         when (activePanel) {
             RoomPanel.Achievements -> AchievementsDisplay(
                 achievements = state.achievements,
+                slots = state.shelfSlots,
+                onPlace = { RoomRepository.placeAchievement(it) },
+                onRemove = { RoomRepository.removeAchievement(it) },
                 onClose = { activePanel = null }
             )
             RoomPanel.Exchange -> ExchangeDisplay(
@@ -197,6 +239,47 @@ fun RoomScreen(state: RoomState = RoomRepository.getPlaceholderState(), onDispla
             null -> Unit
         }
     }
+}
+
+@Composable
+fun RoomScaffold(state: RoomState, mode: RoomMode, onDisplayNameChange: (String) -> Unit = {}) {
+    val activeTheme = state.roomThemeOptions
+        .find { it.id == state.selectedRoomThemeId }?.theme ?: RoomTheme()
+
+    val woodTheme = state.woodThemeOptions
+        .find { it.id == state.selectedWoodThemeId }?.theme ?: WoodTheme()
+
+    Box(
+        modifier = Modifier
+            .fillMaxSize()
+            .background(MaterialTheme.colorScheme.surfaceVariant)
+    )
+    RoomCanvas(roomTheme = activeTheme, layout = state.layout, shelfSlots = state.shelfSlots, woodTheme = woodTheme)
+
+    if (mode == RoomMode.Edit) {
+        Box(
+            modifier = Modifier.fillMaxSize(),
+            contentAlignment = Alignment.TopCenter
+        ) {
+            Card(
+                colors = CardDefaults.cardColors(
+                    containerColor = MaterialTheme.colorScheme.background.copy(
+                        alpha = 0.6f
+                    )
+                ),
+                modifier = Modifier.padding(top = 68.dp)
+            ) {
+                Text(
+                    text = "Edit Mode",
+                    style = MaterialTheme.typography.labelLarge,
+                    color = MaterialTheme.colorScheme.primary,
+                    modifier = Modifier.padding(10.dp)
+                )
+            }
+        }
+    }
+
+    NameHeader(mode, state, onDisplayNameChange)
 }
 
 @Composable
@@ -281,14 +364,14 @@ fun ThemeCard(
 }
 
 @Composable
-fun RoomCanvas(theme: RoomTheme, layout: RoomLayout, modifier: Modifier = Modifier) {
+fun RoomCanvas(roomTheme: RoomTheme, layout: RoomLayout, shelfSlots: List<ShelfSlot>, modifier: Modifier = Modifier, woodTheme: WoodTheme) {
     when (layout) {
-        RoomLayout.Default -> DefaultRoomCanvas(theme, modifier)
+        RoomLayout.Default -> DefaultRoomCanvas(roomTheme, shelfSlots, modifier, woodTheme)
     }
 }
 
 @Composable
-fun DefaultRoomCanvas(theme: RoomTheme, modifier: Modifier = Modifier) {
+fun DefaultRoomCanvas(theme: RoomTheme, shelfSlots: List<ShelfSlot>, modifier: Modifier = Modifier, woodTheme: WoodTheme) {
     Canvas(modifier = modifier.fillMaxSize()) {
         val w = size.width
         val h = size.height
@@ -434,22 +517,22 @@ fun DefaultRoomCanvas(theme: RoomTheme, modifier: Modifier = Modifier) {
             drawPath(rightSidePath, color = windowSide)
         }
 
+        // Shelf setup
         val shelfWidth = w / 2.2f
         val shelfHeight = h / 3
         val shelfDepth = shelfWidth * 0.06f
         val shelfOffsetX = w * 0.035f
         val shelfOffsetY = floorY - shelfHeight + shelfDepth
+        val shelfThickness = shelfHeight * 0.04f
+        val numShelves = 3
+        val shelfSpacing = shelfHeight / (numShelves + 1)
 
         translate(left = shelfOffsetX, top = shelfOffsetY) {
-            // Shelf setup
-            val shelfThickness = shelfHeight * 0.04f
-            val numShelves = 3
-            val shelfSpacing = shelfHeight / (numShelves + 1)
 
-            val woodFront = Color(0xFF8B5E3C)
-            val woodTop = Color(0xFFA0714F)
-            val woodSide = Color(0xFF6B4226)
-            val woodDark = Color(0xFF4E2E14)
+            val woodFront = woodTheme.woodFront
+            val woodTop = woodTheme.woodTop
+            val woodSide = woodTheme.woodSide
+            val woodDark = woodTheme.woodDark
 
             // Shelf Back
             drawRect(
@@ -563,7 +646,385 @@ fun DefaultRoomCanvas(theme: RoomTheme, modifier: Modifier = Modifier) {
                 }
             }
         }
+
+        translate(left = shelfOffsetX, top = shelfOffsetY) {
+            drawShelfTrophies(shelfSlots, shelfWidth, shelfHeight, shelfDepth, shelfThickness, shelfSpacing, numShelves)
+        }
     }
+}
+
+private fun DrawScope.drawShelfTrophies(
+    slots: List<ShelfSlot>,
+    shelfWidth: Float,
+    shelfHeight: Float,
+    shelfDepth: Float,
+    shelfThickness: Float,
+    shelfSpacing: Float,
+    numShelves: Int
+) {
+    val innerWidth = shelfWidth - shelfDepth * 4
+    val innerLeft = shelfDepth * 2
+
+    val topSlots = slots.filter { it.section == ShelfSection.TopRow }
+    val mid1Slots = slots.filter { it.section == ShelfSection.MidRow1 }
+    val mid2Slots = slots.filter { it.section == ShelfSection.MidRow2 }
+    val bottomSlots = slots.filter { it.section == ShelfSection.BottomRow }
+
+    val topShelfFloor = 0.5f * shelfThickness
+    val mid1ShelfFloor = shelfSpacing + 0.5f * shelfThickness
+    val bottomShelfFloor = shelfHeight - 0.5f * shelfThickness
+
+    drawSectionTrophies(topSlots, innerLeft, innerWidth, topShelfFloor, isLargeSection = true)
+    drawSectionTrophies(mid1Slots, innerLeft, innerWidth, mid1ShelfFloor, isLargeSection = false)
+    drawSectionTrophies(mid2Slots, innerLeft, innerWidth, mid1ShelfFloor + shelfSpacing, isLargeSection = false)
+    drawSectionTrophies(bottomSlots, innerLeft, innerWidth, bottomShelfFloor, isLargeSection = true)
+}
+
+private fun DrawScope.drawSectionTrophies(
+    slots: List<ShelfSlot>,
+    innerLeft: Float,
+    innerWidth: Float,
+    shelfFloorY: Float,
+    isLargeSection: Boolean
+) {
+    val filledSlots = slots.filter { it.placedAchievementId != null }
+    if (filledSlots.isEmpty()) return
+
+    if (isLargeSection) {
+        val largeSlot = filledSlots.find { it.acceptedSizes.contains(AchievementSize.Large) }
+        val medSlots  = filledSlots.filter { it.acceptedSizes.contains(AchievementSize.Medium) }
+
+        if (largeSlot?.placedAchievementId != null) {
+            // Single large trophy centered
+            drawTrophyModel(
+                x = innerLeft + innerWidth / 2f,
+                floorY = shelfFloorY,
+                size = AchievementSize.Large
+            )
+        } else {
+            // Up to 2 medium trophies
+            medSlots.forEachIndexed { i, slot ->
+                if (slot.placedAchievementId != null) {
+                    val x = innerLeft + innerWidth * (if (i == 0) 0.3f else 0.7f)
+                    drawTrophyModel(x = x, floorY = shelfFloorY, size = AchievementSize.Medium)
+                }
+            }
+        }
+    } else {
+        // 3 small slots evenly spaced
+        val newInnerLeft = innerLeft * 0.3f
+        val spacing = ((innerWidth) * 1.2f) / (slots.size + 1)
+        slots.forEachIndexed { i, slot ->
+            if (slot.placedAchievementId != null) {
+                val x = newInnerLeft + spacing * (i + 1)
+                drawTrophyModel(x = x, floorY = shelfFloorY, size = AchievementSize.Small)
+            }
+        }
+    }
+}
+
+private fun DrawScope.drawTrophyModel(x: Float, floorY: Float, size: AchievementSize) {
+    when (size) {
+        AchievementSize.Small -> drawMedalModel(x, floorY)
+        AchievementSize.Medium -> drawCupModel(x, floorY)
+        AchievementSize.Large -> drawGrandTrophyModel(x, floorY)
+    }
+}
+
+private fun DrawScope.drawCupModel(x: Float, floorY: Float) {
+    val scale = 3f
+    val cupW = 28f * scale
+    val cupH = 24f * scale
+    val stemH = 10f * scale
+    val stemW = 6f  * scale
+    val baseW = 22f * scale
+    val baseH = 5f  * scale
+    val goldColor = Color(0xFFFFB300)
+    val goldDark = Color(0xFFE78318)
+
+    // Shadow on shelf
+    drawOval(
+        color = Color.Black.copy(alpha = 0.15f),
+        topLeft = Offset(x - baseW * 0.6f, floorY - 3f),
+        size = Size(baseW * 1.2f, 8f)
+    )
+    // Base
+    drawRoundRect(
+        color = goldColor.copy(alpha = 0.85f),
+        topLeft = Offset(x - baseW / 2, floorY - baseH),
+        size = Size(baseW, baseH),
+        cornerRadius = CornerRadius(2f)
+    )
+    // Stem
+    drawRect(
+        color = goldColor.copy(alpha = 0.9f),
+        topLeft = Offset(x - stemW / 2, floorY - baseH - stemH),
+        size = Size(stemW, stemH)
+    )
+    // Cup body
+    val cupTop = floorY - baseH - stemH - cupH
+    val cupPath = Path().apply {
+        moveTo(x - cupW * 0.4f, cupTop)
+        lineTo(x + cupW * 0.4f, cupTop)
+        cubicTo(
+            x + cupW * 0.55f, cupTop + cupH * 0.3f,
+            x + cupW * 0.5f,  cupTop + cupH * 0.75f,
+            x + cupW * 0.25f, cupTop + cupH
+        )
+        cubicTo(
+            x + cupW * 0.1f,  cupTop + cupH * 1.08f,
+            x - cupW * 0.1f,  cupTop + cupH * 1.08f,
+            x - cupW * 0.25f, cupTop + cupH
+        )
+        cubicTo(
+            x - cupW * 0.5f,  cupTop + cupH * 0.75f,
+            x - cupW * 0.55f, cupTop + cupH * 0.3f,
+            x - cupW * 0.4f,  cupTop
+        )
+        close()
+    }
+    drawPath(cupPath, color = goldColor)
+
+    val sideFacePath = Path().apply {
+        moveTo(x + cupW * 0.4f, cupTop)
+        cubicTo(
+            x + cupW * 0.55f, cupTop + cupH * 0.3f,
+            x + cupW * 0.5f,  cupTop + cupH * 0.75f,
+            x + cupW * 0.25f, cupTop + cupH
+        )
+        cubicTo(
+            x + cupW * 0.45f, cupTop + cupH * 0.7f,
+            x + cupW * 0.48f, cupTop + cupH * 0.25f,
+            x + cupW * 0.32f, cupTop
+        )
+        close()
+    }
+    drawPath(sideFacePath, color = goldDark)
+
+    // Cup highlight
+    val highlightPath = Path().apply {
+        moveTo(x - cupW * 0.3f, cupTop + 3f)
+        lineTo(x - cupW * 0.05f, cupTop + 3f)
+        lineTo(x - cupW * 0.1f,  cupTop + cupH * 0.5f)
+        lineTo(x - cupW * 0.35f, cupTop + cupH * 0.5f)
+        close()
+    }
+    drawPath(highlightPath, color = Color.White.copy(alpha = 0.25f))
+    // Handles
+    drawArc(
+        color = goldColor.copy(alpha = 0.85f),
+        topLeft = Offset(x + cupW * 0.35f, cupTop + cupH * 0.1f),
+        size = Size(cupW * 0.3f, cupH * 0.6f),
+        startAngle = -135f, sweepAngle = 270f,
+        useCenter = false,
+        style = Stroke(width = 3f * scale)
+    )
+    drawArc(
+        color = goldColor.copy(alpha = 0.85f),
+        topLeft = Offset(x - cupW * 0.65f, cupTop + cupH * 0.1f),
+        size = Size(cupW * 0.3f, cupH * 0.6f),
+        startAngle = 45f, sweepAngle = 270f,
+        useCenter = false,
+        style = Stroke(width = 3f * scale)
+    )
+}
+
+private fun DrawScope.drawMedalModel(x: Float, floorY: Float) {
+    val scale = 2f
+    val medalR = 12f * scale
+    val ribbonW = 10f * scale
+    val ribbonH = 18f * scale
+    val goldColor = Color(0xFFFFB300)
+    val goldDark = Color(0xFFE78318)
+    val ribbonColor = Color(0xFF1565C0)
+    val medalThickness = medalR * 0.15f
+
+    // Ribbon left strip
+    drawRect(
+        color = ribbonColor,
+        topLeft = Offset(x - ribbonW * 0.5f + medalThickness, floorY - medalR * 2 - ribbonH),
+        size = Size(ribbonW * 0.5f, ribbonH)
+    )
+    // Ribbon right strip
+    drawRect(
+        color = ribbonColor.copy(alpha = 0.75f),
+        topLeft = Offset(x + medalThickness, floorY - medalR * 2 - ribbonH),
+        size = Size(ribbonW * 0.5f, ribbonH)
+    )
+
+    // Shadow
+    drawOval(
+        color = Color.Black.copy(alpha = 0.12f),
+        topLeft = Offset(x - medalR * 0.8f, floorY - 3f),
+        size = Size(medalR * 1.6f + medalThickness, 6f)
+    )
+
+    // Medal circle
+    drawCircle(
+        color = goldDark,
+        radius = medalR,
+        center = Offset(x + medalThickness, floorY - medalR)
+    )
+    drawCircle(
+        color = goldColor,
+        radius = medalR,
+        center = Offset(x, floorY - medalR)
+    )
+    // Medal inner ring
+    drawCircle(
+        color = Color.White.copy(alpha = 0.3f),
+        radius = medalR * 0.65f,
+        center = Offset(x, floorY - medalR),
+        style = Stroke(width = 2f * scale)
+    )
+    // Medal highlight
+    drawCircle(
+        color = Color.White.copy(alpha = 0.35f),
+        radius = medalR * 0.4f,
+        center = Offset(x - medalR * 0.2f, floorY - medalR * 1.3f)
+    )
+}
+
+private fun DrawScope.drawGrandTrophyModel(x: Float, floorY: Float) {
+    val scale = 4.25f
+    val goldColor = Color(0xFFFFB300)
+    val goldDark = Color(0xFFE78318)
+
+    // Base
+    val base1W = 30f * scale
+    val base1H = 5f * scale
+    val base2W = 22f * scale
+    val base2H = 3f * scale
+
+    // Shadow
+    drawOval(color = Color.Black.copy(alpha = 0.15f),
+        topLeft = Offset(x - base1W * 0.6f, floorY - 3f),
+        size = Size(base1W * 1.2f, 8f))
+
+    drawRoundRect(color = goldDark,
+        topLeft = Offset(x - base1W / 2, floorY - base1H),
+        size = Size(base1W, base1H),
+        cornerRadius = CornerRadius(3f))
+    drawRoundRect(color = goldColor.copy(alpha = 0.9f),
+        topLeft = Offset(x - base2W / 2, floorY - base1H - base2H),
+        size = Size(base2W, base2H),
+        cornerRadius = CornerRadius(2f))
+
+    val barH = 14f * scale
+    val barW = 5f * scale
+    val ballR = 5f * scale
+    val barTop = floorY - base1H - base2H - barH
+    drawRect(color = goldColor.copy(alpha = 0.9f),
+        topLeft = Offset(x - barW / 2, barTop),
+        size = Size(barW, barH))
+    drawCircle(color = goldDark, radius = ballR,
+        center = Offset(x, barTop + barH * 0.5f))
+    drawCircle(color = goldColor, radius = ballR * 0.65f,
+        center = Offset(x, barTop + barH * 0.5f))
+
+    val cupW = 32f * scale; val cupH = 28f * scale
+    val cupTop = barTop - cupH
+
+    // Right handle
+    val rightHandleCenterX = x + cupW * 0.33f + cupW * 0.35f / 2
+    val rightHandleCenterY = cupTop + cupH * 0.05f + cupH * 0.65f / 2
+    rotate(degrees = 10f, pivot = Offset(rightHandleCenterX, rightHandleCenterY)) {
+        drawArc(
+            color = goldDark,
+            topLeft = Offset(x + cupW * 0.33f, cupTop + cupH * 0.05f),
+            size = Size(cupW * 0.35f, cupH * 0.65f),
+            startAngle = -135f, sweepAngle = 275f, useCenter = false,
+            style = Stroke(width = 3f * scale)
+        )
+    }
+
+    // Left handle
+    val leftHandleCenterX = x - cupW * 0.68f + cupW * 0.35f / 2
+    val leftHandleCenterY = cupTop + cupH * 0.05f + cupH * 0.65f / 2
+    rotate(degrees = -10f, pivot = Offset(leftHandleCenterX, leftHandleCenterY)) {
+        drawArc(
+            color = goldDark,
+            topLeft = Offset(x - cupW * 0.68f, cupTop + cupH * 0.05f),
+            size = Size(cupW * 0.35f, cupH * 0.65f),
+            startAngle = 40f, sweepAngle = 275f, useCenter = false,
+            style = Stroke(width = 3f * scale)
+        )
+    }
+
+    // Body
+    val cupPath = Path().apply {
+        moveTo(x - cupW * 0.22f, cupTop)
+        lineTo(x + cupW * 0.22f, cupTop)
+
+        cubicTo(
+            x + cupW * 0.45f, cupTop + cupH * 0.08f,
+            x + cupW * 0.55f, cupTop + cupH * 0.2f,
+            x + cupW * 0.5f,  cupTop + cupH * 0.35f
+        )
+        lineTo(x + cupW * 0.32f, cupTop + cupH * 0.62f)
+        lineTo(x + cupW * 0.45f, cupTop + cupH * 0.88f)
+        cubicTo(
+            x + cupW * 0.32f, cupTop + cupH * 1.07f,
+            x - cupW * 0.32f, cupTop + cupH * 1.07f,
+            x - cupW * 0.45f, cupTop + cupH * 0.88f
+        )
+        lineTo(x - cupW * 0.32f, cupTop + cupH * 0.62f)
+        lineTo(x - cupW * 0.5f,  cupTop + cupH * 0.35f)
+        cubicTo(
+            x - cupW * 0.55f, cupTop + cupH * 0.2f,
+            x - cupW * 0.45f, cupTop + cupH * 0.08f,
+            x - cupW * 0.22f, cupTop
+        )
+        close()
+    }
+    drawPath(cupPath, color = goldColor)
+
+    // Depth
+    val sidePath = Path().apply {
+        moveTo(x + cupW * 0.22f, cupTop)
+        cubicTo(
+            x + cupW * 0.45f, cupTop + cupH * 0.08f,
+            x + cupW * 0.55f, cupTop + cupH * 0.2f,
+            x + cupW * 0.5f,  cupTop + cupH * 0.35f
+        )
+        lineTo(x + cupW * 0.32f, cupTop + cupH * 0.62f)
+        lineTo(x + cupW * 0.45f, cupTop + cupH * 0.88f)
+
+        cubicTo(
+            x + cupW * 0.36f, cupTop + cupH * 0.82f,
+            x + cupW * 0.32f, cupTop + cupH * 0.68f,
+            x + cupW * 0.26f, cupTop + cupH * 0.58f
+        )
+        lineTo(x + cupW * 0.42f, cupTop + cupH * 0.32f)
+        cubicTo(
+            x + cupW * 0.46f, cupTop + cupH * 0.18f,
+            x + cupW * 0.36f, cupTop + cupH * 0.06f,
+            x + cupW * 0.18f, cupTop
+        )
+        close()
+    }
+    drawPath(sidePath, color = goldDark.copy(alpha = 0.55f))
+
+    // Plate on front
+    val plateW = cupW * 0.45f; val plateH = cupH * 0.3f
+    drawRoundRect(color = goldDark.copy(alpha = 0.6f),
+        topLeft = Offset(x - plateW / 2, cupTop + cupH * 0.6f),
+        size = Size(plateW, plateH),
+        cornerRadius = CornerRadius(4f))
+
+    // Highlight
+    drawOval(
+        color = Color.White.copy(alpha = 0.3f),
+        topLeft = Offset(x - cupW * 0.36f, cupTop + 4f),
+        size = Size(cupW * 0.45f, cupH * 0.2f)
+        )
+
+    // Rim Shading
+    drawOval(
+        color = goldDark,
+        topLeft = Offset(x - cupW * 0.25f, cupTop),
+        size = Size(cupW * 0.5f, cupH * 0.1f)
+    )
 }
 
 @Composable
@@ -574,6 +1035,9 @@ fun ExchangeDisplay(currentPoints: Int, availableItems: List<RoomItem>, onClose:
 @Composable
 fun AchievementsDisplay(
     achievements: List<Achievement>,
+    slots: List<ShelfSlot>,
+    onPlace: (achievementId: String) -> Unit,
+    onRemove: (achievementId: String) -> Unit,
     onClose: () -> Unit
 ) {
     val snackbarHostState = remember { SnackbarHostState() }
@@ -584,9 +1048,7 @@ fun AchievementsDisplay(
     }
 
     Box(
-        modifier = Modifier
-            .fillMaxSize()
-            .background(MaterialTheme.colorScheme.surface)
+        modifier = Modifier.fillMaxSize().background(MaterialTheme.colorScheme.surface)
     ) {
         Column(modifier = Modifier.fillMaxSize()) {
             Row(
@@ -596,24 +1058,19 @@ fun AchievementsDisplay(
                 verticalAlignment = Alignment.CenterVertically,
                 horizontalArrangement = Arrangement.SpaceBetween
             ) {
-                Text(
-                    "Trophy Case",
-                    style = MaterialTheme.typography.headlineSmall,
-                    fontWeight = FontWeight.Bold
-                )
+                Column {
+                    Text("Trophy Case", style = MaterialTheme.typography.headlineSmall,
+                        fontWeight = FontWeight.Bold)
+                    Text("${achievements.count { it.isUnlocked }} / ${achievements.size} unlocked",
+                        style = MaterialTheme.typography.bodyMedium,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant)
+                }
                 IconButton(onClick = onClose) {
                     Icon(painterResource(R.drawable.close_24px), contentDescription = "Close")
                 }
             }
 
-            Text(
-                "${achievements.count { it.isUnlocked }} / ${achievements.size} unlocked",
-                style = MaterialTheme.typography.bodyMedium,
-                color = MaterialTheme.colorScheme.onSurfaceVariant,
-                modifier = Modifier.padding(horizontal = 16.dp)
-            )
-
-            Spacer(modifier = Modifier.height(16.dp))
+            Spacer(modifier = Modifier.height(12.dp))
 
             // Trophy grid
             LazyVerticalGrid(
@@ -624,81 +1081,145 @@ fun AchievementsDisplay(
                 modifier = Modifier.fillMaxSize()
             ) {
                 items(achievements) { achievement ->
-                    TrophyCell(achievement, onPlace = {
-                        if (achievement.isUnlocked) {
-                            // handle placement logic later
-                        } else {
-                            displayAlert("This trophy is locked.")
-                        }
-                    })
+                    val isOnShelf = slots.any { it.placedAchievementId == achievement.id }
+                    val hasSpace = RoomRepository.hasShelfSpace(achievement)
+                    TrophyCell(
+                        achievement = achievement,
+                        isOnShelf = isOnShelf,
+                        canPlace = !isOnShelf && hasSpace,
+                        onPlace = {
+                            if (achievement.isUnlocked) {
+                                if (hasSpace) onPlace(achievement.id)
+                                else displayAlert("No ${achievement.size.name.lowercase()} slots available")
+                            } else {
+                                displayAlert("This trophy is locked.")
+                            }},
+                        onRemove = { onRemove(achievement.id) }
+                    )
                 }
             }
         }
 
-        SnackbarHost(
-            hostState = snackbarHostState,
-            modifier = Modifier.align(Alignment.BottomCenter)
+        SnackbarHost(hostState = snackbarHostState, modifier = Modifier.align(Alignment.BottomCenter)
         )
     }
 }
 
 @Composable
-fun TrophyCell(achievement: Achievement, onPlace: () -> Unit = {}) {
-    Card(
-        shape = RoundedCornerShape(16.dp),
-        colors = CardDefaults.cardColors(
-            containerColor = if (achievement.isUnlocked)
-                MaterialTheme.colorScheme.primaryContainer
-            else
-                MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.5f)
-        )
-    ) {
-        Column(
-            modifier = Modifier
-                .fillMaxWidth()
-                .padding(12.dp),
-            horizontalAlignment = Alignment.CenterHorizontally,
-            verticalArrangement = Arrangement.Center
+fun TrophyCell(
+    achievement: Achievement,
+    isOnShelf: Boolean = false,
+    canPlace: Boolean = false,
+    onPlace: () -> Unit = {},
+    onRemove: () -> Unit = {}) {
+    Box {
+        Card(
+            shape = RoundedCornerShape(16.dp),
+            border = if (isOnShelf) BorderStroke(2.dp, MaterialTheme.colorScheme.primary) else null,
+            colors = CardDefaults.cardColors(
+                containerColor = if (achievement.isUnlocked)
+                    MaterialTheme.colorScheme.primaryContainer
+                else
+                    MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.5f)
+            )
         ) {
-            Icon(
-                painterResource(achievement.icon),
-                contentDescription = null,
-                tint = if (achievement.isUnlocked) Color(0xFFFFB300)
-                else MaterialTheme.colorScheme.onSurface.copy(alpha = 0.25f),
-                modifier = Modifier.size(40.dp)
-            )
-            Spacer(modifier = Modifier.height(8.dp))
-            Text(
-                achievement.title,
-                style = MaterialTheme.typography.labelMedium,
-                fontWeight = FontWeight.SemiBold,
-                textAlign = TextAlign.Center,
-                color = if (achievement.isUnlocked) MaterialTheme.colorScheme.onPrimaryContainer
-                else MaterialTheme.colorScheme.onSurface.copy(alpha = 0.3f)
-            )
-            Text(
-                achievement.description,
-                style = MaterialTheme.typography.labelSmall,
-                textAlign = TextAlign.Center,
-                color = MaterialTheme.colorScheme.onSurfaceVariant.copy(
-                    alpha = if (achievement.isUnlocked) 1f else 0.4f
-                )
-            )
-            Spacer(modifier = Modifier.height(6.dp))
-            FilledTonalButton(
-                onClick = onPlace,
-                modifier = Modifier.height(32.dp),
-                colors = ButtonDefaults.filledTonalButtonColors(
-                    containerColor = if (achievement.isUnlocked)
-                        MaterialTheme.colorScheme.onPrimaryContainer.copy(alpha = 0.3f)
-                    else
-                        MaterialTheme.colorScheme.surfaceVariant,
-                    contentColor = MaterialTheme.colorScheme.onSurface
-                )
+            Column(
+                modifier = Modifier.fillMaxWidth().padding(12.dp),
+                horizontalAlignment = Alignment.CenterHorizontally,
+                verticalArrangement = Arrangement.Center
             ) {
-                Text("Place", style = MaterialTheme.typography.labelSmall)
+                Icon(
+                    painterResource(achievement.icon),
+                    contentDescription = null,
+                    tint = if (achievement.isUnlocked) Color(0xFFFFB300)
+                    else MaterialTheme.colorScheme.onSurface.copy(alpha = 0.25f),
+                    modifier = Modifier.size(40.dp)
+                )
+                Spacer(modifier = Modifier.height(8.dp))
+
+                Text(
+                    achievement.title,
+                    style = MaterialTheme.typography.labelMedium,
+                    fontWeight = FontWeight.SemiBold,
+                    textAlign = TextAlign.Center,
+                    color = if (achievement.isUnlocked) MaterialTheme.colorScheme.onPrimaryContainer
+                    else MaterialTheme.colorScheme.onSurface.copy(alpha = 0.3f)
+                )
+                Text(
+                    achievement.description,
+                    style = MaterialTheme.typography.labelSmall,
+                    textAlign = TextAlign.Center,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant.copy(
+                        alpha = if (achievement.isUnlocked) 1f else 0.4f
+                    )
+                )
+
+                if (isOnShelf) {
+                    Text(
+                        "On Display",
+                        style = MaterialTheme.typography.labelSmall,
+                        color = MaterialTheme.colorScheme.primary
+                    )
+                }
+
+                Spacer(modifier = Modifier.height(6.dp))
+
+                if (isOnShelf) {
+                    FilledTonalButton(
+                        onClick = onRemove,
+                        modifier = Modifier.height(32.dp),
+                        colors = ButtonDefaults.filledTonalButtonColors(
+                            containerColor = MaterialTheme.colorScheme.primary.copy(alpha = 0.6f)
+                        )
+                    ) {
+                        Text("Remove", style = MaterialTheme.typography.labelSmall)
+                    }
+                } else {
+                    FilledTonalButton(
+                        onClick = onPlace,
+                        modifier = Modifier.height(32.dp),
+                        colors = ButtonDefaults.filledTonalButtonColors(
+                            containerColor = if (achievement.isUnlocked)
+                                MaterialTheme.colorScheme.onPrimaryContainer.copy(alpha = 0.3f)
+                            else
+                                MaterialTheme.colorScheme.surfaceVariant,
+                            contentColor = MaterialTheme.colorScheme.onSurface
+                        )
+                    ) {
+                        Text(
+                            if (!achievement.isUnlocked) "Locked"
+                            else if (canPlace) "Place"
+                            else "Full",
+                            style = MaterialTheme.typography.labelSmall
+                        )
+                    }
+                }
             }
         }
+
+        SizeBadge(
+            size = achievement.size,
+            modifier = Modifier.align(Alignment.TopEnd).padding(4.dp)
+        )
+    }
+}
+
+// I plan to replace this function later after I make some custom icons -Cody
+@Composable
+fun SizeBadge(size: AchievementSize, modifier: Modifier = Modifier) {
+    var description = "Small"
+    if (size == AchievementSize.Medium) {
+        description = "Medium"
+    } else if (size == AchievementSize.Large) {
+        description = "Large"
+    }
+
+    Column(modifier = modifier, horizontalAlignment = Alignment.CenterHorizontally) {
+        Text(
+            text = description.take(1),
+            modifier = Modifier.padding(2.dp).padding(end = 2.dp),
+            style = MaterialTheme.typography.labelSmall
+        )
     }
 }
 
@@ -745,10 +1266,11 @@ fun EditToolButton(
     }
 }
 
-enum class RoomMode { View, Edit }
+
 
 @Composable
 fun FloatingPanel(
+    modifier: Modifier = Modifier,
     icon: Int,
     label: String,
     onClick: () -> Unit = {},
@@ -756,7 +1278,7 @@ fun FloatingPanel(
 ) {
     Card(
         onClick = onClick,
-        modifier = Modifier.width(90.dp),
+        modifier = modifier.width(90.dp),
         shape = RoundedCornerShape(16.dp),
         colors = CardDefaults.cardColors(
             containerColor = if (isActive)
@@ -789,55 +1311,54 @@ fun FloatingPanel(
 
 @Composable
 fun AchievementsPanel(onClick: () -> Unit = {}) {
-    FloatingPanel(R.drawable.trophy_24px, "Achievements", onClick)
+    FloatingPanel(icon = R.drawable.trophy_24px, label = "Achievements", onClick = onClick)
 }
 
 @Composable
 fun CustomizePanel(isActive: Boolean = false, onClick: () -> Unit = {}) {
-    FloatingPanel(R.drawable.palette_24px, "Customize", onClick, isActive)
+    FloatingPanel(icon = R.drawable.palette_24px, label = "Customize", onClick = onClick, isActive = isActive)
 }
 
 @Composable
-fun ExchangePanel(onClick: () -> Unit = {}) {
-    FloatingPanel(R.drawable.redeem_24px, "Exchange", onClick)
-}
-
-@Composable
-fun RoomScaffold(state: RoomState, mode: RoomMode, onDisplayNameChange: (String) -> Unit = {}) {
-    val activeTheme = state.themeOptions
-        .find { it.id == state.selectedThemeId }?.theme ?: RoomTheme()
-
-    Box(
-        modifier = Modifier
-            .fillMaxSize()
-            .background(MaterialTheme.colorScheme.surfaceVariant)
+fun ExchangePanel(onClick: () -> Unit = {}, points: Int, roomMode: RoomMode) {
+    var bobbing by remember { mutableStateOf(false) }
+    val offsetY by animateFloatAsState(
+        targetValue = if (bobbing) -3f else 3f,
+        animationSpec = infiniteRepeatable(
+            animation = tween(durationMillis = 2200, easing = EaseInOut),
+            repeatMode = RepeatMode.Reverse
+        ),
+        label = "bob"
     )
-    RoomCanvas(theme = activeTheme, layout = state.layout)
 
-    if (mode == RoomMode.Edit) {
-        Box(
-            modifier = Modifier.fillMaxSize(),
-            contentAlignment = Alignment.TopCenter
-        ) {
+    LaunchedEffect(Unit) { bobbing = true }
+
+    Box(contentAlignment = Alignment.TopCenter) {
+        if (roomMode == RoomMode.View && points > 0) {
             Card(
                 colors = CardDefaults.cardColors(
-                    containerColor = MaterialTheme.colorScheme.background.copy(
-                        alpha = 0.6f
-                    )
+                    containerColor = MaterialTheme.colorScheme.background.copy(alpha = 0.6f)
                 ),
-                modifier = Modifier.padding(top = 68.dp)
+                modifier = Modifier
+                    .offset(y = offsetY.dp - 32.dp)
+                    .zIndex(1f)
+                    .align(Alignment.TopCenter)
             ) {
                 Text(
-                    text = "Edit Mode",
-                    style = MaterialTheme.typography.labelLarge,
+                    text = "$points pts",
+                    style = MaterialTheme.typography.labelSmall,
                     color = MaterialTheme.colorScheme.primary,
-                    modifier = Modifier.padding(10.dp)
+                    modifier = Modifier.padding(horizontal = 8.dp, vertical = 4.dp)
                 )
             }
         }
-    }
 
-    NameHeader(mode, state, onDisplayNameChange)
+        FloatingPanel(
+            icon = R.drawable.redeem_24px,
+            label = "Exchange",
+            onClick = onClick
+        )
+    }
 }
 
 @Composable
@@ -891,11 +1412,34 @@ fun NameHeader(mode: RoomMode, state: RoomState, onNameChange: (String) -> Unit)
     }
 }
 
+fun defaultShelfSlots() = listOf(
+    // Top area: 2 medium
+    ShelfSlot("top_large", ShelfSection.TopRow, listOf(AchievementSize.Large), "walk_600"),
+    ShelfSlot("top_med_1", ShelfSection.TopRow, listOf(AchievementSize.Medium)),
+    ShelfSlot("top_med_2", ShelfSection.TopRow, listOf(AchievementSize.Medium)),
+    // First row: 3 small
+    ShelfSlot("mid1_1", ShelfSection.MidRow1, listOf(AchievementSize.Small), "walk_60"),
+    ShelfSlot("mid1_2", ShelfSection.MidRow1, listOf(AchievementSize.Small)),
+    ShelfSlot("mid1_3", ShelfSection.MidRow1, listOf(AchievementSize.Small)),
+    // Second row: 3 small
+    ShelfSlot("mid2_1", ShelfSection.MidRow2, listOf(AchievementSize.Small)),
+    ShelfSlot("mid2_2", ShelfSection.MidRow2, listOf(AchievementSize.Small)),
+    ShelfSlot("mid2_3", ShelfSection.MidRow2, listOf(AchievementSize.Small), "streak_7"),
+    // Bottom area: 2 medium
+    ShelfSlot("bot_large", ShelfSection.BottomRow, listOf(AchievementSize.Large)),
+    ShelfSlot("bot_med_1", ShelfSection.BottomRow, listOf(AchievementSize.Medium)),
+    ShelfSlot("bot_med_2", ShelfSection.BottomRow, listOf(AchievementSize.Medium)),
+)
+
 @Preview
 @Composable
 fun RoomLayoutPreview(){
     val theme = RoomTheme(wallColor = Color(0xFF606791),
     floorColor = Color(0xFF403E4B),
     accentColor = Color(0xFF536285))
-    DefaultRoomCanvas(theme)
+    val woodTheme = WoodTheme(woodFront = Color(0xFF8B5E3C),
+    woodTop = Color(0xFFA0714F),
+    woodSide = Color(0xFF6B4226),
+    woodDark = Color(0xFF4E2E14))
+    DefaultRoomCanvas(theme, shelfSlots = defaultShelfSlots(), woodTheme = woodTheme)
 }
