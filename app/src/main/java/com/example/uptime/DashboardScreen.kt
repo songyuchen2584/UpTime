@@ -465,6 +465,12 @@ fun GoalRow(icon: String, text: String, isDone: Boolean) {
             color = if (isDone) MaterialTheme.colorScheme.onSurface
             else MaterialTheme.colorScheme.onSurfaceVariant
         )
+        Text(
+            text = "+ 50 pts", // can change later
+            style = MaterialTheme.typography.labelSmall,
+            color = MaterialTheme.colorScheme.primary,
+            modifier = Modifier.padding(start = 10.dp)
+        )
     }
 }
 
