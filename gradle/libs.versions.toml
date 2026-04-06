@@ -15,6 +15,7 @@ adaptive = "1.2.0"
 room = "2.8.4"
 ksp = "2.0.21-1.0.27"
 lifecycleViewmodelCompose = "2.10.0"
+healthConnect = "1.1.0"
 
 [libraries]
 androidx-appcompat = { module = "androidx.appcompat:appcompat", version.ref = "appcompat" }
@@ -43,6 +44,9 @@ androidx-room-compiler = { group = "androidx.room", name = "room-compiler", vers
 
 # ViewModel for Compose
 androidx-lifecycle-viewmodel-compose = { group = "androidx.lifecycle", name = "lifecycle-viewmodel-compose", version.ref = "lifecycleViewmodelCompose" }
+
+# Health Connect
+androidx-health-connect = { group = "androidx.health.connect", name = "connect-client", version.ref = "healthConnect" }
 
 [plugins]
 android-application = { id = "com.android.application", version.ref = "agp" }

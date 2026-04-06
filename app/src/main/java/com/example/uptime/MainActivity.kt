@@ -33,6 +33,7 @@ import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.tooling.preview.Preview
 import androidx.window.core.layout.WindowSizeClass
 import com.example.uptime.ui.theme.UpTimeTheme
+import com.example.uptime.walking.WalkingRoute
 
 class MainActivity : ComponentActivity() {
     override fun onCreate(savedInstanceState: Bundle?) {
@@ -128,6 +129,7 @@ fun CurrentScreen(
             state = RoomRepository.state,
             onDisplayNameChange = { RoomRepository.updateDisplayName(it) }
         )
+        NavDestination.Walking -> WalkingRoute()
         NavDestination.Settings -> SettingsScreen()
     }
 }
