@@ -25,6 +25,7 @@ import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
+import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableFloatStateOf
 import androidx.compose.runtime.remember
@@ -41,28 +42,28 @@ import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.tooling.preview.Preview
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
+import androidx.lifecycle.viewmodel.compose.viewModel
 import com.example.uptime.ui.theme.Amber40
 import com.example.uptime.ui.theme.Coral40
 import com.example.uptime.ui.theme.UpTimeTheme
 
-// ── Mock data (will be replaced with real data later) ──
-
+// UI state for the dashboard
 data class DashboardState(
-    val screenTimeUsed: Int = 29,      // minutes used today
-    val screenTimeGoal: Int = 30,      // max allowed minutes
-    val walkingDone: Int = 25,         // minutes walked today
-    val walkingGoal: Int = 30,         // target minutes
-    val currentStreak: Int = 5,        // consecutive days
-    val bestStreak: Int = 12
+    val screenTimeUsed: Int = 0,
+    val screenTimeGoal: Int = 30,
+    val walkingDone: Int = 0,
+    val walkingGoal: Int = 30,
+    val currentStreak: Int = 0,
+    val bestStreak: Int = 0
 )
 
 @Composable
 fun screenTimeColor(used: Int, goal: Int): Color {
     val remaining = 1f - (used.toFloat() / goal)
     return when {
-        remaining > 0.50f -> Color(0xFF4CAF50)  // green: more than 50% left
-        remaining > 0.25f -> Color(0xFFFFC107)  // yellow: 25-50% left
-        else              -> Color(0xFFFF5722)  // red: less than 25% left
+        remaining > 0.50f -> Color(0xFF4CAF50)
+        remaining > 0.25f -> Color(0xFFFFC107)
+        else              -> Color(0xFFFF5722)
     }
 }
 
@@ -70,18 +71,33 @@ fun screenTimeColor(used: Int, goal: Int): Color {
 fun walkingColor(done: Int, goal: Int): Color {
     val progress = done.toFloat() / goal
     return when {
-        progress >= 1.00f -> Color(0xFF4CAF50)  // green: goal met
-        progress >= 0.80f -> Color(0xFFADC34A)  // light green: goal nearly met
-        progress >= 0.50f -> Color(0xFFFFC107)  // yellow: 50-79%
-        else              -> Color(0xFFFF5722)  // red: less than 50%
+        progress >= 1.00f -> Color(0xFF4CAF50)
+        progress >= 0.80f -> Color(0xFFADC34A)
+        progress >= 0.50f -> Color(0xFFFFC107)
+        else              -> Color(0xFFFF5722)
     }
 }
 
-// ── Dashboard Screen ──
-
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
-fun DashboardScreen(state: DashboardState = DashboardState(), onNavigateToStreak: () -> Unit = {}) {
+fun DashboardScreen(
+    viewModel: DashboardViewModel = viewModel(),
+    onNavigateToStreak: () -> Unit = {}
+) {
+    // collect live data from Room via ViewModel
+    val log by viewModel.todayLog.collectAsState(initial = null)
+    val streak by viewModel.currentStreak.collectAsState()
+    val best by viewModel.bestStreak.collectAsState()
+
+    // build UI state from database
+    val state = DashboardState(
+        screenTimeUsed = log?.screenTimeMinutes ?: 0,
+        screenTimeGoal = log?.screenTimeGoal ?: 30,
+        walkingDone = log?.walkingMinutes ?: 0,
+        walkingGoal = log?.walkingGoal ?: 30,
+        currentStreak = streak,
+        bestStreak = best
+    )
         Column(
             modifier = Modifier
                 .fillMaxSize()
@@ -91,7 +107,7 @@ fun DashboardScreen(state: DashboardState = DashboardState(), onNavigateToStreak
         ) {
             Spacer(modifier = Modifier.height(8.dp))
 
-            // ── Streak Banner ──
+            //Streak Banner
             StreakCard(
                 currentStreak = state.currentStreak,
                 bestStreak = state.bestStreak,
@@ -102,12 +118,12 @@ fun DashboardScreen(state: DashboardState = DashboardState(), onNavigateToStreak
 
             Spacer(modifier = Modifier.height(24.dp))
 
-            // ── Progress Rings ──
+            // Progress Rings
             Row(
                 modifier = Modifier.fillMaxWidth(),
                 horizontalArrangement = Arrangement.SpaceEvenly
             ) {
-                // Screen time: lower is better, so invert the visual
+                // Screen time (lower is better)
                 val screenFraction = state.screenTimeUsed.toFloat() / state.screenTimeGoal
                 val screenOver = state.screenTimeUsed > state.screenTimeGoal
 
@@ -121,7 +137,7 @@ fun DashboardScreen(state: DashboardState = DashboardState(), onNavigateToStreak
                     trackColor = MaterialTheme.colorScheme.surfaceVariant
                 )
 
-                // Walking: higher is better
+                // Walking (higher is better)
                 val walkFraction = state.walkingDone.toFloat() / state.walkingGoal
                 val walkMet = state.walkingDone >= state.walkingGoal
 
@@ -139,12 +155,12 @@ fun DashboardScreen(state: DashboardState = DashboardState(), onNavigateToStreak
 
             Spacer(modifier = Modifier.height(28.dp))
 
-            // ── Daily Status Card ──
+            // daily status
             DailyStatusCard(state)
 
             Spacer(modifier = Modifier.height(16.dp))
 
-            // ── Today's Goals Checklist ──
+            //Today's goals checklist
             GoalsCard(state)
 
             Spacer(modifier = Modifier.height(24.dp))
@@ -308,7 +324,7 @@ fun ProgressRing(
     }
 }
 
-// ── Daily Status Card ──
+//Daily Status Card
 
 @Composable
 fun DailyStatusCard(state: DashboardState) {
@@ -399,7 +415,7 @@ fun ProgressRow(
     }
 }
 
-// ── Goals Checklist Card ──
+//Goals Checklist Card
 
 @Composable
 fun GoalsCard(state: DashboardState) {
@@ -468,55 +484,3 @@ fun GoalRow(icon: String, text: String, isDone: Boolean) {
     }
 }
 
-// ── Previews ──
-
-@Preview(showBackground = true, name = "Dashboard - In Progress")
-@Composable
-fun DashboardPreviewInProgress() {
-    UpTimeTheme {
-        DashboardScreen(
-            state = DashboardState(
-                screenTimeUsed = 18,
-                screenTimeGoal = 30,
-                walkingDone = 22,
-                walkingGoal = 30,
-                currentStreak = 5,
-                bestStreak = 12
-            )
-        )
-    }
-}
-
-@Preview(showBackground = true, name = "Dashboard - Goals Met")
-@Composable
-fun DashboardPreviewGoalsMet() {
-    UpTimeTheme {
-        DashboardScreen(
-            state = DashboardState(
-                screenTimeUsed = 24,
-                screenTimeGoal = 30,
-                walkingDone = 35,
-                walkingGoal = 30,
-                currentStreak = 6,
-                bestStreak = 12
-            )
-        )
-    }
-}
-
-@Preview(showBackground = true, name = "Dashboard - Over Limit")
-@Composable
-fun DashboardPreviewOverLimit() {
-    UpTimeTheme {
-        DashboardScreen(
-            state = DashboardState(
-                screenTimeUsed = 42,
-                screenTimeGoal = 30,
-                walkingDone = 10,
-                walkingGoal = 30,
-                currentStreak = 0,
-                bestStreak = 12
-            )
-        )
-    }
-}
