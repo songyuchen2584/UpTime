@@ -107,7 +107,7 @@ fun DashboardScreen(
         ) {
             Spacer(modifier = Modifier.height(8.dp))
 
-            // ── Streak Banner ──
+            //Streak Banner
             StreakCard(
                 currentStreak = state.currentStreak,
                 bestStreak = state.bestStreak,
@@ -118,12 +118,12 @@ fun DashboardScreen(
 
             Spacer(modifier = Modifier.height(24.dp))
 
-            // ── Progress Rings ──
+            // Progress Rings
             Row(
                 modifier = Modifier.fillMaxWidth(),
                 horizontalArrangement = Arrangement.SpaceEvenly
             ) {
-                // Screen time: lower is better, so invert the visual
+                // Screen time (lower is better)
                 val screenFraction = state.screenTimeUsed.toFloat() / state.screenTimeGoal
                 val screenOver = state.screenTimeUsed > state.screenTimeGoal
 
@@ -137,7 +137,7 @@ fun DashboardScreen(
                     trackColor = MaterialTheme.colorScheme.surfaceVariant
                 )
 
-                // Walking: higher is better
+                // Walking (higher is better)
                 val walkFraction = state.walkingDone.toFloat() / state.walkingGoal
                 val walkMet = state.walkingDone >= state.walkingGoal
 
@@ -155,12 +155,12 @@ fun DashboardScreen(
 
             Spacer(modifier = Modifier.height(28.dp))
 
-            // ── Daily Status Card ──
+            // daily status
             DailyStatusCard(state)
 
             Spacer(modifier = Modifier.height(16.dp))
 
-            // ── Today's Goals Checklist ──
+            //Today's goals checklist
             GoalsCard(state)
 
             Spacer(modifier = Modifier.height(24.dp))
@@ -324,7 +324,7 @@ fun ProgressRing(
     }
 }
 
-// ── Daily Status Card ──
+//Daily Status Card
 
 @Composable
 fun DailyStatusCard(state: DashboardState) {
@@ -415,7 +415,7 @@ fun ProgressRow(
     }
 }
 
-// ── Goals Checklist Card ──
+//Goals Checklist Card
 
 @Composable
 fun GoalsCard(state: DashboardState) {
@@ -484,5 +484,3 @@ fun GoalRow(icon: String, text: String, isDone: Boolean) {
     }
 }
 
-// previews require ViewModel which needs Application context
-// use the running app or App Inspection to test
