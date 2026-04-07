@@ -166,7 +166,7 @@ fun DashboardScreen(
         Spacer(modifier = Modifier.height(28.dp))
 
         // daily status
-        DailyStatusCard(state, onNavigateToWalkingProgress, {})
+        DailyStatusCard(state, onNavigateToWalkingProgress, onNavigateToScreenTime)
 
         Spacer(modifier = Modifier.height(16.dp))
 

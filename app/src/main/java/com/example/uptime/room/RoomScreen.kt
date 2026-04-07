@@ -36,6 +36,8 @@ import androidx.compose.foundation.lazy.grid.LazyVerticalGrid
 import androidx.compose.foundation.lazy.grid.items
 import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.shape.RoundedCornerShape
+import androidx.compose.material3.Button
+import androidx.compose.material3.ButtonColors
 import androidx.compose.material3.ButtonDefaults
 import androidx.compose.material3.Card
 import androidx.compose.material3.CardDefaults
@@ -185,7 +187,8 @@ fun RoomScreen(viewModel: RoomViewModel = viewModel()) {
 
     var roomMode by rememberSaveable { mutableStateOf(RoomMode.View) }
     var activePanel by rememberSaveable { mutableStateOf<RoomPanel?>(null) }
-    var showThemePicker by rememberSaveable { mutableStateOf(false) }
+    var showRoomThemePicker by rememberSaveable { mutableStateOf(false) }
+    var showWoodThemePicker by rememberSaveable { mutableStateOf(false) }
 
     val activeTrophyCaseSlots = TrophyCaseCatalog.allTrophyCases
         .find { it.id == trophyCaseId }?.shelfSlots ?: listOf(
@@ -268,7 +271,8 @@ fun RoomScreen(viewModel: RoomViewModel = viewModel()) {
             CustomizePanel(isActive = roomMode == RoomMode.Edit,
                 onClick  = {
                     roomMode = if (roomMode == RoomMode.Edit) RoomMode.View else RoomMode.Edit
-                    showThemePicker = false
+                    showRoomThemePicker = false
+                    showWoodThemePicker = false
                 })
             ExchangePanel(onClick = {
                 activePanel = if (activePanel == RoomPanel.Exchange) null
@@ -289,19 +293,30 @@ fun RoomScreen(viewModel: RoomViewModel = viewModel()) {
                 EditToolButton(
                     icon = R.drawable.room_theme_24px,
                     label = "Theme",
-                    isActive = showThemePicker,
-                    onClick = { showThemePicker = !showThemePicker })
+                    isActive = showRoomThemePicker,
+                    onClick = {
+                        showWoodThemePicker = false
+                        showRoomThemePicker = !showRoomThemePicker
+                    })
+                EditToolButton(
+                    icon = R.drawable.shelves_24px,
+                    label = "Case",
+                    isActive = showWoodThemePicker,
+                    onClick = {
+                        showRoomThemePicker = false
+                        showWoodThemePicker = !showWoodThemePicker
+                    })
                 EditToolButton(icon = R.drawable.package_2_24px, label = "Items", onClick = {})
             }
         }
 
         AnimatedVisibility(
-            visible = showThemePicker && roomMode == RoomMode.Edit,
+            visible = showRoomThemePicker && roomMode == RoomMode.Edit,
             enter = fadeIn() + slideInVertically(initialOffsetY = { it / 2 }),
             exit = fadeOut() + slideOutVertically(targetOffsetY = { it / 2 }),
             modifier = Modifier.align(Alignment.BottomCenter)
         ) {
-            ThemePickerRow(
+            RoomThemePickerRow(
                 allRoomThemes = RoomThemeCatalog.allRoomThemes,
                 unlockedRoomThemeIds = roomState.unlockedRoomThemeIds,
                 modifier = Modifier
@@ -309,6 +324,24 @@ fun RoomScreen(viewModel: RoomViewModel = viewModel()) {
                 selectedThemeId = roomState.selectedRoomThemeId,
                 onThemeSelected = { themeId ->
                     viewModel.selectRoomTheme(themeId)
+                }
+            )
+        }
+
+        AnimatedVisibility(
+            visible = showWoodThemePicker && roomMode == RoomMode.Edit,
+            enter = fadeIn() + slideInVertically(initialOffsetY = { it / 2 }),
+            exit = fadeOut() + slideOutVertically(targetOffsetY = { it / 2 }),
+            modifier = Modifier.align(Alignment.BottomCenter)
+        ) {
+            WoodThemePickerRow(
+                allWoodThemes = WoodThemeCatalog.allWoodThemes,
+                unlockedWoodThemeIds = roomState.unlockedWoodThemeIds,
+                modifier = Modifier
+                    .padding(bottom = 96.dp),
+                selectedThemeId = roomState.selectedWoodThemeId,
+                onThemeSelected = { themeId ->
+                    viewModel.selectWoodTheme(themeId)
                 }
             )
         }
@@ -375,6 +408,20 @@ fun RoomScaffold(state: RoomState, activeRoomTheme: RoomTheme, activeWoodTheme: 
     }
 
     NameHeader(mode, state, viewModel)
+
+    ForDemo(viewModel)
+}
+
+@Composable
+fun ForDemo(viewModel: RoomViewModel) {
+    Button(onClick = {viewModel.updatePoints(50)}, modifier = Modifier.padding(top = 475.dp, start = 12.dp), colors = ButtonColors(
+        MaterialTheme.colorScheme.onPrimaryContainer.copy(alpha = 0.8f),
+        contentColor = MaterialTheme.colorScheme.primaryContainer,
+        disabledContainerColor = MaterialTheme.colorScheme.onPrimaryContainer.copy(alpha = 0.6f),
+        disabledContentColor = MaterialTheme.colorScheme.onPrimaryContainer.copy(alpha = 0.6f)
+    )) {
+        Text("Give 50 pts")
+    }
 }
 
 @Composable
@@ -395,7 +442,7 @@ fun RoomLoadingScreen() {
 }
 
 @Composable
-fun ThemePickerRow(
+fun RoomThemePickerRow(
     allRoomThemes: List<RoomThemeOption>,
     unlockedRoomThemeIds: Set<String>,
     modifier: Modifier,
@@ -410,7 +457,7 @@ fun ThemePickerRow(
     ) {
         items(allRoomThemes) { option ->
             val isUnlocked = option.id in unlockedRoomThemeIds
-            ThemeCard(
+            RoomThemeCard(
                 option = option,
                 isUnlocked = isUnlocked,
                 isSelected = option.id == selectedThemeId,
@@ -421,7 +468,33 @@ fun ThemePickerRow(
 }
 
 @Composable
-fun ThemeCard(
+fun WoodThemePickerRow(
+    allWoodThemes: List<WoodThemeOption>,
+    unlockedWoodThemeIds: Set<String>,
+    modifier: Modifier,
+    selectedThemeId: String,
+    onThemeSelected: (String) -> Unit
+) {
+    LazyRow(
+        modifier = modifier,
+        contentPadding = PaddingValues(horizontal = 16.dp),
+        horizontalArrangement = Arrangement.spacedBy(10.dp),
+        verticalAlignment = Alignment.Bottom
+    ) {
+        items(allWoodThemes) { option ->
+            val isUnlocked = option.id in unlockedWoodThemeIds
+            WoodThemeCard(
+                option = option,
+                isUnlocked = isUnlocked,
+                isSelected = option.id == selectedThemeId,
+                onSelect = {if (isUnlocked) onThemeSelected(option.id)}
+            )
+        }
+    }
+}
+
+@Composable
+fun RoomThemeCard(
     option: RoomThemeOption,
     isUnlocked: Boolean,
     isSelected: Boolean,
@@ -448,6 +521,81 @@ fun ThemeCard(
                     option.theme.wallColor,
                     option.theme.floorColor,
                     option.theme.accentColor
+                ).forEach { color ->
+                    Box(
+                        modifier = Modifier
+                            .size(18.dp)
+                            .background(
+                                color = color,
+                                shape = RoundedCornerShape(4.dp)
+                            )
+                    )
+                }
+            }
+
+            Text(
+                option.name,
+                style = MaterialTheme.typography.labelSmall,
+                textAlign = TextAlign.Center,
+                color = if (isUnlocked) MaterialTheme.colorScheme.onSurface
+                else MaterialTheme.colorScheme.onSurface.copy(alpha = 0.4f)
+            )
+
+            if (!isUnlocked) {
+                Icon(
+                    painterResource(R.drawable.lock_24px),
+                    contentDescription = "Locked",
+                    modifier = Modifier.size(12.dp),
+                    tint = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.4f)
+                )
+            }
+        }
+    }
+}
+
+@Composable
+fun WoodThemeCard(
+    option: WoodThemeOption,
+    isUnlocked: Boolean,
+    isSelected: Boolean,
+    onSelect: () -> Unit
+) {
+    Card(
+        onClick = onSelect,
+        shape = RoundedCornerShape(12.dp),
+        border = if (isSelected) BorderStroke(2.dp, MaterialTheme.colorScheme.primary) else null,
+        colors = CardDefaults.cardColors(
+            containerColor = MaterialTheme.colorScheme.surface.copy(alpha = 0.92f)
+        ),
+        elevation = CardDefaults.cardElevation(defaultElevation = 4.dp),
+        modifier = Modifier.width(80.dp)
+    ) {
+        Column(
+            modifier = Modifier.padding(8.dp).fillMaxWidth(),
+            horizontalAlignment = Alignment.CenterHorizontally,
+            verticalArrangement = Arrangement.spacedBy(6.dp)
+        ) {
+            // Show theme's Colors
+            Row(horizontalArrangement = Arrangement.spacedBy(4.dp)) {
+                listOf(
+                    option.theme.woodFront,
+                    option.theme.woodTop
+                ).forEach { color ->
+                    Box(
+                        modifier = Modifier
+                            .size(18.dp)
+                            .background(
+                                color = color,
+                                shape = RoundedCornerShape(4.dp)
+                            )
+                    )
+                }
+            }
+
+            Row(horizontalArrangement = Arrangement.spacedBy(4.dp)) {
+                listOf(
+                    option.theme.woodSide,
+                    option.theme.woodDark
                 ).forEach { color ->
                     Box(
                         modifier = Modifier
@@ -1272,8 +1420,7 @@ fun ExchangeDisplay(
                             currentPoints = currentPoints,
                             onClick = {
                                 if (theme.pointCost <= currentPoints) {
-                                    viewModel.unlockRoomTheme(theme.id)
-                                    viewModel.updatePoints(-theme.pointCost)
+                                    viewModel.purchaseRoomTheme(theme.id, theme.pointCost)
                                 } else {
                                     displayAlert("You can't afford this.")
                                 }
@@ -1313,8 +1460,7 @@ fun ExchangeDisplay(
                             currentPoints = currentPoints,
                             onClick = {
                                 if (theme.pointCost <= currentPoints) {
-                                    viewModel.unlockWoodTheme(theme.id)
-                                    viewModel.updatePoints(-theme.pointCost)
+                                    viewModel.purchaseWoodTheme(theme.id, theme.pointCost)
                                 } else {
                                     displayAlert("You can't afford this.")
                                 }
@@ -1354,8 +1500,7 @@ fun ExchangeDisplay(
                             item = item,
                             currentPoints = currentPoints,
                             onClick = {
-                                viewModel.unlockRoomItem(item.id)
-                                viewModel.updatePoints(-item.pointCost)
+                                viewModel.purchaseItem(item.id, item.pointCost)
                             }
                         )
                     }

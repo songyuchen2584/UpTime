@@ -111,51 +111,68 @@ class RoomViewModel(application: Application) : AndroidViewModel(application) {
 
     private fun meetsCondition(achievement: Achievement, stats: UserStatsRepository.UserStats): Boolean {
         return when (achievement.id) {
-            "start" -> stats.totalWalkingMins >= 0
+            "start" -> stats.totalWalkingMins > 0
             "streak_7" -> stats.currentStreak >= 7
             "streak_14" -> stats.currentStreak >= 14
             "streak_21" -> stats.currentStreak >= 21
             "streak_28" -> stats.currentStreak >= 28
+            "streak_50" -> stats.currentStreak >= 50
             "streak_100" -> stats.currentStreak >= 100
             "walk_60" -> stats.totalWalkingMins >= 60
             "walk_120" -> stats.totalWalkingMins >= 120
             "walk_360" -> stats.totalWalkingMins >= 360
             "walk_600" -> stats.totalWalkingMins >= 600
             "walk_1000" -> stats.totalWalkingMins >= 1000
-            else -> false
+            else -> true // switched for demo
         }
     }
 
-    fun unlockRoomTheme(roomThemeId: String) {
+    fun purchaseRoomTheme(themeId: String, cost: Int) {
         viewModelScope.launch {
             val inventory = invDao.getInventory() ?: UserInventory()
-            val alreadyUnlocked = inventory.unlockedRoomThemeIds
 
-            val newlyUnlocked = RoomThemeCatalog.allRoomThemes
-                .filter { it.id !in alreadyUnlocked && it.id == roomThemeId }
-                .map { it.id }
+            if (inventory.currentPoints < cost) return@launch
 
-            invDao.upsertInventory(
-                inventory.copy(unlockedRoomThemeIds = alreadyUnlocked + newlyUnlocked)
+            val updatedInventory = inventory.copy(
+                currentPoints = inventory.currentPoints - cost,
+                unlockedRoomThemeIds = inventory.unlockedRoomThemeIds + themeId
             )
+
+            invDao.upsertInventory(updatedInventory)
         }
     }
 
-    fun unlockWoodTheme(woodThemeId: String) {
+    fun purchaseWoodTheme(themeId: String, cost: Int) {
         viewModelScope.launch {
             val inventory = invDao.getInventory() ?: UserInventory()
-            val alreadyUnlocked = inventory.unlockedWoodThemeIds
 
-            val newlyUnlocked = WoodThemeCatalog.allWoodThemes
-                .filter { it.id !in alreadyUnlocked && it.id == woodThemeId }
-                .map { it.id }
+            if (inventory.currentPoints < cost) return@launch
 
-            invDao.upsertInventory(
-                inventory.copy(unlockedWoodThemeIds = alreadyUnlocked + newlyUnlocked)
+            val updatedInventory = inventory.copy(
+                currentPoints = inventory.currentPoints - cost,
+                unlockedWoodThemeIds = inventory.unlockedWoodThemeIds + themeId
             )
+
+            invDao.upsertInventory(updatedInventory)
         }
     }
 
+    fun purchaseItem(itemId: String, cost: Int) {
+        viewModelScope.launch {
+            val inventory = invDao.getInventory() ?: UserInventory()
+
+            if (inventory.currentPoints < cost) return@launch
+
+            val updatedInventory = inventory.copy(
+                currentPoints = inventory.currentPoints - cost,
+                unlockedWoodThemeIds = inventory.unlockedWoodThemeIds + itemId
+            )
+
+            invDao.upsertInventory(updatedInventory)
+        }
+    }
+
+    // May be used later for collecting items from other means
     fun unlockRoomItem(roomItemId: String) {
         viewModelScope.launch {
             val inventory = invDao.getInventory() ?: UserInventory()
