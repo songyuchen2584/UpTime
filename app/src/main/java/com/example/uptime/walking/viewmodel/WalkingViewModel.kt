@@ -1,10 +1,8 @@
-package com.example.uptime.walking.viewmodel
+package com.example.uptime.walking
 
 import android.app.Application
 import androidx.lifecycle.AndroidViewModel
 import androidx.lifecycle.viewModelScope
-import com.example.uptime.walking.TrackingMethod
-import com.example.uptime.walking.WalkingRepository
 import com.example.uptime.walking.datasource.DeviceSensorStepsDataSource
 import com.example.uptime.walking.datasource.HealthConnectStepsDataSource
 import com.example.uptime.walking.model.WalkingStats
@@ -26,7 +24,7 @@ data class WalkingUiState(
 class WalkingViewModel(app: Application) : AndroidViewModel(app) {
 
     private val healthConnectSource = HealthConnectStepsDataSource(app.applicationContext)
-    private val deviceSensorSource = DeviceSensorStepsDataSource(app.applicationContext)
+    private val deviceSensorSource = DeviceSensorStepsDataSource.getInstance(app.applicationContext)
     private val repository = WalkingRepository(healthConnectSource, deviceSensorSource)
 
     private val _state = MutableStateFlow(
@@ -42,8 +40,10 @@ class WalkingViewModel(app: Application) : AndroidViewModel(app) {
     fun healthConnectSdkStatus() = healthConnectSource.sdkStatus()
     suspend fun grantedHealthConnectPermissions() = healthConnectSource.grantedPermissions()
     fun healthConnectInstallIntent() = healthConnectSource.installIntentIfNeeded()
+
     fun hasSensorPermission() = deviceSensorSource.hasPermission()
     fun isSensorAvailable() = deviceSensorSource.isSensorAvailable()
+    fun isSensorTracking() = deviceSensorSource.isTracking()
 
     fun setMethodEnabled(method: TrackingMethod, enabled: Boolean) {
         repository.setMethodEnabled(method, enabled)
@@ -52,10 +52,6 @@ class WalkingViewModel(app: Application) : AndroidViewModel(app) {
                 useHealthConnect = repository.isMethodEnabled(TrackingMethod.HEALTH_CONNECT),
                 useDeviceSensor = repository.isMethodEnabled(TrackingMethod.DEVICE_SENSOR)
             )
-        }
-
-        if (method == TrackingMethod.DEVICE_SENSOR) {
-            if (enabled) deviceSensorSource.startTracking() else deviceSensorSource.stopTracking()
         }
     }
 
@@ -81,10 +77,5 @@ class WalkingViewModel(app: Application) : AndroidViewModel(app) {
 
     suspend fun getWalkingMinutes(startMillis: Long, endMillis: Long): Long {
         return repository.getWalkingMinutes(startMillis, endMillis)
-    }
-
-    override fun onCleared() {
-        super.onCleared()
-        deviceSensorSource.stopTracking()
     }
 }

@@ -17,27 +17,31 @@ import androidx.compose.runtime.Composable
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.unit.dp
 import androidx.health.connect.client.HealthConnectClient
-import com.example.uptime.walking.viewmodel.WalkingUiState
 
 @Composable
 fun WalkingScreen(
     state: WalkingUiState,
     sdkStatus: Int,
     sensorAvailable: Boolean,
+    sensorTracking: Boolean,
     onToggleHealthConnect: (Boolean) -> Unit,
     onToggleSensor: (Boolean) -> Unit,
     onInstallHealthConnect: () -> Unit,
     onRefresh: () -> Unit
 ) {
     Column(
-        modifier = Modifier.fillMaxSize().padding(16.dp),
+        modifier = Modifier
+            .fillMaxSize()
+            .padding(16.dp),
         verticalArrangement = Arrangement.spacedBy(12.dp)
     ) {
         Text("Walking", style = MaterialTheme.typography.headlineSmall)
 
         Card {
             Column(
-                modifier = Modifier.fillMaxWidth().padding(16.dp),
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .padding(16.dp),
                 verticalArrangement = Arrangement.spacedBy(12.dp)
             ) {
                 Text("Sources", style = MaterialTheme.typography.titleMedium)
@@ -76,7 +80,11 @@ fun WalkingScreen(
                     Column(Modifier.weight(1f)) {
                         Text("Device Step Sensor")
                         Text(
-                            if (sensorAvailable) "Available" else "Unavailable",
+                            when {
+                                !sensorAvailable -> "Unavailable"
+                                sensorTracking -> "Tracking in background"
+                                else -> "Available"
+                            },
                             style = MaterialTheme.typography.bodySmall
                         )
                     }
@@ -85,17 +93,35 @@ fun WalkingScreen(
                         onCheckedChange = if (sensorAvailable) onToggleSensor else { {} }
                     )
                 }
+
+                if (!state.useHealthConnect && !state.useDeviceSensor) {
+                    Text(
+                        "Enable Health Connect and/or Device Step Sensor to start tracking.",
+                        style = MaterialTheme.typography.bodySmall
+                    )
+                }
             }
         }
 
         Card {
             Column(
-                modifier = Modifier.fillMaxWidth().padding(16.dp),
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .padding(16.dp),
                 verticalArrangement = Arrangement.spacedBy(8.dp)
             ) {
                 Text("Today", style = MaterialTheme.typography.titleMedium)
                 Text("Steps: ${state.statsToday.totalSteps}")
                 Text("Walking minutes: ${state.statsToday.totalWalkingMinutes}")
+
+                if (state.statsToday.usedEstimatedMinutesFallback) {
+                    Text(
+                        "Minutes estimated from steps because no walking sessions were available.",
+                        style = MaterialTheme.typography.bodySmall,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant
+                    )
+                }
+
                 Button(onClick = onRefresh, enabled = !state.loading) {
                     Text("Refresh")
                 }
@@ -107,7 +133,10 @@ fun WalkingScreen(
         }
 
         state.error?.let {
-            Text("Error: $it", color = MaterialTheme.colorScheme.error)
+            Text(
+                "Error: $it",
+                color = MaterialTheme.colorScheme.error
+            )
         }
     }
 }

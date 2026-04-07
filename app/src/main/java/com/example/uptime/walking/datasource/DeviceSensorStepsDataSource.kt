@@ -12,9 +12,31 @@ import com.example.uptime.walking.model.WalkingSessionInterval
 import kotlinx.coroutines.sync.Mutex
 import kotlinx.coroutines.sync.withLock
 
-class DeviceSensorStepsDataSource(
+class DeviceSensorStepsDataSource private constructor(
     private val context: Context
 ) : SensorEventListener {
+
+    data class SensorSession(
+        val startMillis: Long,
+        val endMillis: Long,
+        val steps: Long
+    )
+
+    companion object {
+        @Volatile
+        private var instance: DeviceSensorStepsDataSource? = null
+
+        private const val INACTIVITY_TIMEOUT_MS = 90_000L
+        private const val MIN_SESSION_STEPS = 10L
+
+        fun getInstance(context: Context): DeviceSensorStepsDataSource {
+            return instance ?: synchronized(this) {
+                instance ?: DeviceSensorStepsDataSource(
+                    context.applicationContext
+                ).also { instance = it }
+            }
+        }
+    }
 
     private val sensorManager =
         context.getSystemService(Context.SENSOR_SERVICE) as SensorManager
@@ -23,7 +45,6 @@ class DeviceSensorStepsDataSource(
         sensorManager.getDefaultSensor(Sensor.TYPE_STEP_COUNTER)
 
     private val mutex = Mutex()
-
     private val closedSessions = mutableListOf<SensorSession>()
 
     private var registered = false
@@ -31,17 +52,6 @@ class DeviceSensorStepsDataSource(
     private var sessionStart: Long? = null
     private var sessionSteps: Long = 0L
     private var lastStepTimestamp: Long? = null
-
-    companion object {
-        private const val INACTIVITY_TIMEOUT_MS = 90_000L
-        private const val MIN_SESSION_STEPS = 10L
-    }
-
-    data class SensorSession(
-        val startMillis: Long,
-        val endMillis: Long,
-        val steps: Long
-    )
 
     fun hasPermission(): Boolean {
         return ContextCompat.checkSelfPermission(
@@ -51,6 +61,8 @@ class DeviceSensorStepsDataSource(
     }
 
     fun isSensorAvailable(): Boolean = stepCounterSensor != null
+
+    fun isTracking(): Boolean = registered
 
     fun startTracking() {
         if (registered || stepCounterSensor == null) return
@@ -117,10 +129,16 @@ class DeviceSensorStepsDataSource(
         lastStepTimestamp = null
     }
 
-    suspend fun flushOpenSession() {
-        mutex.withLock {
-            closeSessionIfExpired(System.currentTimeMillis())
-        }
+    private fun currentOpenSession(now: Long): SensorSession? {
+        val start = sessionStart ?: return null
+        val last = lastStepTimestamp ?: return null
+        val effectiveEnd = maxOf(last, now)
+        if (effectiveEnd <= start || sessionSteps < MIN_SESSION_STEPS) return null
+        return SensorSession(
+            startMillis = start,
+            endMillis = effectiveEnd,
+            steps = sessionSteps
+        )
     }
 
     suspend fun getTotalSteps(
@@ -129,7 +147,11 @@ class DeviceSensorStepsDataSource(
     ): Long {
         return mutex.withLock {
             closeSessionIfExpired(System.currentTimeMillis())
-            closedSessions
+            val sessions = buildList {
+                addAll(closedSessions)
+                currentOpenSession(System.currentTimeMillis())?.let { add(it) }
+            }
+            sessions
                 .filter { it.endMillis > startMillis && it.startMillis < endMillis }
                 .sumOf { it.steps }
         }
@@ -141,7 +163,11 @@ class DeviceSensorStepsDataSource(
     ): List<WalkingSessionInterval> {
         return mutex.withLock {
             closeSessionIfExpired(System.currentTimeMillis())
-            closedSessions
+            val sessions = buildList {
+                addAll(closedSessions)
+                currentOpenSession(System.currentTimeMillis())?.let { add(it) }
+            }
+            sessions
                 .filter { it.endMillis > startMillis && it.startMillis < endMillis }
                 .map {
                     WalkingSessionInterval(

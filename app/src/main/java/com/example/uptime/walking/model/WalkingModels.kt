@@ -13,5 +13,6 @@ data class WalkingSessionInterval(
 data class WalkingStats(
     val totalSteps: Long = 0L,
     val totalWalkingMinutes: Long = 0L,
-    val mergedSessions: List<WalkingSessionInterval> = emptyList()
+    val mergedSessions: List<WalkingSessionInterval> = emptyList(),
+    val usedEstimatedMinutesFallback: Boolean = false
 )

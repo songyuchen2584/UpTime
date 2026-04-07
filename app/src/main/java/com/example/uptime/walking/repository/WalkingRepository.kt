@@ -5,6 +5,7 @@ import com.example.uptime.walking.datasource.HealthConnectStepsDataSource
 import com.example.uptime.walking.merge.WalkingMergeEngine
 import com.example.uptime.walking.model.WalkingStats
 
+
 class WalkingRepository(
     private val healthConnectSource: HealthConnectStepsDataSource,
     private val deviceSensorSource: DeviceSensorStepsDataSource
@@ -16,7 +17,6 @@ class WalkingRepository(
     fun setMethodEnabled(method: TrackingMethod, enabled: Boolean) {
         if (enabled) enabledMethods += method else enabledMethods -= method
     }
-
     suspend fun getWalkingStats(
         startMillis: Long,
         endMillis: Long
@@ -24,13 +24,23 @@ class WalkingRepository(
         val useHealthConnect = TrackingMethod.HEALTH_CONNECT in enabledMethods
         val useSensor = TrackingMethod.DEVICE_SENSOR in enabledMethods
 
-        val totalSteps = when {
-            useHealthConnect ->
-                healthConnectSource.getTotalSteps(startMillis, endMillis)
-            useSensor ->
-                deviceSensorSource.getTotalSteps(startMillis, endMillis)
-            else -> 0L
+        if (!useHealthConnect && !useSensor) {
+            return WalkingStats()
         }
+
+        val healthConnectSteps = if (useHealthConnect) {
+            healthConnectSource.getTotalSteps(startMillis, endMillis)
+        } else {
+            0L
+        }
+
+        val sensorSteps = if (useSensor) {
+            deviceSensorSource.getTotalSteps(startMillis, endMillis)
+        } else {
+            0L
+        }
+
+        val totalSteps = maxOf(healthConnectSteps, sensorSteps)
 
         val sessionCandidates = buildList {
             if (useHealthConnect) {
@@ -42,12 +52,20 @@ class WalkingRepository(
         }
 
         val mergedSessions = WalkingMergeEngine.mergeSessions(sessionCandidates)
-        val totalMinutes = WalkingMergeEngine.totalMinutes(mergedSessions)
+        val measuredMinutes = WalkingMergeEngine.totalMinutes(mergedSessions)
+
+        val usedFallback = measuredMinutes == 0L && totalSteps > 0L
+        val finalMinutes = when {
+            measuredMinutes > 0L -> measuredMinutes
+            totalSteps > 0L -> maxOf(1L, totalSteps / 100L)
+            else -> 0L
+        }
 
         return WalkingStats(
             totalSteps = totalSteps,
-            totalWalkingMinutes = totalMinutes,
-            mergedSessions = mergedSessions
+            totalWalkingMinutes = finalMinutes,
+            mergedSessions = mergedSessions,
+            usedEstimatedMinutesFallback = usedFallback
         )
     }
 
