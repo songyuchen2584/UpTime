@@ -14,6 +14,27 @@ object AchievementCatalog {
             AchievementSize.Small
         ),
         Achievement(
+            "demo_sm",
+            "Demo Medal",
+            "Click place to display this in your trophy case",
+            R.drawable.trophy_24px,
+            AchievementSize.Small
+        ),
+        Achievement(
+            "demo_med",
+            "Demo Trophy",
+            "Click place to display this in your trophy case",
+            R.drawable.trophy_24px,
+            AchievementSize.Medium
+        ),
+        Achievement(
+            "demo_lg",
+            "Demo Trophy (Large)",
+            "Click place to display this in your trophy case",
+            R.drawable.trophy_24px,
+            AchievementSize.Large
+        ),
+        Achievement(
             "streak_7",
             "One Week Streak",
             "7 day streak",

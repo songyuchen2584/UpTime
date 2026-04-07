@@ -16,6 +16,6 @@ enum class NavDestination(
     Settings("Settings", R.drawable.settings_24px);
 
     companion object {
-        val all = entries.filter { it != Settings && it != Walking }
+        val navBar = entries.filter { it != Settings && it != Walking && it != ScreenTime }
     }
 }

@@ -100,7 +100,7 @@ fun AppScaffold(roomViewModel: RoomViewModel, dashboardViewModel: DashboardViewM
         bottomBar = {
             if (!isLandscape) {
                 NavigationBar {
-                    NavDestination.all.forEach { dest ->
+                    NavDestination.navBar.forEach { dest ->
                         NavigationBarItem(
                             selected = currentDestination == dest,
                             onClick  = {
@@ -118,7 +118,7 @@ fun AppScaffold(roomViewModel: RoomViewModel, dashboardViewModel: DashboardViewM
         Row(modifier = Modifier.padding(innerPadding).fillMaxSize()) {
             if (isLandscape) {
                 NavigationRail {
-                    NavDestination.all.forEach { dest ->
+                    NavDestination.navBar.forEach { dest ->
                         NavigationRailItem(
                             selected = currentDestination == dest,
                             onClick  = {
