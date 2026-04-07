@@ -6,10 +6,25 @@
     <uses-permission android:name="android.permission.health.READ_STEPS" />
     <uses-permission android:name="android.permission.health.READ_EXERCISE" />
     <uses-permission android:name="android.permission.ACTIVITY_RECOGNITION" />
+    <!-- foreground service so step counter can run when app is in background-->
+    <uses-permission android:name="android.permission.FOREGROUND_SERVICE" />
+    <uses-permission android:name="android.permission.FOREGROUND_SERVICE_HEALTH" />
+
+    <!-- request for screen time stats permissions, this is a protected permission
+    depending on android version and has to be enabled in system settings-->
+    <uses-permission
+        android:name="android.permission.PACKAGE_USAGE_STATS"
+        tools:ignore="ProtectedPermissions" />
+
 
     <!-- Check if health connect is actually installed, should be preinstalled after android 13-->
     <queries>
         <package android:name="com.google.android.apps.healthdata" />
+
+        <intent>
+            <action android:name="android.intent.action.MAIN" />
+            <category android:name="android.intent.category.LAUNCHER" />
+        </intent>
     </queries>
 
     <application
@@ -53,6 +68,11 @@
                 <category android:name="android.intent.category.HEALTH_PERMISSIONS" />
             </intent-filter>
         </activity-alias>
+
+        <service
+            android:name=".walking.datasource.StepTrackingService"
+            android:exported="false"
+            android:foregroundServiceType="health" />
 
     </application>
 

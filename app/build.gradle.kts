@@ -77,4 +77,6 @@ dependencies {
 
     // healthConnect
     implementation(libs.androidx.health.connect)
+    // datastore
+    implementation(libs.androidx.datastore.preferences)
 }

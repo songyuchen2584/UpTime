@@ -12,6 +12,7 @@ enum class NavDestination(
     Streak("Streak", R.drawable.lightning_stand_24px),
     Room("Room", R.drawable.door_sliding_24px),
     Walking("Walking", R.drawable.directions_walk_24px),
+    ScreenTime("Screen Time", R.drawable.analytics_24px),
     Settings("Settings", R.drawable.settings_24px);
 
     companion object {
