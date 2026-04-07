@@ -71,29 +71,29 @@ class ScreenTimeRepository(
 
         val now = System.currentTimeMillis()
         val startOfDay = Calendar.getInstance().apply {
+            timeInMillis = now
             set(Calendar.HOUR_OF_DAY, 0)
             set(Calendar.MINUTE, 0)
             set(Calendar.SECOND, 0)
             set(Calendar.MILLISECOND, 0)
         }.timeInMillis
 
-        val stats = usageStatsManager.queryUsageStats(
-            UsageStatsManager.INTERVAL_DAILY,
-            startOfDay,
-            now
-        )
-
         val appLabels = getInstalledApps().associate { it.packageName to it.appLabel }
 
-        return stats
+        val aggregatedStats = usageStatsManager.queryAndAggregateUsageStats(startOfDay, now)
+
+        val maxPossibleTodayMs = now - startOfDay
+
+        return aggregatedStats
             .asSequence()
-            .filter { it.packageName in selectedPackages }
-            .groupBy { it.packageName }
-            .map { (packageName, packageStats) ->
+            .filter { (packageName, _) -> packageName in selectedPackages }
+            .map { (packageName, stats) ->
                 AppScreenTime(
                     packageName = packageName,
                     appLabel = appLabels[packageName] ?: packageName,
-                    totalTimeMs = packageStats.sumOf { it.totalTimeInForeground }
+                    totalTimeMs = stats.totalTimeInForeground
+                        .coerceAtLeast(0L)
+                        .coerceAtMost(maxPossibleTodayMs)
                 )
             }
             .filter { it.totalTimeMs > 0L }
