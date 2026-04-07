@@ -8,11 +8,15 @@ import com.example.uptime.room.catalogs.RoomThemeCatalog
 import com.example.uptime.room.catalogs.TrophyCaseCatalog
 import com.example.uptime.UpTimeDatabase
 import com.example.uptime.UserStatsRepository
+import com.example.uptime.room.catalogs.RoomItemCatalog
+import com.example.uptime.room.catalogs.WoodThemeCatalog
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.MutableSharedFlow
+import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.SharingStarted
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asSharedFlow
+import kotlinx.coroutines.flow.combine
 import kotlinx.coroutines.flow.stateIn
 import kotlinx.coroutines.launch
 
@@ -28,7 +32,12 @@ class RoomViewModel(application: Application) : AndroidViewModel(application) {
     val currentSettings: StateFlow<RoomSettings?> = rsDao.observeRoomSettings()
         .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5000), null)
 
-    val currentInventory: Flow<UserInventory?> = invDao.observeUserInventory()
+    val currentInventory: StateFlow<UserInventory?> =
+        invDao.observeUserInventory()
+            .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5000), null)
+
+    private val _roomState = MutableStateFlow<RoomState?>(null)
+    val roomState: StateFlow<RoomState?> = _roomState
 
     init {
         viewModelScope.launch {
@@ -41,6 +50,42 @@ class RoomViewModel(application: Application) : AndroidViewModel(application) {
                 checkAndUnlockAchievements(stats)
             }
         }
+
+        // Award points when goals completed
+        viewModelScope.launch {
+            statsRepository.goalCompletionEvents.collect {
+                updatePoints(DAILY_COMPLETION_POINTS)
+            }
+        }
+
+        viewModelScope.launch {
+            combine(currentSettings, currentInventory) { settings, inventory ->
+                if (settings == null || inventory == null) return@combine null
+
+                RoomState(
+                    selectedRoomLayoutId = settings.selectedRoomLayoutId,
+                    selectedRoomThemeId = settings.selectedRoomThemeId,
+                    selectedWoodThemeId = settings.selectedWoodThemeId,
+                    displayName = settings.displayName,
+                    placedRoomItems = settings.placedRoomItems,
+                    placedAchievements = settings.placedAchievements,
+                    unlockedRoomItemIds = inventory.unlockedRoomItemIds,
+                    unlockedRoomThemeIds = inventory.unlockedRoomThemeIds,
+                    unlockedAchievementIds = inventory.unlockedAchievementIds,
+                    unlockedWoodThemeIds = inventory.unlockedWoodThemeIds,
+                    unlockedRoomLayoutIds = inventory.unlockedRoomLayoutIds,
+                    currentPoints = inventory.currentPoints
+                )
+            }.collect { newState ->
+                if (newState != null) {
+                    _roomState.value = newState
+                }
+            }
+        }
+    }
+
+    companion object {
+        const val DAILY_COMPLETION_POINTS = 50
     }
 
     private suspend fun checkAndUnlockAchievements(stats: UserStatsRepository.UserStats) {
@@ -92,6 +137,48 @@ class RoomViewModel(application: Application) : AndroidViewModel(application) {
 
             invDao.upsertInventory(
                 inventory.copy(unlockedRoomThemeIds = alreadyUnlocked + newlyUnlocked)
+            )
+        }
+    }
+
+    fun unlockWoodTheme(woodThemeId: String) {
+        viewModelScope.launch {
+            val inventory = invDao.getInventory() ?: UserInventory()
+            val alreadyUnlocked = inventory.unlockedWoodThemeIds
+
+            val newlyUnlocked = WoodThemeCatalog.allWoodThemes
+                .filter { it.id !in alreadyUnlocked && it.id == woodThemeId }
+                .map { it.id }
+
+            invDao.upsertInventory(
+                inventory.copy(unlockedWoodThemeIds = alreadyUnlocked + newlyUnlocked)
+            )
+        }
+    }
+
+    fun unlockRoomItem(roomItemId: String) {
+        viewModelScope.launch {
+            val inventory = invDao.getInventory() ?: UserInventory()
+            val alreadyUnlocked = inventory.unlockedRoomItemIds
+
+            val newlyUnlocked = RoomItemCatalog.allAvailableRoomItems
+                .filter { it.id !in alreadyUnlocked && it.id == roomItemId }
+                .map { it.id }
+
+            invDao.upsertInventory(
+                inventory.copy(unlockedRoomItemIds = alreadyUnlocked + newlyUnlocked)
+            )
+        }
+    }
+
+    fun updatePoints(points: Int) {
+        // Assumes currentPoints + points is > 0
+        viewModelScope.launch {
+            val inventory = invDao.getInventory() ?: UserInventory()
+            val currentPoints = inventory.currentPoints
+
+            invDao.upsertInventory(
+                inventory.copy(currentPoints = currentPoints + points)
             )
         }
     }

@@ -11,7 +11,7 @@ import com.example.uptime.room.RoomSettingsDao
 import com.example.uptime.room.UserInventory
 import com.example.uptime.room.UserInventoryDao
 
-@Database(entities = [DailyLog::class, RoomSettings::class, UserInventory::class], version = 2)
+@Database(entities = [DailyLog::class, RoomSettings::class, UserInventory::class], version = 3)
 @TypeConverters(RoomConverters::class)
 abstract class UpTimeDatabase : RoomDatabase() {
     abstract fun dailyLogDao(): DailyLogDao

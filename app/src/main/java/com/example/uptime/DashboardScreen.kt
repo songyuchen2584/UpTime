@@ -45,6 +45,7 @@ import androidx.compose.ui.tooling.preview.Preview
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.lifecycle.viewmodel.compose.viewModel
+import com.example.uptime.room.RoomViewModel.Companion.DAILY_COMPLETION_POINTS
 import com.example.uptime.ui.theme.Amber40
 import com.example.uptime.ui.theme.Coral40
 import com.example.uptime.ui.theme.UpTimeTheme
@@ -450,6 +451,12 @@ fun GoalsCard(state: DashboardState) {
                 fontWeight = FontWeight.SemiBold
             )
 
+            Text(
+                text = "Complete both to earn $DAILY_COMPLETION_POINTS pts",
+                style = MaterialTheme.typography.labelSmall,
+                color = MaterialTheme.colorScheme.primary
+            )
+
             Spacer(modifier = Modifier.height(12.dp))
 
             GoalRow(
@@ -494,12 +501,6 @@ fun GoalRow(icon: String, text: String, isDone: Boolean) {
             style = MaterialTheme.typography.bodyMedium,
             color = if (isDone) MaterialTheme.colorScheme.onSurface
             else MaterialTheme.colorScheme.onSurfaceVariant
-        )
-        Text(
-            text = "+ 50 pts", // can change later
-            style = MaterialTheme.typography.labelSmall,
-            color = MaterialTheme.colorScheme.primary,
-            modifier = Modifier.padding(start = 10.dp)
         )
     }
 }

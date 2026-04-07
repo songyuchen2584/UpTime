@@ -1,6 +1,9 @@
 package com.example.uptime
 
 import kotlinx.coroutines.flow.Flow
+import kotlinx.coroutines.flow.distinctUntilChanged
+import kotlinx.coroutines.flow.filter
+import kotlinx.coroutines.flow.filterNotNull
 import kotlinx.coroutines.flow.map
 import java.time.LocalDate
 import java.time.format.DateTimeFormatter
@@ -17,6 +20,16 @@ class UserStatsRepository(private val dao: DailyLogDao) {
 
     val allLogs: Flow<List<DailyLog>> = dao.observeAllLogs()
 
+    // Emits log entry whenever a day is successfully completed
+    val goalCompletionEvents: Flow<DailyLog> = dao.observeLogForDate(
+        LocalDate.now().format(DateTimeFormatter.ISO_LOCAL_DATE)
+    )
+        .filterNotNull()
+        .distinctUntilChanged { old, new ->
+            old.streakMaintained == new.streakMaintained
+        }
+        .filter { it.streakMaintained }
+
     val userStats: Flow<UserStats> = allLogs.map { logs ->
         val formatter = DateTimeFormatter.ISO_LOCAL_DATE
         val today = LocalDate.now().format(formatter)
@@ -25,12 +38,14 @@ class UserStatsRepository(private val dao: DailyLogDao) {
         // Current Streak
         var streak = 0
         var checkDate = LocalDate.now()
+
         if (today in streakDates) {
             streak++
             checkDate = checkDate.minusDays(1)
         } else {
-            checkDate = checkDate.minusDays(1)
+            streak = 0
         }
+
         while (checkDate.format(formatter) in streakDates) {
             streak++
             checkDate = checkDate.minusDays(1)

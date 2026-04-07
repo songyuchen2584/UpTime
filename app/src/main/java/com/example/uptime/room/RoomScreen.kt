@@ -39,9 +39,12 @@ import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material3.ButtonDefaults
 import androidx.compose.material3.Card
 import androidx.compose.material3.CardDefaults
+import androidx.compose.material3.CircularProgressIndicator
+import androidx.compose.material3.FilledIconButton
 import androidx.compose.material3.FilledTonalButton
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
+import androidx.compose.material3.IconButtonColors
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.SnackbarHost
 import androidx.compose.material3.SnackbarHostState
@@ -56,6 +59,7 @@ import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.rememberCoroutineScope
+import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
@@ -161,38 +165,27 @@ enum class AchievementSize { Large, Medium, Small }
 
 @Composable
 fun RoomScreen(viewModel: RoomViewModel = viewModel()) {
-    //TODO("add loading symbol while fetching data")
-    val roomSettings by viewModel.currentSettings.collectAsState(initial = null)
-    val userInventory by viewModel.currentInventory.collectAsState(initial = null)
+    val state by viewModel.roomState.collectAsState()
 
-    val state = RoomState(
-        // settings values
-        selectedRoomLayoutId = roomSettings?.selectedRoomLayoutId ?: "default",
-        selectedRoomThemeId = roomSettings?.selectedRoomThemeId ?: "default",
-        selectedWoodThemeId = roomSettings?.selectedWoodThemeId ?: "oak",
-        displayName = roomSettings?.displayName ?: "My Room",
-        placedRoomItems = roomSettings?.placedRoomItems ?: emptyMap(),
-        placedAchievements = roomSettings?.placedAchievements ?: emptyMap(),
-        // inventory values
-        unlockedRoomItemIds = userInventory?.unlockedRoomItemIds ?: emptySet(),
-        unlockedRoomThemeIds = userInventory?.unlockedRoomThemeIds ?: setOf("default"),
-        unlockedAchievementIds = userInventory?.unlockedAchievementIds ?: emptySet(),
-        unlockedWoodThemeIds = userInventory?.unlockedWoodThemeIds ?: setOf("oak"),
-        unlockedRoomLayoutIds = userInventory?.unlockedRoomLayoutIds ?: setOf("default"),
-    )
+    if (state == null) {
+        RoomLoadingScreen()
+        return
+    }
+
+    val roomState = state!!
 
     val activeRoomTheme = RoomThemeCatalog.allRoomThemes
-        .find { it.id == state.selectedRoomThemeId }?.theme ?: RoomTheme()
+        .find { it.id == roomState.selectedRoomThemeId }?.theme ?: RoomTheme()
 
     val activeWoodTheme = WoodThemeCatalog.allWoodThemes
-        .find { it.id == state.selectedWoodThemeId }?.theme ?: WoodTheme()
+        .find { it.id == roomState.selectedWoodThemeId }?.theme ?: WoodTheme()
 
     val trophyCaseId = RoomLayoutCatalog.allRoomLayouts
-        .find { it.id == state.selectedRoomLayoutId }?.trophyCaseId ?: "default"
+        .find { it.id == roomState.selectedRoomLayoutId }?.trophyCaseId ?: "default"
 
-    var roomMode by remember { mutableStateOf(RoomMode.View) }
-    var activePanel by remember { mutableStateOf<RoomPanel?>(null) }
-    var showThemePicker by remember { mutableStateOf(false) }
+    var roomMode by rememberSaveable { mutableStateOf(RoomMode.View) }
+    var activePanel by rememberSaveable { mutableStateOf<RoomPanel?>(null) }
+    var showThemePicker by rememberSaveable { mutableStateOf(false) }
 
     val activeTrophyCaseSlots = TrophyCaseCatalog.allTrophyCases
         .find { it.id == trophyCaseId }?.shelfSlots ?: listOf(
@@ -263,7 +256,7 @@ fun RoomScreen(viewModel: RoomViewModel = viewModel()) {
     )
 
     Box(modifier = Modifier.fillMaxSize()) {
-        RoomScaffold(state, activeRoomTheme, activeWoodTheme, activeTrophyCaseSlots, roomMode, viewModel)
+        RoomScaffold(roomState, activeRoomTheme, activeWoodTheme, activeTrophyCaseSlots, roomMode, viewModel)
 
         Row(modifier = Modifier
             .align(Alignment.BottomCenter)
@@ -280,7 +273,7 @@ fun RoomScreen(viewModel: RoomViewModel = viewModel()) {
             ExchangePanel(onClick = {
                 activePanel = if (activePanel == RoomPanel.Exchange) null
                 else RoomPanel.Exchange
-            }, points = state.currentPoints, roomMode = roomMode)
+            }, points = roomState.currentPoints, roomMode = roomMode)
         }
 
         AnimatedVisibility(
@@ -310,10 +303,10 @@ fun RoomScreen(viewModel: RoomViewModel = viewModel()) {
         ) {
             ThemePickerRow(
                 allRoomThemes = RoomThemeCatalog.allRoomThemes,
-                unlockedRoomThemeIds = state.unlockedRoomThemeIds,
+                unlockedRoomThemeIds = roomState.unlockedRoomThemeIds,
                 modifier = Modifier
                     .padding(bottom = 96.dp),
-                selectedThemeId = state.selectedRoomThemeId,
+                selectedThemeId = roomState.selectedRoomThemeId,
                 onThemeSelected = { themeId ->
                     viewModel.selectRoomTheme(themeId)
                 }
@@ -330,16 +323,16 @@ fun RoomScreen(viewModel: RoomViewModel = viewModel()) {
         when (activePanel) {
             RoomPanel.Achievements -> AchievementsDisplay(
                 allAchievements = AchievementCatalog.allAchievements,
-                unlockedAchievementIds = state.unlockedAchievementIds,
-                placedAchievements = state.placedAchievements,
+                unlockedAchievementIds = roomState.unlockedAchievementIds,
+                placedAchievements = roomState.placedAchievements,
                 viewModel = viewModel,
                 onClose = { activePanel = null }
             )
             RoomPanel.Exchange -> ExchangeDisplay(
-                currentPoints = state.currentPoints,
-                availableItems = RoomItemCatalog.allAvailableRoomItems,
-                unlockedRoomThemeIds = state.unlockedRoomThemeIds,
-                unlockedRoomItemIds = state.unlockedRoomItemIds,
+                currentPoints = roomState.currentPoints,
+                unlockedRoomThemeIds = roomState.unlockedRoomThemeIds,
+                unlockedRoomItemIds = roomState.unlockedRoomItemIds,
+                unlockedWoodThemeIds = roomState.unlockedWoodThemeIds,
                 viewModel = viewModel,
                 onClose = { activePanel = null }
             )
@@ -382,6 +375,23 @@ fun RoomScaffold(state: RoomState, activeRoomTheme: RoomTheme, activeWoodTheme: 
     }
 
     NameHeader(mode, state, viewModel)
+}
+
+@Composable
+fun RoomLoadingScreen() {
+    Box(
+        modifier = Modifier
+            .fillMaxSize()
+            .background(MaterialTheme.colorScheme.surfaceVariant)
+    ) {
+        // Loading indicator
+        CircularProgressIndicator(
+            modifier = Modifier.align(Alignment.Center)
+        )
+        Spacer(modifier = Modifier.height(6.dp))
+
+        Text("Loading your room...")
+    }
 }
 
 @Composable
@@ -1148,9 +1158,17 @@ private fun DrawScope.drawGrandTrophyModel(x: Float, floorY: Float) {
 }
 
 @Composable
-fun ExchangeDisplay(currentPoints: Int, availableItems: List<RoomItem>, unlockedRoomItemIds: Set<String>, unlockedRoomThemeIds: Set<String>, viewModel: RoomViewModel, onClose: () -> Unit) {
+fun ExchangeDisplay(
+    currentPoints: Int,
+    unlockedRoomItemIds: Set<String>,
+    unlockedRoomThemeIds: Set<String>,
+    unlockedWoodThemeIds: Set<String>,
+    viewModel: RoomViewModel,
+    onClose: () -> Unit
+) {
     val snackbarHostState = remember { SnackbarHostState() }
     val scope = rememberCoroutineScope()
+    var activeTab by rememberSaveable {mutableStateOf("themesR")}
 
     fun displayAlert(message: String) {
         scope.launch { snackbarHostState.showSnackbar(message) }
@@ -1170,12 +1188,51 @@ fun ExchangeDisplay(currentPoints: Int, availableItems: List<RoomItem>, unlocked
                 horizontalArrangement = Arrangement.SpaceBetween
             ) {
                 Column {
-                    Text("Points Exchange", style = MaterialTheme.typography.headlineSmall,
-                        fontWeight = FontWeight.Bold)
-                    Text("$currentPoints points",
+                    Text(
+                        "Spend Points", style = MaterialTheme.typography.headlineSmall,
+                        fontWeight = FontWeight.Bold
+                    )
+                    Text(
+                        "$currentPoints points",
                         style = MaterialTheme.typography.bodyMedium,
-                        color = MaterialTheme.colorScheme.onSurfaceVariant)
+                        color = MaterialTheme.colorScheme.onSurfaceVariant
+                    )
                 }
+                Spacer(modifier = Modifier.weight(0.4f))
+
+                FilledIconButton(
+                    onClick = { activeTab = "themesR" },
+                    colors = IconButtonColors(
+                    if (activeTab != "themesR") MaterialTheme.colorScheme.onSurface.copy(alpha = 0.4f) else MaterialTheme.colorScheme.primaryContainer.copy(alpha = 0.6f),
+                    MaterialTheme.colorScheme.onSurface,
+                    MaterialTheme.colorScheme.primaryContainer,
+                    MaterialTheme.colorScheme.primaryContainer,)
+                ) {
+                    Icon(painterResource(R.drawable.room_theme_24px), contentDescription = "Room Themes")
+                }
+                FilledIconButton(
+                    onClick = { activeTab = "themesW" },
+                    colors = IconButtonColors(
+                        if (activeTab != "themesW") MaterialTheme.colorScheme.onSurface.copy(alpha = 0.4f) else MaterialTheme.colorScheme.primaryContainer.copy(alpha = 0.6f),
+                        MaterialTheme.colorScheme.onSurface,
+                        MaterialTheme.colorScheme.primaryContainer,
+                        MaterialTheme.colorScheme.primaryContainer)
+                ) {
+                    Icon(painterResource(R.drawable.shelves_24px), contentDescription = "Wood Themes")
+                }
+                FilledIconButton(
+                    onClick = { activeTab = "items" },
+                    colors = IconButtonColors(
+                        if (activeTab != "items") MaterialTheme.colorScheme.onSurface.copy(alpha = 0.4f) else MaterialTheme.colorScheme.primaryContainer.copy(alpha = 0.6f),
+                        MaterialTheme.colorScheme.onSurface,
+                        MaterialTheme.colorScheme.primaryContainer,
+                        MaterialTheme.colorScheme.primaryContainer)
+                ) {
+                    Icon(painterResource(R.drawable.floor_lamp_24px), contentDescription = "Items")
+                }
+
+                Spacer(modifier = Modifier.weight(0.6f))
+
                 IconButton(onClick = onClose) {
                     Icon(painterResource(R.drawable.close_24px), contentDescription = "Close")
                 }
@@ -1184,77 +1241,129 @@ fun ExchangeDisplay(currentPoints: Int, availableItems: List<RoomItem>, unlocked
             Spacer(modifier = Modifier.height(12.dp))
 
             // Theme grid
-            Row(
-                modifier = Modifier
-                    .fillMaxWidth()
-                    .padding(horizontal = 16.dp, vertical = 12.dp),
-                verticalAlignment = Alignment.CenterVertically,
-                horizontalArrangement = Arrangement.SpaceBetween
-            ) {
-                Text(
-                    "Themes", style = MaterialTheme.typography.labelLarge,
-                    fontWeight = FontWeight.Bold
-                )
-            }
-
-            LazyVerticalGrid(
-                columns = GridCells.Fixed(3),
-                contentPadding = PaddingValues(16.dp),
-                horizontalArrangement = Arrangement.spacedBy(12.dp),
-                verticalArrangement = Arrangement.spacedBy(12.dp),
-                modifier = Modifier.fillMaxSize()
-            ) {
-                items(RoomThemeCatalog.allRoomThemes.filter { theme -> !unlockedRoomThemeIds.contains(theme.id) }) { theme ->
-                    RoomThemeCell(
-                        roomThemeOption = theme,
-                        currentPoints = currentPoints,
-                        onClick = {
-                            if (theme.pointCost <= currentPoints) {
-                                viewModel.unlockRoomTheme(theme.id)
-                            } else {
-                                displayAlert("You can't afford this.")
-                            }}
+            if (activeTab == "themesR") {
+                Row(
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .padding(horizontal = 16.dp, vertical = 12.dp),
+                    verticalAlignment = Alignment.CenterVertically,
+                    horizontalArrangement = Arrangement.SpaceBetween
+                ) {
+                    Text(
+                        "Room Themes", style = MaterialTheme.typography.labelLarge,
+                        fontWeight = FontWeight.Bold
                     )
+                }
+
+                LazyVerticalGrid(
+                    columns = GridCells.Fixed(3),
+                    contentPadding = PaddingValues(16.dp),
+                    horizontalArrangement = Arrangement.spacedBy(12.dp),
+                    verticalArrangement = Arrangement.spacedBy(12.dp),
+                    modifier = Modifier.fillMaxSize()
+                ) {
+                    items(
+                        RoomThemeCatalog.allRoomThemes
+                            .filter { theme -> !unlockedRoomThemeIds.contains(theme.id)}
+                            .sortedBy { it.pointCost }
+                    ) { theme ->
+                        RoomThemeCell(
+                            roomThemeOption = theme,
+                            currentPoints = currentPoints,
+                            onClick = {
+                                if (theme.pointCost <= currentPoints) {
+                                    viewModel.unlockRoomTheme(theme.id)
+                                    viewModel.updatePoints(-theme.pointCost)
+                                } else {
+                                    displayAlert("You can't afford this.")
+                                }
+                            }
+                        )
+                    }
                 }
             }
 
-            Spacer(modifier = Modifier.height(12.dp))
-
-            // Item grid
-            Row(
-                modifier = Modifier
-                    .fillMaxWidth()
-                    .padding(horizontal = 16.dp, vertical = 12.dp),
-                verticalAlignment = Alignment.CenterVertically,
-                horizontalArrangement = Arrangement.SpaceBetween
-            ) {
-                Text(
-                    "Items", style = MaterialTheme.typography.labelLarge,
-                    fontWeight = FontWeight.Bold
-                )
+            if (activeTab == "themesW") {
+                // Wood Theme grid
+                Row(
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .padding(horizontal = 16.dp, vertical = 12.dp),
+                    verticalAlignment = Alignment.CenterVertically,
+                    horizontalArrangement = Arrangement.SpaceBetween
+                ) {
+                    Text(
+                        "Wood Themes", style = MaterialTheme.typography.labelLarge,
+                        fontWeight = FontWeight.Bold
+                    )
+                }
+                LazyVerticalGrid(
+                    columns = GridCells.Fixed(3),
+                    contentPadding = PaddingValues(16.dp),
+                    horizontalArrangement = Arrangement.spacedBy(12.dp),
+                    verticalArrangement = Arrangement.spacedBy(12.dp),
+                    modifier = Modifier.fillMaxSize()
+                ) {
+                    items(WoodThemeCatalog.allWoodThemes
+                        .filter { theme -> !unlockedWoodThemeIds.contains(theme.id)}
+                        .sortedBy { it.pointCost }
+                    ) { theme ->
+                        WoodThemeCell(
+                            woodThemeOption = theme,
+                            currentPoints = currentPoints,
+                            onClick = {
+                                if (theme.pointCost <= currentPoints) {
+                                    viewModel.unlockWoodTheme(theme.id)
+                                    viewModel.updatePoints(-theme.pointCost)
+                                } else {
+                                    displayAlert("You can't afford this.")
+                                }
+                            }
+                        )
+                    }
+                }
             }
 
-            LazyVerticalGrid(
-                columns = GridCells.Fixed(3),
-                contentPadding = PaddingValues(16.dp),
-                horizontalArrangement = Arrangement.spacedBy(12.dp),
-                verticalArrangement = Arrangement.spacedBy(12.dp),
-                modifier = Modifier.fillMaxSize()
-            ) {
-                items(RoomItemCatalog.allAvailableRoomItems.filter { item -> !unlockedRoomItemIds.contains(item.id) }) { item ->
-                    ItemCell(
-                        item = item,
-                        currentPoints = currentPoints,
-                        onClick = {
-                            // unlock item
-                        }
+            if (activeTab == "items") {
+                // Item grid
+                Row(
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .padding(horizontal = 16.dp, vertical = 12.dp),
+                    verticalAlignment = Alignment.CenterVertically,
+                    horizontalArrangement = Arrangement.SpaceBetween
+                ) {
+                    Text(
+                        "Items", style = MaterialTheme.typography.labelLarge,
+                        fontWeight = FontWeight.Bold
                     )
+                }
+
+                LazyVerticalGrid(
+                    columns = GridCells.Fixed(3),
+                    contentPadding = PaddingValues(16.dp),
+                    horizontalArrangement = Arrangement.spacedBy(12.dp),
+                    verticalArrangement = Arrangement.spacedBy(12.dp),
+                    modifier = Modifier.fillMaxSize()
+                ) {
+                    items(RoomItemCatalog.allAvailableRoomItems
+                        .filter { item -> !unlockedRoomItemIds.contains(item.id)}
+                        .sortedBy { it.pointCost }
+                    ) { item ->
+                        ItemCell(
+                            item = item,
+                            currentPoints = currentPoints,
+                            onClick = {
+                                viewModel.unlockRoomItem(item.id)
+                                viewModel.updatePoints(-item.pointCost)
+                            }
+                        )
+                    }
                 }
             }
         }
 
-        SnackbarHost(hostState = snackbarHostState, modifier = Modifier.align(Alignment.BottomCenter)
-        )
+        SnackbarHost(hostState = snackbarHostState, modifier = Modifier.align(Alignment.BottomCenter))
     }
 }
 
@@ -1267,7 +1376,7 @@ fun ItemCell(
         Card(
             shape = RoundedCornerShape(16.dp),
             colors = CardDefaults.cardColors(
-                MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.5f)
+                MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.65f)
             ),
             modifier = Modifier
                 .fillMaxWidth()
@@ -1283,7 +1392,7 @@ fun ItemCell(
                 Icon(
                     painterResource(item.icon),
                     contentDescription = item.name,
-                    tint = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.25f),
+                    tint = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.45f),
                     modifier = Modifier.size(40.dp)
                 )
                 Spacer(modifier = Modifier.height(8.dp))
@@ -1297,7 +1406,13 @@ fun ItemCell(
                 )
                 Spacer(modifier = Modifier.weight(0.5f))
 
-                // cost here
+                Text(
+                    text = "${item.pointCost} points",
+                    style = MaterialTheme.typography.labelSmall,
+                    fontWeight = FontWeight.SemiBold,
+                    textAlign = TextAlign.Center,
+                    color = MaterialTheme.colorScheme.primary
+                )
 
                 Spacer(modifier = Modifier.weight(0.5f))
 
@@ -1328,7 +1443,7 @@ fun RoomThemeCell(
         Card(
             shape = RoundedCornerShape(16.dp),
             colors = CardDefaults.cardColors(
-                MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.5f)
+                MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.65f)
             ),
             modifier = Modifier
                 .fillMaxWidth()
@@ -1344,7 +1459,7 @@ fun RoomThemeCell(
                 Icon(
                     painterResource(R.drawable.room_theme_24px),
                     contentDescription = roomThemeOption.name,
-                    tint = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.35f),
+                    tint = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.45f),
                     modifier = Modifier.size(40.dp)
                 )
                 Spacer(modifier = Modifier.height(8.dp))
@@ -1393,6 +1508,110 @@ fun RoomThemeCell(
                     modifier = Modifier.height(32.dp),
                     colors = ButtonDefaults.filledTonalButtonColors(
                         containerColor = if (roomThemeOption.pointCost <= currentPoints) MaterialTheme.colorScheme.primary.copy(alpha = 0.65f) else MaterialTheme.colorScheme.onPrimaryContainer.copy(alpha = 0.3f),
+                        contentColor = MaterialTheme.colorScheme.onSurface
+                    )
+                ) {
+                    Text(
+                        "Buy",
+                        style = MaterialTheme.typography.labelSmall
+                    )
+                }
+            }
+        }
+    }
+}
+
+@Composable
+fun WoodThemeCell(
+    woodThemeOption: WoodThemeOption,
+    currentPoints: Int,
+    onClick: () -> Unit) {
+    Box {
+        Card(
+            shape = RoundedCornerShape(16.dp),
+            colors = CardDefaults.cardColors(
+                MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.65f)
+            ),
+            modifier = Modifier
+                .fillMaxWidth()
+                .aspectRatio(0.575f)
+        ) {
+            Column(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .fillMaxHeight()
+                    .padding(12.dp),
+                horizontalAlignment = Alignment.CenterHorizontally
+            ) {
+                Icon(
+                    painterResource(R.drawable.shelves_24px),
+                    contentDescription = woodThemeOption.name,
+                    tint = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.45f),
+                    modifier = Modifier.size(40.dp)
+                )
+                Spacer(modifier = Modifier.height(8.dp))
+
+                Surface(color = MaterialTheme.colorScheme.surface, shape = RoundedCornerShape(8.dp)) {
+                    Column {
+                        Row(modifier = Modifier.padding(start = 6.dp, top = 6.dp, end = 6.dp, bottom = 4.dp), horizontalArrangement = Arrangement.spacedBy(4.dp)) {
+                            listOf(
+                                woodThemeOption.theme.woodFront,
+                                woodThemeOption.theme.woodTop
+                            ).forEach { color ->
+                                Box(
+                                    modifier = Modifier
+                                        .size(18.dp)
+                                        .background(
+                                            color = color,
+                                            shape = RoundedCornerShape(4.dp)
+                                        )
+                                )
+                            }
+                        }
+
+                        Row(modifier = Modifier.padding(start = 6.dp, bottom = 6.dp, end = 6.dp), horizontalArrangement = Arrangement.spacedBy(4.dp)) {
+                            listOf(
+                                woodThemeOption.theme.woodSide,
+                                woodThemeOption.theme.woodDark
+                            ).forEach { color ->
+                                Box(
+                                    modifier = Modifier
+                                        .size(18.dp)
+                                        .background(
+                                            color = color,
+                                            shape = RoundedCornerShape(4.dp)
+                                        )
+                                )
+                            }
+                        }
+                    }
+                }
+                Spacer(modifier = Modifier.height(8.dp))
+
+                Text(
+                    woodThemeOption.name,
+                    style = MaterialTheme.typography.labelMedium,
+                    fontWeight = FontWeight.SemiBold,
+                    textAlign = TextAlign.Center,
+                    color = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.75f)
+                )
+                Spacer(modifier = Modifier.weight(0.5f))
+
+                Text(
+                    text = "${woodThemeOption.pointCost} points",
+                    style = MaterialTheme.typography.labelSmall,
+                    fontWeight = FontWeight.SemiBold,
+                    textAlign = TextAlign.Center,
+                    color = MaterialTheme.colorScheme.primary
+                )
+
+                Spacer(modifier = Modifier.weight(0.5f))
+
+                FilledTonalButton(
+                    onClick = onClick,
+                    modifier = Modifier.height(32.dp),
+                    colors = ButtonDefaults.filledTonalButtonColors(
+                        containerColor = if (woodThemeOption.pointCost <= currentPoints) MaterialTheme.colorScheme.primary.copy(alpha = 0.65f) else MaterialTheme.colorScheme.onPrimaryContainer.copy(alpha = 0.3f),
                         contentColor = MaterialTheme.colorScheme.onSurface
                     )
                 ) {
