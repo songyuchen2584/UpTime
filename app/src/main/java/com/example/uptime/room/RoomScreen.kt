@@ -1,4 +1,4 @@
-package com.example.uptime
+package com.example.uptime.room
 
 import androidx.compose.animation.AnimatedVisibility
 import androidx.compose.animation.core.EaseInOut
@@ -21,6 +21,8 @@ import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
+import androidx.compose.foundation.layout.aspectRatio
+import androidx.compose.foundation.layout.fillMaxHeight
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
@@ -43,11 +45,13 @@ import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.SnackbarHost
 import androidx.compose.material3.SnackbarHostState
+import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextField
 import androidx.compose.material3.TextFieldDefaults
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
+import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
@@ -65,23 +69,32 @@ import androidx.compose.ui.graphics.drawscope.Stroke
 import androidx.compose.ui.graphics.drawscope.rotate
 import androidx.compose.ui.graphics.drawscope.scale
 import androidx.compose.ui.graphics.drawscope.translate
-import androidx.compose.ui.layout.LayoutCoordinates
 import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.tooling.preview.Preview
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.zIndex
+import androidx.lifecycle.viewmodel.compose.viewModel
+import com.example.uptime.R
+import com.example.uptime.room.catalogs.AchievementCatalog
+import com.example.uptime.room.catalogs.RoomItemCatalog
+import com.example.uptime.room.catalogs.RoomLayoutCatalog
+import com.example.uptime.room.catalogs.RoomThemeCatalog
+import com.example.uptime.room.catalogs.TrophyCaseCatalog
+import com.example.uptime.room.catalogs.WoodThemeCatalog
 import kotlinx.coroutines.launch
+import kotlin.Int
+import kotlin.collections.filter
 import kotlin.collections.find
+import kotlin.collections.forEachIndexed
 
 // Placeholder data for now
 data class RoomItem(
     val id: String,
     val name: String,
     val icon: Int,
-    val isPlaced: Boolean = false,
-    val placedCoordinates: LayoutCoordinates // subject to change if this doesn't work how I think it does
+    val pointCost: Int
 )
 
 enum class RoomMode { View, Edit }
@@ -96,35 +109,37 @@ data class RoomThemeOption(
     val id: String,
     val name: String,
     val theme: RoomTheme,
-    val isUnlocked: Boolean = false
+    val pointCost: Int = 0
 )
 
 data class Achievement(
     val id: String,
     val title: String,
     val description: String,
-    val icon: Int,
-    val size: AchievementSize = AchievementSize.Small,
-    val isUnlocked: Boolean = false
+    val icon: Int, // Unused for now, may delete later
+    val size: AchievementSize = AchievementSize.Small
 )
 
 data class RoomState(
-    val layout: RoomLayout = RoomLayout.Default,
+    val selectedRoomLayoutId: String = "default",
     val selectedRoomThemeId: String = "default",
     val selectedWoodThemeId: String = "default",
-    val availableItems: List<RoomItem> = emptyList(),
-    val achievements: List<Achievement> = emptyList(),
-    val roomThemeOptions: List<RoomThemeOption> = emptyList(),
-    val woodThemeOptions: List<WoodThemeOption> = emptyList(),
     val displayName: String = "My Room",
+    val placedAchievements: Map<String, String> = emptyMap(),
+    val placedRoomItems: Map<String, String> = emptyMap(),
+    val unlockedRoomItemIds: Set<String> = emptySet(),
+    val unlockedRoomThemeIds: Set<String> = setOf("default"),
+    val unlockedWoodThemeIds: Set<String> = setOf("oak"),
+    val unlockedAchievementIds: Set<String> = emptySet(),
+    val unlockedRoomLayoutIds: Set<String> = setOf("default"),
     val currentPoints: Int = 0,
-    val shelfSlots: List<ShelfSlot> = defaultShelfSlots()
 )
 
-enum class RoomLayout {
-    Default;
-    // Future layouts: aquarium, garden, etc.
-}
+data class RoomLayoutOption (
+    val id: String = "default",
+    val name: String = "Default",
+    val trophyCaseId: String = "default"
+)
 
 enum class RoomPanel { Achievements, Exchange }
 
@@ -139,28 +154,116 @@ data class WoodThemeOption(
     val id: String,
     val name: String,
     val theme: WoodTheme,
-    val isUnlocked: Boolean = false
+    val pointCost: Int = 0
 )
 
 enum class AchievementSize { Large, Medium, Small }
 
-enum class ShelfSection { TopRow, MidRow1, MidRow2, BottomRow }
-
-data class ShelfSlot(
-    val id: String,
-    val section: ShelfSection,
-    val acceptedSizes: List<AchievementSize>,
-    val placedAchievementId: String? = null
-)
-
 @Composable
-fun RoomScreen(state: RoomState = RoomRepository.getPlaceholderState(), onDisplayNameChange: (String) -> Unit = {}) {
+fun RoomScreen(viewModel: RoomViewModel = viewModel()) {
+    //TODO("add loading symbol while fetching data")
+    val roomSettings by viewModel.currentSettings.collectAsState(initial = null)
+    val userInventory by viewModel.currentInventory.collectAsState(initial = null)
+
+    val state = RoomState(
+        // settings values
+        selectedRoomLayoutId = roomSettings?.selectedRoomLayoutId ?: "default",
+        selectedRoomThemeId = roomSettings?.selectedRoomThemeId ?: "default",
+        selectedWoodThemeId = roomSettings?.selectedWoodThemeId ?: "oak",
+        displayName = roomSettings?.displayName ?: "My Room",
+        placedRoomItems = roomSettings?.placedRoomItems ?: emptyMap(),
+        placedAchievements = roomSettings?.placedAchievements ?: emptyMap(),
+        // inventory values
+        unlockedRoomItemIds = userInventory?.unlockedRoomItemIds ?: emptySet(),
+        unlockedRoomThemeIds = userInventory?.unlockedRoomThemeIds ?: setOf("default"),
+        unlockedAchievementIds = userInventory?.unlockedAchievementIds ?: emptySet(),
+        unlockedWoodThemeIds = userInventory?.unlockedWoodThemeIds ?: setOf("oak"),
+        unlockedRoomLayoutIds = userInventory?.unlockedRoomLayoutIds ?: setOf("default"),
+    )
+
+    val activeRoomTheme = RoomThemeCatalog.allRoomThemes
+        .find { it.id == state.selectedRoomThemeId }?.theme ?: RoomTheme()
+
+    val activeWoodTheme = WoodThemeCatalog.allWoodThemes
+        .find { it.id == state.selectedWoodThemeId }?.theme ?: WoodTheme()
+
+    val trophyCaseId = RoomLayoutCatalog.allRoomLayouts
+        .find { it.id == state.selectedRoomLayoutId }?.trophyCaseId ?: "default"
+
     var roomMode by remember { mutableStateOf(RoomMode.View) }
     var activePanel by remember { mutableStateOf<RoomPanel?>(null) }
     var showThemePicker by remember { mutableStateOf(false) }
 
+    val activeTrophyCaseSlots = TrophyCaseCatalog.allTrophyCases
+        .find { it.id == trophyCaseId }?.shelfSlots ?: listOf(
+        // Top area: 2 medium
+        TrophyCaseCatalog.ShelfSlot(
+            "top_large",
+            TrophyCaseCatalog.ShelfSection.TopRow,
+            listOf(AchievementSize.Large)
+        ),
+        TrophyCaseCatalog.ShelfSlot(
+            "top_med_1",
+            TrophyCaseCatalog.ShelfSection.TopRow,
+            listOf(AchievementSize.Medium)
+        ),
+        TrophyCaseCatalog.ShelfSlot(
+            "top_med_2",
+            TrophyCaseCatalog.ShelfSection.TopRow,
+            listOf(AchievementSize.Medium)
+        ),
+        // First row: 3 small
+        TrophyCaseCatalog.ShelfSlot(
+            "mid1_1",
+            TrophyCaseCatalog.ShelfSection.MidRow1,
+            listOf(AchievementSize.Small)
+        ),
+        TrophyCaseCatalog.ShelfSlot(
+            "mid1_2",
+            TrophyCaseCatalog.ShelfSection.MidRow1,
+            listOf(AchievementSize.Small)
+        ),
+        TrophyCaseCatalog.ShelfSlot(
+            "mid1_3",
+            TrophyCaseCatalog.ShelfSection.MidRow1,
+            listOf(AchievementSize.Small)
+        ),
+        // Second row: 3 small
+        TrophyCaseCatalog.ShelfSlot(
+            "mid2_1",
+            TrophyCaseCatalog.ShelfSection.MidRow2,
+            listOf(AchievementSize.Small)
+        ),
+        TrophyCaseCatalog.ShelfSlot(
+            "mid2_2",
+            TrophyCaseCatalog.ShelfSection.MidRow2,
+            listOf(AchievementSize.Small)
+        ),
+        TrophyCaseCatalog.ShelfSlot(
+            "mid2_3",
+            TrophyCaseCatalog.ShelfSection.MidRow2,
+            listOf(AchievementSize.Small)
+        ),
+        // Bottom area: 2 medium
+        TrophyCaseCatalog.ShelfSlot(
+            "bot_large",
+            TrophyCaseCatalog.ShelfSection.BottomRow,
+            listOf(AchievementSize.Large)
+        ),
+        TrophyCaseCatalog.ShelfSlot(
+            "bot_med_1",
+            TrophyCaseCatalog.ShelfSection.BottomRow,
+            listOf(AchievementSize.Medium)
+        ),
+        TrophyCaseCatalog.ShelfSlot(
+            "bot_med_2",
+            TrophyCaseCatalog.ShelfSection.BottomRow,
+            listOf(AchievementSize.Medium)
+        ),
+    )
+
     Box(modifier = Modifier.fillMaxSize()) {
-        RoomScaffold(state, roomMode, onDisplayNameChange)
+        RoomScaffold(state, activeRoomTheme, activeWoodTheme, activeTrophyCaseSlots, roomMode, viewModel)
 
         Row(modifier = Modifier
             .align(Alignment.BottomCenter)
@@ -191,7 +294,7 @@ fun RoomScreen(state: RoomState = RoomRepository.getPlaceholderState(), onDispla
             Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
                 EditToolButton(icon = R.drawable.responsive_layout_24px, label = "Layout", onClick = {})
                 EditToolButton(
-                    icon = R.drawable.format_paint_24px,
+                    icon = R.drawable.room_theme_24px,
                     label = "Theme",
                     isActive = showThemePicker,
                     onClick = { showThemePicker = !showThemePicker })
@@ -206,12 +309,13 @@ fun RoomScreen(state: RoomState = RoomRepository.getPlaceholderState(), onDispla
             modifier = Modifier.align(Alignment.BottomCenter)
         ) {
             ThemePickerRow(
-                themes = state.roomThemeOptions,
+                allRoomThemes = RoomThemeCatalog.allRoomThemes,
+                unlockedRoomThemeIds = state.unlockedRoomThemeIds,
                 modifier = Modifier
                     .padding(bottom = 96.dp),
                 selectedThemeId = state.selectedRoomThemeId,
                 onThemeSelected = { themeId ->
-                    RoomRepository.selectTheme(themeId)
+                    viewModel.selectRoomTheme(themeId)
                 }
             )
         }
@@ -225,15 +329,18 @@ fun RoomScreen(state: RoomState = RoomRepository.getPlaceholderState(), onDispla
     ) {
         when (activePanel) {
             RoomPanel.Achievements -> AchievementsDisplay(
-                achievements = state.achievements,
-                slots = state.shelfSlots,
-                onPlace = { RoomRepository.placeAchievement(it) },
-                onRemove = { RoomRepository.removeAchievement(it) },
+                allAchievements = AchievementCatalog.allAchievements,
+                unlockedAchievementIds = state.unlockedAchievementIds,
+                placedAchievements = state.placedAchievements,
+                viewModel = viewModel,
                 onClose = { activePanel = null }
             )
             RoomPanel.Exchange -> ExchangeDisplay(
                 currentPoints = state.currentPoints,
-                availableItems = state.availableItems,
+                availableItems = RoomItemCatalog.allAvailableRoomItems,
+                unlockedRoomThemeIds = state.unlockedRoomThemeIds,
+                unlockedRoomItemIds = state.unlockedRoomItemIds,
+                viewModel = viewModel,
                 onClose = { activePanel = null }
             )
             null -> Unit
@@ -242,19 +349,14 @@ fun RoomScreen(state: RoomState = RoomRepository.getPlaceholderState(), onDispla
 }
 
 @Composable
-fun RoomScaffold(state: RoomState, mode: RoomMode, onDisplayNameChange: (String) -> Unit = {}) {
-    val activeTheme = state.roomThemeOptions
-        .find { it.id == state.selectedRoomThemeId }?.theme ?: RoomTheme()
-
-    val woodTheme = state.woodThemeOptions
-        .find { it.id == state.selectedWoodThemeId }?.theme ?: WoodTheme()
+fun RoomScaffold(state: RoomState, activeRoomTheme: RoomTheme, activeWoodTheme: WoodTheme, activeTrophyCaseSlots: List<TrophyCaseCatalog.ShelfSlot>, mode: RoomMode, viewModel: RoomViewModel) {
 
     Box(
         modifier = Modifier
             .fillMaxSize()
             .background(MaterialTheme.colorScheme.surfaceVariant)
     )
-    RoomCanvas(roomTheme = activeTheme, layout = state.layout, shelfSlots = state.shelfSlots, woodTheme = woodTheme)
+    RoomCanvas(activeRoomTheme = activeRoomTheme, state.placedAchievements, layoutId = state.selectedRoomLayoutId, activeTrophyCaseSlots = activeTrophyCaseSlots, woodTheme = activeWoodTheme)
 
     if (mode == RoomMode.Edit) {
         Box(
@@ -279,12 +381,13 @@ fun RoomScaffold(state: RoomState, mode: RoomMode, onDisplayNameChange: (String)
         }
     }
 
-    NameHeader(mode, state, onDisplayNameChange)
+    NameHeader(mode, state, viewModel)
 }
 
 @Composable
 fun ThemePickerRow(
-    themes: List<RoomThemeOption>,
+    allRoomThemes: List<RoomThemeOption>,
+    unlockedRoomThemeIds: Set<String>,
     modifier: Modifier,
     selectedThemeId: String,
     onThemeSelected: (String) -> Unit
@@ -292,13 +395,16 @@ fun ThemePickerRow(
     LazyRow(
         modifier = modifier,
         contentPadding = PaddingValues(horizontal = 16.dp),
-        horizontalArrangement = Arrangement.spacedBy(10.dp)
+        horizontalArrangement = Arrangement.spacedBy(10.dp),
+        verticalAlignment = Alignment.Bottom
     ) {
-        items(themes) { option ->
+        items(allRoomThemes) { option ->
+            val isUnlocked = option.id in unlockedRoomThemeIds
             ThemeCard(
                 option = option,
+                isUnlocked = isUnlocked,
                 isSelected = option.id == selectedThemeId,
-                onSelect = {if (option.isUnlocked) onThemeSelected(option.id)}
+                onSelect = {if (isUnlocked) onThemeSelected(option.id)}
             )
         }
     }
@@ -307,6 +413,7 @@ fun ThemePickerRow(
 @Composable
 fun ThemeCard(
     option: RoomThemeOption,
+    isUnlocked: Boolean,
     isSelected: Boolean,
     onSelect: () -> Unit
 ) {
@@ -347,11 +454,11 @@ fun ThemeCard(
                 option.name,
                 style = MaterialTheme.typography.labelSmall,
                 textAlign = TextAlign.Center,
-                color = if (option.isUnlocked) MaterialTheme.colorScheme.onSurface
+                color = if (isUnlocked) MaterialTheme.colorScheme.onSurface
                 else MaterialTheme.colorScheme.onSurface.copy(alpha = 0.4f)
             )
 
-            if (!option.isUnlocked) {
+            if (!isUnlocked) {
                 Icon(
                     painterResource(R.drawable.lock_24px),
                     contentDescription = "Locked",
@@ -364,14 +471,15 @@ fun ThemeCard(
 }
 
 @Composable
-fun RoomCanvas(roomTheme: RoomTheme, layout: RoomLayout, shelfSlots: List<ShelfSlot>, modifier: Modifier = Modifier, woodTheme: WoodTheme) {
-    when (layout) {
-        RoomLayout.Default -> DefaultRoomCanvas(roomTheme, shelfSlots, modifier, woodTheme)
+fun RoomCanvas(activeRoomTheme: RoomTheme, placedAchievements: Map<String, String>, layoutId: String, activeTrophyCaseSlots: List<TrophyCaseCatalog.ShelfSlot>, modifier: Modifier = Modifier, woodTheme: WoodTheme) {
+
+    when (layoutId) {
+        "default" -> DefaultRoomCanvas(activeRoomTheme, placedAchievements, activeTrophyCaseSlots, modifier, woodTheme)
     }
 }
 
 @Composable
-fun DefaultRoomCanvas(theme: RoomTheme, shelfSlots: List<ShelfSlot>, modifier: Modifier = Modifier, woodTheme: WoodTheme) {
+fun DefaultRoomCanvas(theme: RoomTheme, placedAchievements: Map<String, String>, shelfSlots: List<TrophyCaseCatalog.ShelfSlot>, modifier: Modifier = Modifier, woodTheme: WoodTheme) {
     Canvas(modifier = modifier.fillMaxSize()) {
         val w = size.width
         val h = size.height
@@ -648,53 +756,54 @@ fun DefaultRoomCanvas(theme: RoomTheme, shelfSlots: List<ShelfSlot>, modifier: M
         }
 
         translate(left = shelfOffsetX, top = shelfOffsetY) {
-            drawShelfTrophies(shelfSlots, shelfWidth, shelfHeight, shelfDepth, shelfThickness, shelfSpacing, numShelves)
+            drawShelfTrophies(shelfSlots, placedAchievements, shelfWidth, shelfHeight, shelfDepth, shelfThickness, shelfSpacing)
         }
     }
 }
 
 private fun DrawScope.drawShelfTrophies(
-    slots: List<ShelfSlot>,
+    slots: List<TrophyCaseCatalog.ShelfSlot>,
+    placedAchievements: Map<String, String>,
     shelfWidth: Float,
     shelfHeight: Float,
     shelfDepth: Float,
     shelfThickness: Float,
-    shelfSpacing: Float,
-    numShelves: Int
+    shelfSpacing: Float
 ) {
     val innerWidth = shelfWidth - shelfDepth * 4
     val innerLeft = shelfDepth * 2
 
-    val topSlots = slots.filter { it.section == ShelfSection.TopRow }
-    val mid1Slots = slots.filter { it.section == ShelfSection.MidRow1 }
-    val mid2Slots = slots.filter { it.section == ShelfSection.MidRow2 }
-    val bottomSlots = slots.filter { it.section == ShelfSection.BottomRow }
+    val topSlots = slots.filter { it.section == TrophyCaseCatalog.ShelfSection.TopRow }
+    val mid1Slots = slots.filter { it.section == TrophyCaseCatalog.ShelfSection.MidRow1 }
+    val mid2Slots = slots.filter { it.section == TrophyCaseCatalog.ShelfSection.MidRow2 }
+    val bottomSlots = slots.filter { it.section == TrophyCaseCatalog.ShelfSection.BottomRow }
 
     val topShelfFloor = 0.5f * shelfThickness
     val mid1ShelfFloor = shelfSpacing + 0.5f * shelfThickness
     val bottomShelfFloor = shelfHeight - 0.5f * shelfThickness
 
-    drawSectionTrophies(topSlots, innerLeft, innerWidth, topShelfFloor, isLargeSection = true)
-    drawSectionTrophies(mid1Slots, innerLeft, innerWidth, mid1ShelfFloor, isLargeSection = false)
-    drawSectionTrophies(mid2Slots, innerLeft, innerWidth, mid1ShelfFloor + shelfSpacing, isLargeSection = false)
-    drawSectionTrophies(bottomSlots, innerLeft, innerWidth, bottomShelfFloor, isLargeSection = true)
+    drawSectionTrophies(topSlots, placedAchievements, innerLeft, innerWidth, topShelfFloor, isLargeSection = true)
+    drawSectionTrophies(mid1Slots, placedAchievements, innerLeft, innerWidth, mid1ShelfFloor, isLargeSection = false)
+    drawSectionTrophies(mid2Slots, placedAchievements, innerLeft, innerWidth, mid1ShelfFloor + shelfSpacing, isLargeSection = false)
+    drawSectionTrophies(bottomSlots, placedAchievements, innerLeft, innerWidth, bottomShelfFloor, isLargeSection = true)
 }
 
 private fun DrawScope.drawSectionTrophies(
-    slots: List<ShelfSlot>,
+    slots: List<TrophyCaseCatalog.ShelfSlot>,
+    placedAchievements: Map<String, String>,
     innerLeft: Float,
     innerWidth: Float,
     shelfFloorY: Float,
     isLargeSection: Boolean
 ) {
-    val filledSlots = slots.filter { it.placedAchievementId != null }
+    val filledSlots = slots.filter { placedAchievements[it.id] != null }
     if (filledSlots.isEmpty()) return
 
     if (isLargeSection) {
         val largeSlot = filledSlots.find { it.acceptedSizes.contains(AchievementSize.Large) }
         val medSlots  = filledSlots.filter { it.acceptedSizes.contains(AchievementSize.Medium) }
 
-        if (largeSlot?.placedAchievementId != null) {
+        if (largeSlot != null && placedAchievements[largeSlot.id] != null) {
             // Single large trophy centered
             drawTrophyModel(
                 x = innerLeft + innerWidth / 2f,
@@ -704,7 +813,7 @@ private fun DrawScope.drawSectionTrophies(
         } else {
             // Up to 2 medium trophies
             medSlots.forEachIndexed { i, slot ->
-                if (slot.placedAchievementId != null) {
+                if (placedAchievements[slot.id]  != null) {
                     val x = innerLeft + innerWidth * (if (i == 0) 0.3f else 0.7f)
                     drawTrophyModel(x = x, floorY = shelfFloorY, size = AchievementSize.Medium)
                 }
@@ -715,7 +824,7 @@ private fun DrawScope.drawSectionTrophies(
         val newInnerLeft = innerLeft * 0.3f
         val spacing = ((innerWidth) * 1.2f) / (slots.size + 1)
         slots.forEachIndexed { i, slot ->
-            if (slot.placedAchievementId != null) {
+            if (placedAchievements[slot.id] != null) {
                 val x = newInnerLeft + spacing * (i + 1)
                 drawTrophyModel(x = x, floorY = shelfFloorY, size = AchievementSize.Small)
             }
@@ -832,25 +941,13 @@ private fun DrawScope.drawCupModel(x: Float, floorY: Float) {
 private fun DrawScope.drawMedalModel(x: Float, floorY: Float) {
     val scale = 2f
     val medalR = 12f * scale
-    val ribbonW = 10f * scale
-    val ribbonH = 18f * scale
+    val ribbonW = 16f * scale
+    val ribbonH = 12f * scale
     val goldColor = Color(0xFFFFB300)
     val goldDark = Color(0xFFE78318)
     val ribbonColor = Color(0xFF1565C0)
+    val ribbonColorDark = Color(0xFF0F519B)
     val medalThickness = medalR * 0.15f
-
-    // Ribbon left strip
-    drawRect(
-        color = ribbonColor,
-        topLeft = Offset(x - ribbonW * 0.5f + medalThickness, floorY - medalR * 2 - ribbonH),
-        size = Size(ribbonW * 0.5f, ribbonH)
-    )
-    // Ribbon right strip
-    drawRect(
-        color = ribbonColor.copy(alpha = 0.75f),
-        topLeft = Offset(x + medalThickness, floorY - medalR * 2 - ribbonH),
-        size = Size(ribbonW * 0.5f, ribbonH)
-    )
 
     // Shadow
     drawOval(
@@ -858,6 +955,29 @@ private fun DrawScope.drawMedalModel(x: Float, floorY: Float) {
         topLeft = Offset(x - medalR * 0.8f, floorY - 3f),
         size = Size(medalR * 1.6f + medalThickness, 6f)
     )
+
+    translate(-medalThickness*0.8f, -0.5f * medalThickness) {
+        rotate(23f, pivot = Offset(x + medalThickness, floorY - medalR)) {
+            // Ribbon left strip
+            drawRect(
+                color = ribbonColor,
+                topLeft = Offset(
+                    x - ribbonW * 0.25f + medalThickness * 1.15f,
+                    floorY
+                ),
+                size = Size(ribbonW * 0.5f, ribbonH)
+            )
+        }
+
+        rotate(-18f, pivot = Offset(x + medalThickness, floorY - medalR)) {
+            // Ribbon right strip
+            drawRect(
+                color = ribbonColorDark,
+                topLeft = Offset(x-medalThickness*1.05f, floorY),
+                size = Size(ribbonW * 0.5f, ribbonH)
+            )
+        }
+    }
 
     // Medal circle
     drawCircle(
@@ -1028,16 +1148,270 @@ private fun DrawScope.drawGrandTrophyModel(x: Float, floorY: Float) {
 }
 
 @Composable
-fun ExchangeDisplay(currentPoints: Int, availableItems: List<RoomItem>, onClose: () -> Unit) {
-    // item shop layout?
+fun ExchangeDisplay(currentPoints: Int, availableItems: List<RoomItem>, unlockedRoomItemIds: Set<String>, unlockedRoomThemeIds: Set<String>, viewModel: RoomViewModel, onClose: () -> Unit) {
+    val snackbarHostState = remember { SnackbarHostState() }
+    val scope = rememberCoroutineScope()
+
+    fun displayAlert(message: String) {
+        scope.launch { snackbarHostState.showSnackbar(message) }
+    }
+
+    Box(
+        modifier = Modifier
+            .fillMaxSize()
+            .background(MaterialTheme.colorScheme.surface)
+    ) {
+        Column(modifier = Modifier.fillMaxSize()) {
+            Row(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .padding(horizontal = 16.dp, vertical = 12.dp),
+                verticalAlignment = Alignment.CenterVertically,
+                horizontalArrangement = Arrangement.SpaceBetween
+            ) {
+                Column {
+                    Text("Points Exchange", style = MaterialTheme.typography.headlineSmall,
+                        fontWeight = FontWeight.Bold)
+                    Text("$currentPoints points",
+                        style = MaterialTheme.typography.bodyMedium,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant)
+                }
+                IconButton(onClick = onClose) {
+                    Icon(painterResource(R.drawable.close_24px), contentDescription = "Close")
+                }
+            }
+
+            Spacer(modifier = Modifier.height(12.dp))
+
+            // Theme grid
+            Row(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .padding(horizontal = 16.dp, vertical = 12.dp),
+                verticalAlignment = Alignment.CenterVertically,
+                horizontalArrangement = Arrangement.SpaceBetween
+            ) {
+                Text(
+                    "Themes", style = MaterialTheme.typography.labelLarge,
+                    fontWeight = FontWeight.Bold
+                )
+            }
+
+            LazyVerticalGrid(
+                columns = GridCells.Fixed(3),
+                contentPadding = PaddingValues(16.dp),
+                horizontalArrangement = Arrangement.spacedBy(12.dp),
+                verticalArrangement = Arrangement.spacedBy(12.dp),
+                modifier = Modifier.fillMaxSize()
+            ) {
+                items(RoomThemeCatalog.allRoomThemes.filter { theme -> !unlockedRoomThemeIds.contains(theme.id) }) { theme ->
+                    RoomThemeCell(
+                        roomThemeOption = theme,
+                        currentPoints = currentPoints,
+                        onClick = {
+                            if (theme.pointCost <= currentPoints) {
+                                viewModel.unlockRoomTheme(theme.id)
+                            } else {
+                                displayAlert("You can't afford this.")
+                            }}
+                    )
+                }
+            }
+
+            Spacer(modifier = Modifier.height(12.dp))
+
+            // Item grid
+            Row(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .padding(horizontal = 16.dp, vertical = 12.dp),
+                verticalAlignment = Alignment.CenterVertically,
+                horizontalArrangement = Arrangement.SpaceBetween
+            ) {
+                Text(
+                    "Items", style = MaterialTheme.typography.labelLarge,
+                    fontWeight = FontWeight.Bold
+                )
+            }
+
+            LazyVerticalGrid(
+                columns = GridCells.Fixed(3),
+                contentPadding = PaddingValues(16.dp),
+                horizontalArrangement = Arrangement.spacedBy(12.dp),
+                verticalArrangement = Arrangement.spacedBy(12.dp),
+                modifier = Modifier.fillMaxSize()
+            ) {
+                items(RoomItemCatalog.allAvailableRoomItems.filter { item -> !unlockedRoomItemIds.contains(item.id) }) { item ->
+                    ItemCell(
+                        item = item,
+                        currentPoints = currentPoints,
+                        onClick = {
+                            // unlock item
+                        }
+                    )
+                }
+            }
+        }
+
+        SnackbarHost(hostState = snackbarHostState, modifier = Modifier.align(Alignment.BottomCenter)
+        )
+    }
+}
+
+@Composable
+fun ItemCell(
+    item: RoomItem,
+    currentPoints: Int,
+    onClick: () -> Unit) {
+    Box {
+        Card(
+            shape = RoundedCornerShape(16.dp),
+            colors = CardDefaults.cardColors(
+                MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.5f)
+            ),
+            modifier = Modifier
+                .fillMaxWidth()
+                .aspectRatio(0.625f)
+        ) {
+            Column(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .fillMaxHeight()
+                    .padding(12.dp),
+                horizontalAlignment = Alignment.CenterHorizontally
+            ) {
+                Icon(
+                    painterResource(item.icon),
+                    contentDescription = item.name,
+                    tint = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.25f),
+                    modifier = Modifier.size(40.dp)
+                )
+                Spacer(modifier = Modifier.height(8.dp))
+
+                Text(
+                    item.name,
+                    style = MaterialTheme.typography.labelMedium,
+                    fontWeight = FontWeight.SemiBold,
+                    textAlign = TextAlign.Center,
+                    color = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.3f)
+                )
+                Spacer(modifier = Modifier.weight(0.5f))
+
+                // cost here
+
+                Spacer(modifier = Modifier.weight(0.5f))
+
+                FilledTonalButton(
+                    onClick = onClick,
+                    modifier = Modifier.height(32.dp),
+                    colors = ButtonDefaults.filledTonalButtonColors(
+                        containerColor = if (item.pointCost <= currentPoints) MaterialTheme.colorScheme.primary.copy(alpha = 0.65f) else MaterialTheme.colorScheme.onPrimaryContainer.copy(alpha = 0.3f),
+                        contentColor = MaterialTheme.colorScheme.onSurface
+                    )
+                ) {
+                    Text(
+                        "Buy",
+                        style = MaterialTheme.typography.labelSmall
+                    )
+                }
+            }
+        }
+    }
+}
+
+@Composable
+fun RoomThemeCell(
+    roomThemeOption: RoomThemeOption,
+    currentPoints: Int,
+    onClick: () -> Unit) {
+    Box {
+        Card(
+            shape = RoundedCornerShape(16.dp),
+            colors = CardDefaults.cardColors(
+                MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.5f)
+            ),
+            modifier = Modifier
+                .fillMaxWidth()
+                .aspectRatio(0.625f)
+        ) {
+            Column(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .fillMaxHeight()
+                    .padding(12.dp),
+                horizontalAlignment = Alignment.CenterHorizontally
+            ) {
+                Icon(
+                    painterResource(R.drawable.room_theme_24px),
+                    contentDescription = roomThemeOption.name,
+                    tint = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.35f),
+                    modifier = Modifier.size(40.dp)
+                )
+                Spacer(modifier = Modifier.height(8.dp))
+
+                Surface(color = MaterialTheme.colorScheme.surface, shape = RoundedCornerShape(8.dp)) {
+                    Row(modifier = Modifier. padding(6.dp), horizontalArrangement = Arrangement.spacedBy(4.dp)) {
+                        listOf(
+                            roomThemeOption.theme.wallColor,
+                            roomThemeOption.theme.floorColor,
+                            roomThemeOption.theme.accentColor
+                        ).forEach { color ->
+                            Box(
+                                modifier = Modifier
+                                    .size(18.dp)
+                                    .background(
+                                        color = color,
+                                        shape = RoundedCornerShape(4.dp)
+                                    )
+                            )
+                        }
+                    }
+                }
+                Spacer(modifier = Modifier.height(8.dp))
+
+                Text(
+                    roomThemeOption.name,
+                    style = MaterialTheme.typography.labelMedium,
+                    fontWeight = FontWeight.SemiBold,
+                    textAlign = TextAlign.Center,
+                    color = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.75f)
+                )
+                Spacer(modifier = Modifier.weight(0.5f))
+
+                Text(
+                    text = "${roomThemeOption.pointCost} points",
+                    style = MaterialTheme.typography.labelSmall,
+                    fontWeight = FontWeight.SemiBold,
+                    textAlign = TextAlign.Center,
+                    color = MaterialTheme.colorScheme.primary
+                )
+
+                Spacer(modifier = Modifier.weight(0.5f))
+
+                FilledTonalButton(
+                    onClick = onClick,
+                    modifier = Modifier.height(32.dp),
+                    colors = ButtonDefaults.filledTonalButtonColors(
+                        containerColor = if (roomThemeOption.pointCost <= currentPoints) MaterialTheme.colorScheme.primary.copy(alpha = 0.65f) else MaterialTheme.colorScheme.onPrimaryContainer.copy(alpha = 0.3f),
+                        contentColor = MaterialTheme.colorScheme.onSurface
+                    )
+                ) {
+                    Text(
+                        "Buy",
+                        style = MaterialTheme.typography.labelSmall
+                    )
+                }
+            }
+        }
+    }
 }
 
 @Composable
 fun AchievementsDisplay(
-    achievements: List<Achievement>,
-    slots: List<ShelfSlot>,
-    onPlace: (achievementId: String) -> Unit,
-    onRemove: (achievementId: String) -> Unit,
+    allAchievements: List<Achievement>,
+    unlockedAchievementIds: Set<String>,
+    placedAchievements: Map<String, String>,
+    viewModel: RoomViewModel,
     onClose: () -> Unit
 ) {
     val snackbarHostState = remember { SnackbarHostState() }
@@ -1048,7 +1422,9 @@ fun AchievementsDisplay(
     }
 
     Box(
-        modifier = Modifier.fillMaxSize().background(MaterialTheme.colorScheme.surface)
+        modifier = Modifier
+            .fillMaxSize()
+            .background(MaterialTheme.colorScheme.surface)
     ) {
         Column(modifier = Modifier.fillMaxSize()) {
             Row(
@@ -1061,7 +1437,7 @@ fun AchievementsDisplay(
                 Column {
                     Text("Trophy Case", style = MaterialTheme.typography.headlineSmall,
                         fontWeight = FontWeight.Bold)
-                    Text("${achievements.count { it.isUnlocked }} / ${achievements.size} unlocked",
+                    Text("${unlockedAchievementIds.size} / ${allAchievements.size} unlocked",
                         style = MaterialTheme.typography.bodyMedium,
                         color = MaterialTheme.colorScheme.onSurfaceVariant)
                 }
@@ -1072,7 +1448,7 @@ fun AchievementsDisplay(
 
             Spacer(modifier = Modifier.height(12.dp))
 
-            // Trophy grid
+            // Trophy grid -- Will add categories later
             LazyVerticalGrid(
                 columns = GridCells.Fixed(3),
                 contentPadding = PaddingValues(16.dp),
@@ -1080,21 +1456,23 @@ fun AchievementsDisplay(
                 verticalArrangement = Arrangement.spacedBy(12.dp),
                 modifier = Modifier.fillMaxSize()
             ) {
-                items(achievements) { achievement ->
-                    val isOnShelf = slots.any { it.placedAchievementId == achievement.id }
-                    val hasSpace = RoomRepository.hasShelfSpace(achievement)
+                items(AchievementCatalog.allAchievements) { achievement ->
+                    val isOnShelf = placedAchievements.containsValue(achievement.id)
+                    val hasSpace = viewModel.hasShelfSpace(achievement)
+                    val isUnlocked = achievement.id in unlockedAchievementIds
                     TrophyCell(
                         achievement = achievement,
                         isOnShelf = isOnShelf,
+                        isUnlocked = isUnlocked,
                         canPlace = !isOnShelf && hasSpace,
                         onPlace = {
-                            if (achievement.isUnlocked) {
-                                if (hasSpace) onPlace(achievement.id)
+                            if (isUnlocked) {
+                                if (hasSpace) viewModel.placeAchievement(achievement.id)
                                 else displayAlert("No ${achievement.size.name.lowercase()} slots available")
                             } else {
                                 displayAlert("This trophy is locked.")
                             }},
-                        onRemove = { onRemove(achievement.id) }
+                        onRemove = { viewModel.removeAchievement(achievement.id) }
                     )
                 }
             }
@@ -1108,6 +1486,7 @@ fun AchievementsDisplay(
 @Composable
 fun TrophyCell(
     achievement: Achievement,
+    isUnlocked: Boolean,
     isOnShelf: Boolean = false,
     canPlace: Boolean = false,
     onPlace: () -> Unit = {},
@@ -1117,23 +1496,38 @@ fun TrophyCell(
             shape = RoundedCornerShape(16.dp),
             border = if (isOnShelf) BorderStroke(2.dp, MaterialTheme.colorScheme.primary) else null,
             colors = CardDefaults.cardColors(
-                containerColor = if (achievement.isUnlocked)
+                containerColor = if (isUnlocked)
                     MaterialTheme.colorScheme.primaryContainer
                 else
                     MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.5f)
-            )
+            ),
+            modifier = Modifier
+                .fillMaxWidth()
+                .aspectRatio(0.625f)
         ) {
             Column(
-                modifier = Modifier.fillMaxWidth().padding(12.dp),
-                horizontalAlignment = Alignment.CenterHorizontally,
-                verticalArrangement = Arrangement.Center
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .fillMaxHeight()
+                    .padding(12.dp),
+                horizontalAlignment = Alignment.CenterHorizontally
             ) {
+                val icon = when(achievement.size) {
+                    AchievementSize.Large -> R.drawable.trophy_dot_24px
+                    AchievementSize.Medium -> R.drawable.trophy_24px
+                    AchievementSize.Small -> R.drawable.medal_24px
+                }
+                val size = when(achievement.size) {
+                    AchievementSize.Large -> 42.dp
+                    AchievementSize.Medium -> 38.dp
+                    AchievementSize.Small -> 36.dp
+                }
                 Icon(
-                    painterResource(achievement.icon),
+                    painterResource(icon),
                     contentDescription = null,
-                    tint = if (achievement.isUnlocked) Color(0xFFFFB300)
+                    tint = if (isUnlocked) Color(0xFFFFB300)
                     else MaterialTheme.colorScheme.onSurface.copy(alpha = 0.25f),
-                    modifier = Modifier.size(40.dp)
+                    modifier = Modifier.size(size)
                 )
                 Spacer(modifier = Modifier.height(8.dp))
 
@@ -1142,34 +1536,27 @@ fun TrophyCell(
                     style = MaterialTheme.typography.labelMedium,
                     fontWeight = FontWeight.SemiBold,
                     textAlign = TextAlign.Center,
-                    color = if (achievement.isUnlocked) MaterialTheme.colorScheme.onPrimaryContainer
+                    color = if (isUnlocked) MaterialTheme.colorScheme.onPrimaryContainer
                     else MaterialTheme.colorScheme.onSurface.copy(alpha = 0.3f)
                 )
+                Spacer(modifier = Modifier.weight(0.5f))
                 Text(
                     achievement.description,
                     style = MaterialTheme.typography.labelSmall,
                     textAlign = TextAlign.Center,
                     color = MaterialTheme.colorScheme.onSurfaceVariant.copy(
-                        alpha = if (achievement.isUnlocked) 1f else 0.4f
+                        alpha = if (isUnlocked) 1f else 0.4f
                     )
                 )
 
-                if (isOnShelf) {
-                    Text(
-                        "On Display",
-                        style = MaterialTheme.typography.labelSmall,
-                        color = MaterialTheme.colorScheme.primary
-                    )
-                }
-
-                Spacer(modifier = Modifier.height(6.dp))
+                Spacer(modifier = Modifier.weight(0.5f))
 
                 if (isOnShelf) {
                     FilledTonalButton(
                         onClick = onRemove,
                         modifier = Modifier.height(32.dp),
                         colors = ButtonDefaults.filledTonalButtonColors(
-                            containerColor = MaterialTheme.colorScheme.primary.copy(alpha = 0.6f)
+                            containerColor = MaterialTheme.colorScheme.onPrimaryContainer.copy(alpha = 0.35f)
                         )
                     ) {
                         Text("Remove", style = MaterialTheme.typography.labelSmall)
@@ -1179,7 +1566,7 @@ fun TrophyCell(
                         onClick = onPlace,
                         modifier = Modifier.height(32.dp),
                         colors = ButtonDefaults.filledTonalButtonColors(
-                            containerColor = if (achievement.isUnlocked)
+                            containerColor = if (isUnlocked)
                                 MaterialTheme.colorScheme.onPrimaryContainer.copy(alpha = 0.3f)
                             else
                                 MaterialTheme.colorScheme.surfaceVariant,
@@ -1187,7 +1574,7 @@ fun TrophyCell(
                         )
                     ) {
                         Text(
-                            if (!achievement.isUnlocked) "Locked"
+                            if (!isUnlocked) "Locked"
                             else if (canPlace) "Place"
                             else "Full",
                             style = MaterialTheme.typography.labelSmall
@@ -1196,30 +1583,6 @@ fun TrophyCell(
                 }
             }
         }
-
-        SizeBadge(
-            size = achievement.size,
-            modifier = Modifier.align(Alignment.TopEnd).padding(4.dp)
-        )
-    }
-}
-
-// I plan to replace this function later after I make some custom icons -Cody
-@Composable
-fun SizeBadge(size: AchievementSize, modifier: Modifier = Modifier) {
-    var description = "Small"
-    if (size == AchievementSize.Medium) {
-        description = "Medium"
-    } else if (size == AchievementSize.Large) {
-        description = "Large"
-    }
-
-    Column(modifier = modifier, horizontalAlignment = Alignment.CenterHorizontally) {
-        Text(
-            text = description.take(1),
-            modifier = Modifier.padding(2.dp).padding(end = 2.dp),
-            style = MaterialTheme.typography.labelSmall
-        )
     }
 }
 
@@ -1253,8 +1616,7 @@ fun EditToolButton(
                 painterResource(icon),
                 contentDescription = label,
                 modifier = Modifier.size(20.dp),
-                tint = if (isActive) MaterialTheme.colorScheme.primary
-                else MaterialTheme.colorScheme.onSurface
+                tint = MaterialTheme.colorScheme.onSurface
             )
             Text(
                 label,
@@ -1282,11 +1644,12 @@ fun FloatingPanel(
         shape = RoundedCornerShape(16.dp),
         colors = CardDefaults.cardColors(
             containerColor = if (isActive)
-                MaterialTheme.colorScheme.primaryContainer
+                MaterialTheme.colorScheme.primaryContainer.copy(alpha = 0.92f)
             else
                 MaterialTheme.colorScheme.surface.copy(alpha = 0.92f)
         ),
-        elevation = CardDefaults.cardElevation(defaultElevation = 6.dp)
+        // Causes a weird box underneath the buttons when they're translucent
+        //elevation = CardDefaults.cardElevation(defaultElevation = 6.dp)
     ) {
         Column(
             modifier = Modifier
@@ -1298,10 +1661,7 @@ fun FloatingPanel(
             Icon(
                 painterResource(icon),
                 contentDescription = label,
-                tint = if (isActive)
-                    MaterialTheme.colorScheme.primary
-                else
-                    MaterialTheme.colorScheme.onSurface
+                tint = MaterialTheme.colorScheme.onSurface
             )
             Spacer(modifier = Modifier.height(4.dp))
             Text(label, style = MaterialTheme.typography.labelSmall)
@@ -1362,7 +1722,7 @@ fun ExchangePanel(onClick: () -> Unit = {}, points: Int, roomMode: RoomMode) {
 }
 
 @Composable
-fun NameHeader(mode: RoomMode, state: RoomState, onNameChange: (String) -> Unit) {
+fun NameHeader(mode: RoomMode, state: RoomState, viewModel: RoomViewModel) {
     var textValue by remember(state.displayName) { mutableStateOf(state.displayName) }
 
     Card(
@@ -1377,7 +1737,7 @@ fun NameHeader(mode: RoomMode, state: RoomState, onNameChange: (String) -> Unit)
                 TextField(
                     value = textValue,
                     onValueChange = {textValue = it
-                        onNameChange(it)},
+                        viewModel.updateDisplayName(it)},
                     singleLine = true,
                     textStyle = MaterialTheme.typography.titleMedium.copy(
                         fontWeight = FontWeight.SemiBold
@@ -1412,25 +1772,6 @@ fun NameHeader(mode: RoomMode, state: RoomState, onNameChange: (String) -> Unit)
     }
 }
 
-fun defaultShelfSlots() = listOf(
-    // Top area: 2 medium
-    ShelfSlot("top_large", ShelfSection.TopRow, listOf(AchievementSize.Large), "walk_600"),
-    ShelfSlot("top_med_1", ShelfSection.TopRow, listOf(AchievementSize.Medium)),
-    ShelfSlot("top_med_2", ShelfSection.TopRow, listOf(AchievementSize.Medium)),
-    // First row: 3 small
-    ShelfSlot("mid1_1", ShelfSection.MidRow1, listOf(AchievementSize.Small), "walk_60"),
-    ShelfSlot("mid1_2", ShelfSection.MidRow1, listOf(AchievementSize.Small)),
-    ShelfSlot("mid1_3", ShelfSection.MidRow1, listOf(AchievementSize.Small)),
-    // Second row: 3 small
-    ShelfSlot("mid2_1", ShelfSection.MidRow2, listOf(AchievementSize.Small)),
-    ShelfSlot("mid2_2", ShelfSection.MidRow2, listOf(AchievementSize.Small)),
-    ShelfSlot("mid2_3", ShelfSection.MidRow2, listOf(AchievementSize.Small), "streak_7"),
-    // Bottom area: 2 medium
-    ShelfSlot("bot_large", ShelfSection.BottomRow, listOf(AchievementSize.Large)),
-    ShelfSlot("bot_med_1", ShelfSection.BottomRow, listOf(AchievementSize.Medium)),
-    ShelfSlot("bot_med_2", ShelfSection.BottomRow, listOf(AchievementSize.Medium)),
-)
-
 @Preview
 @Composable
 fun RoomLayoutPreview(){
@@ -1441,5 +1782,5 @@ fun RoomLayoutPreview(){
     woodTop = Color(0xFFA0714F),
     woodSide = Color(0xFF6B4226),
     woodDark = Color(0xFF4E2E14))
-    DefaultRoomCanvas(theme, shelfSlots = defaultShelfSlots(), woodTheme = woodTheme)
+    //DefaultRoomCanvas(theme, shelfSlots = defaultShelfSlots(), woodTheme = woodTheme)
 }

@@ -1,8 +1,10 @@
 package com.example.uptime
 
+import android.R.attr.onClick
 import androidx.compose.animation.core.animateFloatAsState
 import androidx.compose.animation.core.tween
 import androidx.compose.foundation.Canvas
+import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
@@ -82,12 +84,15 @@ fun walkingColor(done: Int, goal: Int): Color {
 @Composable
 fun DashboardScreen(
     viewModel: DashboardViewModel = viewModel(),
-    onNavigateToStreak: () -> Unit = {}
+    onNavigateToStreak: () -> Unit,
+    onNavigateToWalkingProgress: () -> Unit
 ) {
     // collect live data from Room via ViewModel
     val log by viewModel.todayLog.collectAsState(initial = null)
-    val streak by viewModel.currentStreak.collectAsState()
-    val best by viewModel.bestStreak.collectAsState()
+    val stats by viewModel.userStats.collectAsState()
+
+    val streak = stats.currentStreak
+    val best = stats.bestStreak
 
     // build UI state from database
     val state = DashboardState(
@@ -98,74 +103,77 @@ fun DashboardScreen(
         currentStreak = streak,
         bestStreak = best
     )
-        Column(
-            modifier = Modifier
-                .fillMaxSize()
-                .padding(horizontal = 20.dp)
-                .verticalScroll(rememberScrollState()),
-            horizontalAlignment = Alignment.CenterHorizontally
-        ) {
-            Spacer(modifier = Modifier.height(8.dp))
 
-            //Streak Banner
-            StreakCard(
-                currentStreak = state.currentStreak,
-                bestStreak = state.bestStreak,
-                bothGoalsMet = state.screenTimeUsed <= state.screenTimeGoal
-                        && state.walkingDone >= state.walkingGoal,
-                onClick = onNavigateToStreak
+    Column(
+        modifier = Modifier
+            .fillMaxSize()
+            .padding(horizontal = 20.dp)
+            .verticalScroll(rememberScrollState()),
+        horizontalAlignment = Alignment.CenterHorizontally
+    ) {
+        Spacer(modifier = Modifier.height(8.dp))
+
+        //Streak Banner
+        StreakCard(
+            currentStreak = state.currentStreak,
+            bestStreak = state.bestStreak,
+            bothGoalsMet = state.screenTimeUsed <= state.screenTimeGoal
+                    && state.walkingDone >= state.walkingGoal,
+            onClick = onNavigateToStreak
+        )
+
+        Spacer(modifier = Modifier.height(24.dp))
+
+        // Progress Rings
+        Row(
+            modifier = Modifier.fillMaxWidth(),
+            horizontalArrangement = Arrangement.SpaceEvenly
+        ) {
+            // Screen time (lower is better)
+            val screenFraction = state.screenTimeUsed.toFloat() / state.screenTimeGoal
+            val screenOver = state.screenTimeUsed > state.screenTimeGoal
+
+            ProgressRing(
+                label = "Screen Time",
+                value = "${state.screenTimeUsed}",
+                unit = "min",
+                subtitle = "${state.screenTimeGoal - state.screenTimeUsed} min left",
+                progress = screenFraction.coerceIn(0f, 1f),
+                ringColor = if (!screenOver) screenTimeColor(state.screenTimeUsed, state.screenTimeGoal) else Coral40,
+                trackColor = MaterialTheme.colorScheme.surfaceVariant,
+                onClick = {}
             )
 
-            Spacer(modifier = Modifier.height(24.dp))
+            // Walking (higher is better)
+            val walkFraction = state.walkingDone.toFloat() / state.walkingGoal
+            val walkMet = state.walkingDone >= state.walkingGoal
 
-            // Progress Rings
-            Row(
-                modifier = Modifier.fillMaxWidth(),
-                horizontalArrangement = Arrangement.SpaceEvenly
-            ) {
-                // Screen time (lower is better)
-                val screenFraction = state.screenTimeUsed.toFloat() / state.screenTimeGoal
-                val screenOver = state.screenTimeUsed > state.screenTimeGoal
-
-                ProgressRing(
-                    label = "Screen Time",
-                    value = "${state.screenTimeUsed}",
-                    unit = "min",
-                    subtitle = "${state.screenTimeGoal - state.screenTimeUsed} min left",
-                    progress = screenFraction.coerceIn(0f, 1f),
-                    ringColor = if (!screenOver) screenTimeColor(state.screenTimeUsed, state.screenTimeGoal) else Coral40,
-                    trackColor = MaterialTheme.colorScheme.surfaceVariant
-                )
-
-                // Walking (higher is better)
-                val walkFraction = state.walkingDone.toFloat() / state.walkingGoal
-                val walkMet = state.walkingDone >= state.walkingGoal
-
-                ProgressRing(
-                    label = "Walking",
-                    value = "${state.walkingDone}",
-                    unit = "min",
-                    subtitle = if (walkMet) "Goal reached!"
-                    else "${state.walkingGoal - state.walkingDone} min to go",
-                    progress = walkFraction.coerceIn(0f, 1f),
-                    ringColor = walkingColor(state.walkingDone, state.walkingGoal),
-                    trackColor = MaterialTheme.colorScheme.surfaceVariant
-                )
-            }
-
-            Spacer(modifier = Modifier.height(28.dp))
-
-            // daily status
-            DailyStatusCard(state)
-
-            Spacer(modifier = Modifier.height(16.dp))
-
-            //Today's goals checklist
-            GoalsCard(state)
-
-            Spacer(modifier = Modifier.height(24.dp))
+            ProgressRing(
+                label = "Walking",
+                value = "${state.walkingDone}",
+                unit = "min",
+                subtitle = if (walkMet) "Goal reached!"
+                else "${state.walkingGoal - state.walkingDone} min to go",
+                progress = walkFraction.coerceIn(0f, 1f),
+                ringColor = walkingColor(state.walkingDone, state.walkingGoal),
+                trackColor = MaterialTheme.colorScheme.surfaceVariant,
+                onClick = onNavigateToWalkingProgress
+            )
         }
+
+        Spacer(modifier = Modifier.height(28.dp))
+
+        // daily status
+        DailyStatusCard(state, onNavigateToWalkingProgress, {})
+
+        Spacer(modifier = Modifier.height(16.dp))
+
+        //Today's goals checklist
+        GoalsCard(state)
+
+        Spacer(modifier = Modifier.height(24.dp))
     }
+}
 
 // ── Streak Card ──
 
@@ -240,6 +248,7 @@ fun ProgressRing(
     progress: Float,
     ringColor: Color,
     trackColor: Color,
+    onClick: () -> Unit,
     modifier: Modifier = Modifier
 ) {
     // Animate the arc on first appearance
@@ -255,7 +264,8 @@ fun ProgressRing(
 
     Column(
         horizontalAlignment = Alignment.CenterHorizontally,
-        modifier = modifier
+        modifier = modifier.clickable(onClick = onClick)
+
     ) {
         Text(
             text = label,
@@ -327,7 +337,7 @@ fun ProgressRing(
 //Daily Status Card
 
 @Composable
-fun DailyStatusCard(state: DashboardState) {
+fun DailyStatusCard(state: DashboardState, onClickWalking: () -> Unit, onClickScreenTime: () -> Unit) {
     Card(
         modifier = Modifier.fillMaxWidth(),
         shape = RoundedCornerShape(16.dp),
@@ -350,6 +360,7 @@ fun DailyStatusCard(state: DashboardState) {
                 current = state.screenTimeUsed,
                 goal = state.screenTimeGoal,
                 unit = "min",
+                onClick = onClickScreenTime,
                 isInverted = true  // lower is better
             )
 
@@ -361,6 +372,7 @@ fun DailyStatusCard(state: DashboardState) {
                 current = state.walkingDone,
                 goal = state.walkingGoal,
                 unit = "min",
+                onClick = onClickWalking,
                 isInverted = false  // higher is better
             )
         }
@@ -373,6 +385,7 @@ fun ProgressRow(
     current: Int,
     goal: Int,
     unit: String,
+    onClick: () -> Unit,
     isInverted: Boolean
 ) {
     val fraction = (current.toFloat() / goal).coerceIn(0f, 1f)
@@ -383,7 +396,7 @@ fun ProgressRow(
         else -> MaterialTheme.colorScheme.secondary
     }
 
-    Column {
+    Column(modifier = Modifier.clickable(onClick=onClick)) {
         Row(
             modifier = Modifier.fillMaxWidth(),
             horizontalArrangement = Arrangement.SpaceBetween
