@@ -409,18 +409,24 @@ fun RoomScaffold(state: RoomState, activeRoomTheme: RoomTheme, activeWoodTheme: 
 
     NameHeader(mode, state, viewModel)
 
-    ForDemo(viewModel)
+    ForDemo(viewModel, mode)
 }
 
 @Composable
-fun ForDemo(viewModel: RoomViewModel) {
-    Button(onClick = {viewModel.updatePoints(50)}, modifier = Modifier.padding(top = 475.dp, start = 12.dp), colors = ButtonColors(
-        MaterialTheme.colorScheme.onPrimaryContainer.copy(alpha = 0.8f),
-        contentColor = MaterialTheme.colorScheme.primaryContainer,
-        disabledContainerColor = MaterialTheme.colorScheme.onPrimaryContainer.copy(alpha = 0.6f),
-        disabledContentColor = MaterialTheme.colorScheme.onPrimaryContainer.copy(alpha = 0.6f)
-    )) {
-        Text("Give 50 pts")
+fun ForDemo(viewModel: RoomViewModel, roomMode: RoomMode) {
+    if (roomMode == RoomMode.View) {
+        Button(
+            onClick = { viewModel.updatePoints(50) },
+            modifier = Modifier.padding(top = 450.dp, start = 12.dp),
+            colors = ButtonColors(
+                MaterialTheme.colorScheme.onPrimaryContainer.copy(alpha = 0.8f),
+                contentColor = MaterialTheme.colorScheme.primaryContainer,
+                disabledContainerColor = MaterialTheme.colorScheme.onPrimaryContainer.copy(alpha = 0.6f),
+                disabledContentColor = MaterialTheme.colorScheme.onPrimaryContainer.copy(alpha = 0.6f)
+            )
+        ) {
+            Text("For demo: + 50 pts", style = MaterialTheme.typography.labelSmall)
+        }
     }
 }
 
@@ -2013,7 +2019,7 @@ fun FloatingPanel(
                 MaterialTheme.colorScheme.surface.copy(alpha = 0.92f)
         ),
         // Causes a weird box underneath the buttons when they're translucent
-        //elevation = CardDefaults.cardElevation(defaultElevation = 6.dp)
+        elevation = CardDefaults.cardElevation(defaultElevation = 6.dp)
     ) {
         Column(
             modifier = Modifier
