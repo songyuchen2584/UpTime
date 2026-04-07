@@ -94,6 +94,7 @@ fun DashboardScreen(
 
     val streak = stats.currentStreak
     val best = stats.bestStreak
+    val quote by viewModel.quote.collectAsState()
 
     // build UI state from database
     val state = DashboardState(
@@ -171,6 +172,13 @@ fun DashboardScreen(
 
         //Today's goals checklist
         GoalsCard(state)
+
+        Spacer(modifier = Modifier.height(16.dp))
+
+        // daily motivational quote from API
+        quote?.let {
+            QuoteCard(it)
+        }
 
         Spacer(modifier = Modifier.height(24.dp))
     }
@@ -504,3 +512,32 @@ fun GoalRow(icon: String, text: String, isDone: Boolean) {
     }
 }
 
+
+@Composable
+fun QuoteCard(quote: Quote) {
+    Card(
+        modifier = Modifier.fillMaxWidth(),
+        shape = RoundedCornerShape(16.dp),
+        colors = CardDefaults.cardColors(
+            containerColor = MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.5f)
+        )
+    ) {
+        Column(modifier = Modifier.padding(20.dp)) {
+            Text(
+                text = "\"${quote.text}\"",
+                style = MaterialTheme.typography.bodyMedium,
+                fontStyle = androidx.compose.ui.text.font.FontStyle.Italic,
+                color = MaterialTheme.colorScheme.onSurface
+            )
+            Spacer(modifier = Modifier.height(8.dp))
+            Text(
+                text = "— ${quote.author}",
+                style = MaterialTheme.typography.bodySmall,
+                fontWeight = FontWeight.Medium,
+                color = MaterialTheme.colorScheme.onSurfaceVariant,
+                modifier = Modifier.fillMaxWidth(),
+                textAlign = TextAlign.End
+            )
+        }
+    }
+}

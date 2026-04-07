@@ -29,10 +29,26 @@ class DashboardViewModel(application: Application) : AndroidViewModel(applicatio
             UserStatsRepository.UserStats()
         )
 
+    // daily motivational quote from API
+    private val _quote = MutableStateFlow<Quote?>(null)
+    val quote: StateFlow<Quote?> = _quote
+
     init {
         viewModelScope.launch {
             if (dao.getLogForDate(todayString()) == null) {
                 dao.upsertLog(DailyLog(date = todayString()))
+            }
+        }
+        fetchQuote()
+    }
+
+    private fun fetchQuote() {
+        viewModelScope.launch {
+            try {
+                val result = QuoteApi.service.getRandomQuote()
+                _quote.value = result.firstOrNull()
+            } catch (_: Exception) {
+                // no quote if offline
             }
         }
     }

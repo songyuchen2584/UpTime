@@ -65,6 +65,10 @@ dependencies {
     ksp(libs.androidx.room.compiler)
     implementation(libs.gson)
 
+    // Retrofit (API calls)
+    implementation(libs.retrofit)
+    implementation(libs.retrofit.converter.gson)
+
     // ViewModel for Compose
     implementation(libs.androidx.lifecycle.viewmodel.compose)
     testImplementation(libs.junit)
