@@ -23,4 +23,7 @@ interface DailyLogDao {
 
     @Query("SELECT * FROM daily_logs ORDER BY date DESC")
     fun observeAllLogs(): Flow<List<DailyLog>>
+
+    @Query("SELECT * FROM daily_logs")
+    suspend fun getAllLogs(): List<DailyLog>
 }

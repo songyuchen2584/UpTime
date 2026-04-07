@@ -2,6 +2,7 @@ plugins {
     alias(libs.plugins.android.application)
     alias(libs.plugins.kotlin.compose)
     alias(libs.plugins.ksp)
+    kotlin("plugin.serialization")
 }
 
 android {
@@ -50,11 +51,19 @@ dependencies {
     implementation(libs.androidx.material3.window.size.class1)
     implementation(libs.androidx.compose.adaptive)
     implementation(libs.androidx.appcompat)
+    implementation(libs.androidx.navigation.compose)
+    implementation(libs.androidx.compose.runtime.saveable)
+    implementation(libs.androidx.compose.foundation)
+    implementation(libs.androidx.navigation3.runtime)
+    implementation(libs.androidx.navigation3.ui)
+    implementation(libs.kotlinx.serialization.json)
 
     // Room (database)
     implementation(libs.androidx.room.runtime)
     implementation(libs.androidx.room.ktx)
+    implementation(libs.androidx.compose.animation)
     ksp(libs.androidx.room.compiler)
+    implementation(libs.gson)
 
     // ViewModel for Compose
     implementation(libs.androidx.lifecycle.viewmodel.compose)
