@@ -150,7 +150,7 @@ fun AppScaffold(roomViewModel: RoomViewModel, dashboardViewModel: DashboardViewM
                                 onNavigateToScreenTime = { backStack.add(NavDestination.ScreenTime) },
                                 viewModel = dashboardViewModel
                             )
-                            NavDestination.Streak -> StreakScreen()
+                            NavDestination.Streak -> StreakScreen(viewModel = dashboardViewModel)
                             NavDestination.Room -> RoomScreen(viewModel = roomViewModel)
                             NavDestination.Walking -> WalkingRoute()
                             NavDestination.ScreenTime -> ScreenTimeRoute(
