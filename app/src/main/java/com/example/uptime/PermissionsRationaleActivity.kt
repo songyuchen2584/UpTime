@@ -27,9 +27,9 @@ class PermissionsRationaleActivity : ComponentActivity() {
                         )
                         Spacer(Modifier.height(12.dp))
                         Text(
-                            "UpTime can read step data from Health Connect and the device step sensor. " +
-                                    "For walking minutes, the app uses Health Connect walking sessions and/or device-detected walking sessions, " +
-                                    "then merges overlaps so the same walk is not counted twice."
+                            "UpTime reads step data from Health Connect and optionally from the device step sensor. " +
+                                    "For walking minutes, the app uses Health Connect walking sessions and/or " +
+                                    "device-detected walking sessions, then merges overlaps so the same walk is not counted twice."
                         )
                     }
                 }

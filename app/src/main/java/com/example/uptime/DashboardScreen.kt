@@ -85,7 +85,8 @@ fun walkingColor(done: Int, goal: Int): Color {
 fun DashboardScreen(
     viewModel: DashboardViewModel = viewModel(),
     onNavigateToStreak: () -> Unit,
-    onNavigateToWalkingProgress: () -> Unit
+    onNavigateToWalkingProgress: () -> Unit,
+    onNavigateToScreenTime: () -> Unit
 ) {
     // collect live data from Room via ViewModel
     val log by viewModel.todayLog.collectAsState(initial = null)
@@ -141,7 +142,7 @@ fun DashboardScreen(
                 progress = screenFraction.coerceIn(0f, 1f),
                 ringColor = if (!screenOver) screenTimeColor(state.screenTimeUsed, state.screenTimeGoal) else Coral40,
                 trackColor = MaterialTheme.colorScheme.surfaceVariant,
-                onClick = {}
+                onClick = onNavigateToScreenTime
             )
 
             // Walking (higher is better)

@@ -42,6 +42,7 @@ import androidx.navigation3.ui.NavDisplay
 import androidx.window.core.layout.WindowSizeClass
 import com.example.uptime.room.RoomScreen
 import com.example.uptime.room.RoomViewModel
+import com.example.uptime.screentime.ScreenTimeRoute
 import com.example.uptime.ui.theme.UpTimeTheme
 import com.example.uptime.walking.WalkingRoute
 import kotlinx.coroutines.launch
@@ -146,11 +147,15 @@ fun AppScaffold(roomViewModel: RoomViewModel, dashboardViewModel: DashboardViewM
                             NavDestination.Dashboard -> DashboardScreen(
                                 onNavigateToStreak = { backStack.add(NavDestination.Streak) },
                                 onNavigateToWalkingProgress = { backStack.add(NavDestination.Walking) },
+                                onNavigateToScreenTime = { backStack.add(NavDestination.ScreenTime) },
                                 viewModel = dashboardViewModel
                             )
                             NavDestination.Streak -> StreakScreen()
                             NavDestination.Room -> RoomScreen(viewModel = roomViewModel)
                             NavDestination.Walking -> WalkingRoute()
+                            NavDestination.ScreenTime -> ScreenTimeRoute(
+                                updateScreenTime = dashboardViewModel::updateScreenTime
+                            )
                             NavDestination.Settings -> SettingsScreen()
                         }
                     }
