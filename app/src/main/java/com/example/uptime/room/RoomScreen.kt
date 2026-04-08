@@ -84,6 +84,7 @@ import androidx.compose.ui.zIndex
 import androidx.lifecycle.viewmodel.compose.viewModel
 import com.example.uptime.R
 import com.example.uptime.room.catalogs.AchievementCatalog
+import com.example.uptime.room.catalogs.MetalThemeCatalog
 import com.example.uptime.room.catalogs.RoomItemCatalog
 import com.example.uptime.room.catalogs.RoomLayoutCatalog
 import com.example.uptime.room.catalogs.RoomThemeCatalog
@@ -122,8 +123,35 @@ data class Achievement(
     val id: String,
     val title: String,
     val description: String,
-    val icon: Int, // Unused for now, may delete later
+    val tier: AchievementTier = AchievementTier.Bronze,
+    val category: AchievementCategory = AchievementCategory.Streak,
     val size: AchievementSize = AchievementSize.Small
+)
+
+enum class AchievementTier {
+    Bronze,
+    Silver,
+    Gold,
+    Diamond
+}
+
+enum class AchievementCategory {
+    Streak,
+    WalkingTime,
+    ScreenTime,
+    Special,
+    Secret
+}
+
+data class MetalTheme(
+    val base: Color = Color(0xFFFFB300),
+    val dark: Color = Color(0xFFE78318),
+    val highlight: Color = Color(0xFFF8E8C9)
+)
+
+data class MetalThemeOption(
+    val tier: AchievementTier,
+    val theme: MetalTheme
 )
 
 data class RoomState(
@@ -176,13 +204,13 @@ fun RoomScreen(viewModel: RoomViewModel = viewModel()) {
 
     val roomState = state!!
 
-    val activeRoomTheme = RoomThemeCatalog.allRoomThemes
+    val activeRoomTheme = RoomThemeCatalog.all
         .find { it.id == roomState.selectedRoomThemeId }?.theme ?: RoomTheme()
 
-    val activeWoodTheme = WoodThemeCatalog.allWoodThemes
+    val activeWoodTheme = WoodThemeCatalog.all
         .find { it.id == roomState.selectedWoodThemeId }?.theme ?: WoodTheme()
 
-    val trophyCaseId = RoomLayoutCatalog.allRoomLayouts
+    val trophyCaseId = RoomLayoutCatalog.all
         .find { it.id == roomState.selectedRoomLayoutId }?.trophyCaseId ?: "default"
 
     var roomMode by rememberSaveable { mutableStateOf(RoomMode.View) }
@@ -190,7 +218,7 @@ fun RoomScreen(viewModel: RoomViewModel = viewModel()) {
     var showRoomThemePicker by rememberSaveable { mutableStateOf(false) }
     var showWoodThemePicker by rememberSaveable { mutableStateOf(false) }
 
-    val activeTrophyCaseSlots = TrophyCaseCatalog.allTrophyCases
+    val activeTrophyCaseSlots = TrophyCaseCatalog.all
         .find { it.id == trophyCaseId }?.shelfSlots ?: listOf(
         // Top area: 2 medium
         TrophyCaseCatalog.ShelfSlot(
@@ -317,7 +345,7 @@ fun RoomScreen(viewModel: RoomViewModel = viewModel()) {
             modifier = Modifier.align(Alignment.BottomCenter)
         ) {
             RoomThemePickerRow(
-                allRoomThemes = RoomThemeCatalog.allRoomThemes,
+                allRoomThemes = RoomThemeCatalog.all,
                 unlockedRoomThemeIds = roomState.unlockedRoomThemeIds,
                 modifier = Modifier
                     .padding(bottom = 96.dp),
@@ -335,7 +363,7 @@ fun RoomScreen(viewModel: RoomViewModel = viewModel()) {
             modifier = Modifier.align(Alignment.BottomCenter)
         ) {
             WoodThemePickerRow(
-                allWoodThemes = WoodThemeCatalog.allWoodThemes,
+                allWoodThemes = WoodThemeCatalog.all,
                 unlockedWoodThemeIds = roomState.unlockedWoodThemeIds,
                 modifier = Modifier
                     .padding(bottom = 96.dp),
@@ -355,7 +383,7 @@ fun RoomScreen(viewModel: RoomViewModel = viewModel()) {
     ) {
         when (activePanel) {
             RoomPanel.Achievements -> AchievementsDisplay(
-                allAchievements = AchievementCatalog.allAchievements,
+                allAchievements = AchievementCatalog.all,
                 unlockedAchievementIds = roomState.unlockedAchievementIds,
                 placedAchievements = roomState.placedAchievements,
                 viewModel = viewModel,
@@ -577,7 +605,9 @@ fun WoodThemeCard(
         modifier = Modifier.width(80.dp)
     ) {
         Column(
-            modifier = Modifier.padding(8.dp).fillMaxWidth(),
+            modifier = Modifier
+                .padding(8.dp)
+                .fillMaxWidth(),
             horizontalAlignment = Alignment.CenterHorizontally,
             verticalArrangement = Arrangement.spacedBy(6.dp)
         ) {
@@ -968,18 +998,30 @@ private fun DrawScope.drawSectionTrophies(
         val medSlots  = filledSlots.filter { it.acceptedSizes.contains(AchievementSize.Medium) }
 
         if (largeSlot != null && placedAchievements[largeSlot.id] != null) {
+            // find trophy theme by extracting its id and finding in all trophies
+            val trophyID = placedAchievements[largeSlot.id]
+            val achievement = AchievementCatalog.all.find { it.id == trophyID }
+            val metalTheme = MetalThemeCatalog.all.find { it.tier == achievement?.tier }!!.theme
+            val category = achievement!!.category
             // Single large trophy centered
             drawTrophyModel(
                 x = innerLeft + innerWidth / 2f,
                 floorY = shelfFloorY,
-                size = AchievementSize.Large
+                size = AchievementSize.Large,
+                metalTheme = metalTheme,
+                category = category
             )
         } else {
             // Up to 2 medium trophies
             medSlots.forEachIndexed { i, slot ->
                 if (placedAchievements[slot.id]  != null) {
+                    // find trophy theme by extracting its id and finding in all trophies
+                    val trophyID = placedAchievements[slot.id]
+                    val achievement = AchievementCatalog.all.find { it.id == trophyID }
+                    val metalTheme = MetalThemeCatalog.all.find { it.tier == achievement?.tier }!!.theme
+                    val category = achievement!!.category
                     val x = innerLeft + innerWidth * (if (i == 0) 0.3f else 0.7f)
-                    drawTrophyModel(x = x, floorY = shelfFloorY, size = AchievementSize.Medium)
+                    drawTrophyModel(x = x, floorY = shelfFloorY, size = AchievementSize.Medium, metalTheme = metalTheme, category = category)
                 }
             }
         }
@@ -989,22 +1031,27 @@ private fun DrawScope.drawSectionTrophies(
         val spacing = ((innerWidth) * 1.2f) / (slots.size + 1)
         slots.forEachIndexed { i, slot ->
             if (placedAchievements[slot.id] != null) {
+                // find trophy theme by extracting its id and finding in all trophies
+                val trophyID = placedAchievements[slot.id]
+                val achievement = AchievementCatalog.all.find { it.id == trophyID }
+                val metalTheme = MetalThemeCatalog.all.find { it.tier == achievement?.tier }!!.theme
+                val category = achievement!!.category
                 val x = newInnerLeft + spacing * (i + 1)
-                drawTrophyModel(x = x, floorY = shelfFloorY, size = AchievementSize.Small)
+                drawTrophyModel(x = x, floorY = shelfFloorY, size = AchievementSize.Small, metalTheme = metalTheme, category = category)
             }
         }
     }
 }
 
-private fun DrawScope.drawTrophyModel(x: Float, floorY: Float, size: AchievementSize) {
+private fun DrawScope.drawTrophyModel(x: Float, floorY: Float, size: AchievementSize, metalTheme: MetalTheme, category: AchievementCategory) {
     when (size) {
-        AchievementSize.Small -> drawMedalModel(x, floorY)
-        AchievementSize.Medium -> drawCupModel(x, floorY)
-        AchievementSize.Large -> drawGrandTrophyModel(x, floorY)
+        AchievementSize.Small -> drawMedalModel(x, floorY, metalTheme, category)
+        AchievementSize.Medium -> drawCupModel(x, floorY, metalTheme, category)
+        AchievementSize.Large -> drawGrandTrophyModel(x, floorY, metalTheme, category)
     }
 }
 
-private fun DrawScope.drawCupModel(x: Float, floorY: Float) {
+private fun DrawScope.drawCupModel(x: Float, floorY: Float, metalTheme: MetalTheme, category: AchievementCategory) {
     val scale = 3f
     val cupW = 28f * scale
     val cupH = 24f * scale
@@ -1012,8 +1059,9 @@ private fun DrawScope.drawCupModel(x: Float, floorY: Float) {
     val stemW = 6f  * scale
     val baseW = 22f * scale
     val baseH = 5f  * scale
-    val goldColor = Color(0xFFFFB300)
-    val goldDark = Color(0xFFE78318)
+    val baseColor = metalTheme.base
+    val darkColor = metalTheme.dark
+    val highlightColor = metalTheme.highlight
 
     // Shadow on shelf
     drawOval(
@@ -1023,14 +1071,14 @@ private fun DrawScope.drawCupModel(x: Float, floorY: Float) {
     )
     // Base
     drawRoundRect(
-        color = goldColor.copy(alpha = 0.85f),
+        color = baseColor.copy(alpha = 0.85f),
         topLeft = Offset(x - baseW / 2, floorY - baseH),
         size = Size(baseW, baseH),
         cornerRadius = CornerRadius(2f)
     )
     // Stem
     drawRect(
-        color = goldColor.copy(alpha = 0.9f),
+        color = baseColor.copy(alpha = 0.9f),
         topLeft = Offset(x - stemW / 2, floorY - baseH - stemH),
         size = Size(stemW, stemH)
     )
@@ -1056,7 +1104,7 @@ private fun DrawScope.drawCupModel(x: Float, floorY: Float) {
         )
         close()
     }
-    drawPath(cupPath, color = goldColor)
+    drawPath(cupPath, color = baseColor)
 
     val sideFacePath = Path().apply {
         moveTo(x + cupW * 0.4f, cupTop)
@@ -1072,7 +1120,7 @@ private fun DrawScope.drawCupModel(x: Float, floorY: Float) {
         )
         close()
     }
-    drawPath(sideFacePath, color = goldDark)
+    drawPath(sideFacePath, color = darkColor)
 
     // Cup highlight
     val highlightPath = Path().apply {
@@ -1082,10 +1130,10 @@ private fun DrawScope.drawCupModel(x: Float, floorY: Float) {
         lineTo(x - cupW * 0.35f, cupTop + cupH * 0.5f)
         close()
     }
-    drawPath(highlightPath, color = Color.White.copy(alpha = 0.25f))
+    drawPath(highlightPath, color = highlightColor.copy(alpha = 0.35f))
     // Handles
     drawArc(
-        color = goldColor.copy(alpha = 0.85f),
+        color = baseColor.copy(alpha = 0.85f),
         topLeft = Offset(x + cupW * 0.35f, cupTop + cupH * 0.1f),
         size = Size(cupW * 0.3f, cupH * 0.6f),
         startAngle = -135f, sweepAngle = 270f,
@@ -1093,7 +1141,7 @@ private fun DrawScope.drawCupModel(x: Float, floorY: Float) {
         style = Stroke(width = 3f * scale)
     )
     drawArc(
-        color = goldColor.copy(alpha = 0.85f),
+        color = baseColor.copy(alpha = 0.85f),
         topLeft = Offset(x - cupW * 0.65f, cupTop + cupH * 0.1f),
         size = Size(cupW * 0.3f, cupH * 0.6f),
         startAngle = 45f, sweepAngle = 270f,
@@ -1102,13 +1150,14 @@ private fun DrawScope.drawCupModel(x: Float, floorY: Float) {
     )
 }
 
-private fun DrawScope.drawMedalModel(x: Float, floorY: Float) {
+private fun DrawScope.drawMedalModel(x: Float, floorY: Float, metalTheme: MetalTheme, category: AchievementCategory) {
     val scale = 2f
     val medalR = 12f * scale
     val ribbonW = 16f * scale
     val ribbonH = 12f * scale
-    val goldColor = Color(0xFFFFB300)
-    val goldDark = Color(0xFFE78318)
+    val baseColor = metalTheme.base
+    val darkColor = metalTheme.dark
+    val highlightColor = metalTheme.highlight
     val ribbonColor = Color(0xFF1565C0)
     val ribbonColorDark = Color(0xFF0F519B)
     val medalThickness = medalR * 0.15f
@@ -1145,34 +1194,35 @@ private fun DrawScope.drawMedalModel(x: Float, floorY: Float) {
 
     // Medal circle
     drawCircle(
-        color = goldDark,
+        color = darkColor,
         radius = medalR,
         center = Offset(x + medalThickness, floorY - medalR)
     )
     drawCircle(
-        color = goldColor,
+        color = baseColor,
         radius = medalR,
         center = Offset(x, floorY - medalR)
     )
     // Medal inner ring
     drawCircle(
-        color = Color.White.copy(alpha = 0.3f),
+        color = highlightColor.copy(alpha = 0.5f),
         radius = medalR * 0.65f,
         center = Offset(x, floorY - medalR),
         style = Stroke(width = 2f * scale)
     )
     // Medal highlight
     drawCircle(
-        color = Color.White.copy(alpha = 0.35f),
+        color = highlightColor.copy(alpha = 0.55f),
         radius = medalR * 0.4f,
         center = Offset(x - medalR * 0.2f, floorY - medalR * 1.3f)
     )
 }
 
-private fun DrawScope.drawGrandTrophyModel(x: Float, floorY: Float) {
+private fun DrawScope.drawGrandTrophyModel(x: Float, floorY: Float, metalTheme: MetalTheme, category: AchievementCategory) {
     val scale = 4.25f
-    val goldColor = Color(0xFFFFB300)
-    val goldDark = Color(0xFFE78318)
+    val baseColor = metalTheme.base
+    val darkColor = metalTheme.dark
+    val highlightColor = metalTheme.highlight
 
     // Base
     val base1W = 30f * scale
@@ -1185,11 +1235,11 @@ private fun DrawScope.drawGrandTrophyModel(x: Float, floorY: Float) {
         topLeft = Offset(x - base1W * 0.6f, floorY - 3f),
         size = Size(base1W * 1.2f, 8f))
 
-    drawRoundRect(color = goldDark,
+    drawRoundRect(color = darkColor,
         topLeft = Offset(x - base1W / 2, floorY - base1H),
         size = Size(base1W, base1H),
         cornerRadius = CornerRadius(3f))
-    drawRoundRect(color = goldColor.copy(alpha = 0.9f),
+    drawRoundRect(color = baseColor.copy(alpha = 0.9f),
         topLeft = Offset(x - base2W / 2, floorY - base1H - base2H),
         size = Size(base2W, base2H),
         cornerRadius = CornerRadius(2f))
@@ -1198,12 +1248,12 @@ private fun DrawScope.drawGrandTrophyModel(x: Float, floorY: Float) {
     val barW = 5f * scale
     val ballR = 5f * scale
     val barTop = floorY - base1H - base2H - barH
-    drawRect(color = goldColor.copy(alpha = 0.9f),
+    drawRect(color = baseColor.copy(alpha = 0.9f),
         topLeft = Offset(x - barW / 2, barTop),
         size = Size(barW, barH))
-    drawCircle(color = goldDark, radius = ballR,
+    drawCircle(color = darkColor, radius = ballR,
         center = Offset(x, barTop + barH * 0.5f))
-    drawCircle(color = goldColor, radius = ballR * 0.65f,
+    drawCircle(color = baseColor, radius = ballR * 0.65f,
         center = Offset(x, barTop + barH * 0.5f))
 
     val cupW = 32f * scale; val cupH = 28f * scale
@@ -1214,7 +1264,7 @@ private fun DrawScope.drawGrandTrophyModel(x: Float, floorY: Float) {
     val rightHandleCenterY = cupTop + cupH * 0.05f + cupH * 0.65f / 2
     rotate(degrees = 10f, pivot = Offset(rightHandleCenterX, rightHandleCenterY)) {
         drawArc(
-            color = goldDark,
+            color = darkColor,
             topLeft = Offset(x + cupW * 0.33f, cupTop + cupH * 0.05f),
             size = Size(cupW * 0.35f, cupH * 0.65f),
             startAngle = -135f, sweepAngle = 275f, useCenter = false,
@@ -1227,7 +1277,7 @@ private fun DrawScope.drawGrandTrophyModel(x: Float, floorY: Float) {
     val leftHandleCenterY = cupTop + cupH * 0.05f + cupH * 0.65f / 2
     rotate(degrees = -10f, pivot = Offset(leftHandleCenterX, leftHandleCenterY)) {
         drawArc(
-            color = goldDark,
+            color = darkColor,
             topLeft = Offset(x - cupW * 0.68f, cupTop + cupH * 0.05f),
             size = Size(cupW * 0.35f, cupH * 0.65f),
             startAngle = 40f, sweepAngle = 275f, useCenter = false,
@@ -1261,7 +1311,7 @@ private fun DrawScope.drawGrandTrophyModel(x: Float, floorY: Float) {
         )
         close()
     }
-    drawPath(cupPath, color = goldColor)
+    drawPath(cupPath, color = baseColor)
 
     // Depth
     val sidePath = Path().apply {
@@ -1287,25 +1337,25 @@ private fun DrawScope.drawGrandTrophyModel(x: Float, floorY: Float) {
         )
         close()
     }
-    drawPath(sidePath, color = goldDark.copy(alpha = 0.55f))
+    drawPath(sidePath, color = darkColor.copy(alpha = 0.55f))
 
     // Plate on front
     val plateW = cupW * 0.45f; val plateH = cupH * 0.3f
-    drawRoundRect(color = goldDark.copy(alpha = 0.6f),
+    drawRoundRect(color = darkColor.copy(alpha = 0.6f),
         topLeft = Offset(x - plateW / 2, cupTop + cupH * 0.6f),
         size = Size(plateW, plateH),
         cornerRadius = CornerRadius(4f))
 
     // Highlight
     drawOval(
-        color = Color.White.copy(alpha = 0.3f),
+        color = highlightColor.copy(alpha = 0.55f),
         topLeft = Offset(x - cupW * 0.36f, cupTop + 4f),
         size = Size(cupW * 0.45f, cupH * 0.2f)
         )
 
     // Rim Shading
     drawOval(
-        color = goldDark,
+        color = darkColor,
         topLeft = Offset(x - cupW * 0.25f, cupTop),
         size = Size(cupW * 0.5f, cupH * 0.1f)
     )
@@ -1417,7 +1467,7 @@ fun ExchangeDisplay(
                     modifier = Modifier.fillMaxSize()
                 ) {
                     items(
-                        RoomThemeCatalog.allRoomThemes
+                        RoomThemeCatalog.all
                             .filter { theme -> !unlockedRoomThemeIds.contains(theme.id)}
                             .sortedBy { it.pointCost }
                     ) { theme ->
@@ -1457,7 +1507,7 @@ fun ExchangeDisplay(
                     verticalArrangement = Arrangement.spacedBy(12.dp),
                     modifier = Modifier.fillMaxSize()
                 ) {
-                    items(WoodThemeCatalog.allWoodThemes
+                    items(WoodThemeCatalog.all
                         .filter { theme -> !unlockedWoodThemeIds.contains(theme.id)}
                         .sortedBy { it.pointCost }
                     ) { theme ->
@@ -1498,7 +1548,7 @@ fun ExchangeDisplay(
                     verticalArrangement = Arrangement.spacedBy(12.dp),
                     modifier = Modifier.fillMaxSize()
                 ) {
-                    items(RoomItemCatalog.allAvailableRoomItems
+                    items(RoomItemCatalog.all
                         .filter { item -> !unlockedRoomItemIds.contains(item.id)}
                         .sortedBy { it.pointCost }
                     ) { item ->
@@ -1826,7 +1876,7 @@ fun AchievementsDisplay(
                 verticalArrangement = Arrangement.spacedBy(12.dp),
                 modifier = Modifier.fillMaxSize()
             ) {
-                items(AchievementCatalog.allAchievements) { achievement ->
+                items(AchievementCatalog.all) { achievement ->
                     val isOnShelf = placedAchievements.containsValue(achievement.id)
                     val hasSpace = viewModel.hasShelfSpace(achievement)
                     val isUnlocked = achievement.id in unlockedAchievementIds
@@ -1873,7 +1923,7 @@ fun TrophyCell(
             ),
             modifier = Modifier
                 .fillMaxWidth()
-                .aspectRatio(0.625f)
+                .aspectRatio(0.615f)
         ) {
             Column(
                 modifier = Modifier
@@ -1892,10 +1942,12 @@ fun TrophyCell(
                     AchievementSize.Medium -> 38.dp
                     AchievementSize.Small -> 36.dp
                 }
+                val tier = achievement.tier
+                val metalTheme = MetalThemeCatalog.all.find { it.tier == tier }
                 Icon(
                     painterResource(icon),
                     contentDescription = null,
-                    tint = if (isUnlocked) Color(0xFFFFB300)
+                    tint = if (isUnlocked) metalTheme!!.theme.base
                     else MaterialTheme.colorScheme.onSurface.copy(alpha = 0.25f),
                     modifier = Modifier.size(size)
                 )

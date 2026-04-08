@@ -4,13 +4,10 @@ import android.app.Application
 import androidx.lifecycle.AndroidViewModel
 import androidx.lifecycle.viewModelScope
 import com.example.uptime.room.catalogs.AchievementCatalog
-import com.example.uptime.room.catalogs.RoomThemeCatalog
 import com.example.uptime.room.catalogs.TrophyCaseCatalog
 import com.example.uptime.UpTimeDatabase
 import com.example.uptime.UserStatsRepository
 import com.example.uptime.room.catalogs.RoomItemCatalog
-import com.example.uptime.room.catalogs.WoodThemeCatalog
-import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.MutableSharedFlow
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.SharingStarted
@@ -92,7 +89,7 @@ class RoomViewModel(application: Application) : AndroidViewModel(application) {
         val inventory = invDao.getInventory() ?: UserInventory()
         val alreadyUnlocked = inventory.unlockedAchievementIds
 
-        val newlyUnlocked = AchievementCatalog.allAchievements
+        val newlyUnlocked = AchievementCatalog.all
             .filter { it.id !in alreadyUnlocked }
             .filter { meetsCondition(it, stats) }
             .map { it.id }
@@ -104,7 +101,7 @@ class RoomViewModel(application: Application) : AndroidViewModel(application) {
         )
         _newlyUnlocked.emit(
             newlyUnlocked.mapNotNull { id ->
-                AchievementCatalog.allAchievements.find { it.id == id }
+                AchievementCatalog.all.find { it.id == id }
             }
         )
     }
@@ -123,7 +120,7 @@ class RoomViewModel(application: Application) : AndroidViewModel(application) {
             "walk_360" -> stats.totalWalkingMins >= 360
             "walk_600" -> stats.totalWalkingMins >= 600
             "walk_1000" -> stats.totalWalkingMins >= 1000
-            else -> true // switched for demo
+            else -> false
         }
     }
 
@@ -178,7 +175,7 @@ class RoomViewModel(application: Application) : AndroidViewModel(application) {
             val inventory = invDao.getInventory() ?: UserInventory()
             val alreadyUnlocked = inventory.unlockedRoomItemIds
 
-            val newlyUnlocked = RoomItemCatalog.allAvailableRoomItems
+            val newlyUnlocked = RoomItemCatalog.all
                 .filter { it.id !in alreadyUnlocked && it.id == roomItemId }
                 .map { it.id }
 
@@ -237,14 +234,14 @@ class RoomViewModel(application: Application) : AndroidViewModel(application) {
     }
 
     fun getCurrentLayoutSlots(roomLayoutId: String): List<TrophyCaseCatalog.ShelfSlot> {
-        return TrophyCaseCatalog.allTrophyCases
+        return TrophyCaseCatalog.all
             .find { it.id == roomLayoutId }
             ?.shelfSlots
             ?: emptyList()
     }
 
     fun getAchievementById(id: String): Achievement? {
-        return AchievementCatalog.allAchievements.find { it.id == id }
+        return AchievementCatalog.all.find { it.id == id }
     }
 
     fun placeAchievement(achievementId: String) {

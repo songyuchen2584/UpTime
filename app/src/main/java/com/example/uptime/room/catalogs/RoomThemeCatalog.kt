@@ -5,7 +5,7 @@ import com.example.uptime.room.RoomTheme
 import com.example.uptime.room.RoomThemeOption
 
 object RoomThemeCatalog {
-    val allRoomThemes: List<RoomThemeOption> = listOf(
+    val all: List<RoomThemeOption> = listOf(
         RoomThemeOption(
             "default",
             "Default",

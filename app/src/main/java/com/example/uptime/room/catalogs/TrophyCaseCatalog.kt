@@ -18,7 +18,7 @@ object TrophyCaseCatalog {
         val acceptedSizes: List<AchievementSize>
     )
 
-    val allTrophyCases: List<TrophyCaseOption> = listOf(
+    val all: List<TrophyCaseOption> = listOf(
         TrophyCaseOption(
             id = "default",
             name = "Simple Shelf",

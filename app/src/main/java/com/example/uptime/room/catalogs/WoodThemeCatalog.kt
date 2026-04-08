@@ -5,7 +5,7 @@ import com.example.uptime.room.WoodTheme
 import com.example.uptime.room.WoodThemeOption
 
 object WoodThemeCatalog {
-    val allWoodThemes: List<WoodThemeOption> = listOf(
+    val all: List<WoodThemeOption> = listOf(
         WoodThemeOption(
             id = "oak",
             name = "Oak",
