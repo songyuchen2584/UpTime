@@ -19,7 +19,10 @@ import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.NavigationBar
 import androidx.compose.material3.NavigationBarItem
 import androidx.compose.material3.NavigationRail
+import androidx.compose.material3.NavigationRailDefaults
 import androidx.compose.material3.NavigationRailItem
+import androidx.compose.material3.NavigationRailItemColors
+import androidx.compose.material3.NavigationRailItemDefaults
 import androidx.compose.material3.Scaffold
 import androidx.compose.material3.SnackbarHost
 import androidx.compose.material3.SnackbarHostState
@@ -99,7 +102,7 @@ fun AppScaffold(roomViewModel: RoomViewModel, dashboardViewModel: DashboardViewM
         },
         bottomBar = {
             if (!isLandscape) {
-                NavigationBar {
+                NavigationBar(containerColor = MaterialTheme.colorScheme.surfaceVariant) {
                     NavDestination.navBar.forEach { dest ->
                         NavigationBarItem(
                             selected = currentDestination == dest,
@@ -117,7 +120,7 @@ fun AppScaffold(roomViewModel: RoomViewModel, dashboardViewModel: DashboardViewM
     ) { innerPadding ->
         Row(modifier = Modifier.padding(innerPadding).fillMaxSize()) {
             if (isLandscape) {
-                NavigationRail {
+                NavigationRail(containerColor = MaterialTheme.colorScheme.surfaceVariant) {
                     NavDestination.navBar.forEach { dest ->
                         NavigationRailItem(
                             selected = currentDestination == dest,
@@ -176,7 +179,7 @@ fun TopBar(onSettingsClick: () -> Unit) {
             )
         },
         colors = TopAppBarDefaults.topAppBarColors(
-            containerColor = MaterialTheme.colorScheme.background,
+            containerColor = MaterialTheme.colorScheme.surfaceVariant,
             titleContentColor = MaterialTheme.colorScheme.primary
         ),
         actions = {

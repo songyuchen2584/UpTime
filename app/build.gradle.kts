@@ -62,6 +62,10 @@ dependencies {
     implementation(libs.androidx.room.runtime)
     implementation(libs.androidx.room.ktx)
     implementation(libs.androidx.compose.animation)
+    implementation(libs.androidx.compose.animation.core)
+    implementation(libs.androidx.ui.graphics)
+    implementation(libs.androidx.ui)
+    implementation(libs.androidx.material3)
     ksp(libs.androidx.room.compiler)
     implementation(libs.gson)
 

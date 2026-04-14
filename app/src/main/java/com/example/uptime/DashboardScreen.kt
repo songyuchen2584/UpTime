@@ -1,6 +1,8 @@
 package com.example.uptime
 
+import android.R.attr.contentDescription
 import android.R.attr.onClick
+import android.R.attr.text
 import androidx.compose.animation.core.animateFloatAsState
 import androidx.compose.animation.core.tween
 import androidx.compose.foundation.Canvas
@@ -22,6 +24,7 @@ import androidx.compose.foundation.verticalScroll
 import androidx.compose.material3.Card
 import androidx.compose.material3.CardDefaults
 import androidx.compose.material3.ExperimentalMaterial3Api
+import androidx.compose.material3.Icon
 import androidx.compose.material3.LinearProgressIndicator
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
@@ -39,6 +42,7 @@ import androidx.compose.ui.geometry.Size
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.StrokeCap
 import androidx.compose.ui.graphics.drawscope.Stroke
+import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.tooling.preview.Preview
@@ -206,10 +210,17 @@ fun StreakCard(currentStreak: Int, bestStreak: Int, bothGoalsMet: Boolean, onCli
                 .padding(20.dp),
             verticalAlignment = Alignment.CenterVertically
         ) {
-            // Flame / streak icon area
-            Text(
-                text = if (currentStreak > 0) "🔥" else "⏸️",
-                fontSize = 36.sp
+            // Streak icon area
+            if (currentStreak > 0) Icon(
+                painterResource(R.drawable.streak_24px),
+                contentDescription = "Streak",
+                modifier = Modifier.size(20.dp),
+                tint = MaterialTheme.colorScheme.onSurface
+            ) else Icon(
+                painterResource(R.drawable.pause_24px),
+                contentDescription = "Streak Paused",
+                modifier = Modifier.size(20.dp),
+                tint = MaterialTheme.colorScheme.onSurface
             )
 
             Spacer(modifier = Modifier.width(16.dp))
@@ -352,7 +363,7 @@ fun DailyStatusCard(state: DashboardState, onClickWalking: () -> Unit, onClickSc
         modifier = Modifier.fillMaxWidth(),
         shape = RoundedCornerShape(16.dp),
         colors = CardDefaults.cardColors(
-            containerColor = MaterialTheme.colorScheme.surface
+            containerColor = MaterialTheme.colorScheme.surfaceVariant
         )
     ) {
         Column(modifier = Modifier.padding(20.dp)) {
@@ -432,7 +443,7 @@ fun ProgressRow(
                 .fillMaxWidth()
                 .height(8.dp),
             color = barColor,
-            trackColor = MaterialTheme.colorScheme.surfaceVariant,
+            trackColor = MaterialTheme.colorScheme.surface,
             strokeCap = StrokeCap.Round
         )
     }
@@ -449,7 +460,7 @@ fun GoalsCard(state: DashboardState) {
         modifier = Modifier.fillMaxWidth(),
         shape = RoundedCornerShape(16.dp),
         colors = CardDefaults.cardColors(
-            containerColor = MaterialTheme.colorScheme.surface
+            containerColor = MaterialTheme.colorScheme.surfaceVariant
         )
     ) {
         Column(modifier = Modifier.padding(20.dp)) {
@@ -468,7 +479,7 @@ fun GoalsCard(state: DashboardState) {
             Spacer(modifier = Modifier.height(12.dp))
 
             GoalRow(
-                icon = if (screenTimeMet) "✅" else "⬜",
+                icon = if (screenTimeMet) R.drawable.check_box_checked_24px else R.drawable.check_box_blank_24px,
                 text = "Stay under ${state.screenTimeGoal} min of screen time",
                 isDone = screenTimeMet
             )
@@ -476,7 +487,7 @@ fun GoalsCard(state: DashboardState) {
             Spacer(modifier = Modifier.height(8.dp))
 
             GoalRow(
-                icon = if (walkingMet) "✅" else "⬜",
+                icon = if (walkingMet) R.drawable.check_box_checked_24px else R.drawable.check_box_blank_24px,
                 text = "Walk at least ${state.walkingGoal} min",
                 isDone = walkingMet
             )
@@ -497,12 +508,17 @@ fun GoalsCard(state: DashboardState) {
 }
 
 @Composable
-fun GoalRow(icon: String, text: String, isDone: Boolean) {
+fun GoalRow(icon: Int, text: String, isDone: Boolean) {
     Row(
         verticalAlignment = Alignment.CenterVertically,
         modifier = Modifier.fillMaxWidth()
     ) {
-        Text(text = icon, fontSize = 20.sp)
+        Icon(
+            painterResource(icon),
+            contentDescription = null,
+            modifier = Modifier.size(20.dp),
+            tint = MaterialTheme.colorScheme.primary
+        )
         Spacer(modifier = Modifier.width(12.dp))
         Text(
             text = text,

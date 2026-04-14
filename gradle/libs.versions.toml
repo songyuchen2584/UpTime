@@ -26,6 +26,10 @@ navigation3Ui = "1.0.1"
 animation = "1.10.6"
 datastore = "1.1.7"
 retrofit = "2.11.0"
+animationCore = "1.10.6"
+uiGraphics = "1.10.6"
+ui = "1.10.6"
+material3 = "1.4.0"
 
 [libraries]
 androidx-appcompat = { module = "androidx.appcompat:appcompat", version.ref = "appcompat" }
@@ -72,6 +76,10 @@ androidx-compose-animation = { group = "androidx.compose.animation", name = "ani
 # Retrofit
 retrofit = { group = "com.squareup.retrofit2", name = "retrofit", version.ref = "retrofit" }
 retrofit-converter-gson = { group = "com.squareup.retrofit2", name = "converter-gson", version.ref = "retrofit" }
+androidx-compose-animation-core = { group = "androidx.compose.animation", name = "animation-core", version.ref = "animationCore" }
+androidx-ui-graphics = { group = "androidx.compose.ui", name = "ui-graphics", version.ref = "uiGraphics" }
+androidx-ui = { group = "androidx.compose.ui", name = "ui", version.ref = "ui" }
+androidx-material3 = { group = "androidx.compose.material3", name = "material3", version.ref = "material3" }
 
 
 [plugins]

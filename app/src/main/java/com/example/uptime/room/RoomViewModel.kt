@@ -295,6 +295,14 @@ class RoomViewModel(application: Application) : AndroidViewModel(application) {
         }
     }
 
+    fun removePlacedAchievements() {
+        viewModelScope.launch {
+            val settings = rsDao.getSettings() ?: return@launch
+
+            rsDao.upsertRoomSettings(settings.copy(placedAchievements = emptyMap()))
+        }
+    }
+
     fun hasShelfSpace(achievement: Achievement): Boolean {
         val settings = currentSettings.value ?: return false
         val slots = getCurrentLayoutSlots(settings.selectedRoomLayoutId)
