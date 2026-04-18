@@ -1,8 +1,5 @@
 package com.example.uptime
 
-import android.R.attr.contentDescription
-import android.R.attr.onClick
-import android.R.attr.text
 import androidx.compose.animation.core.animateFloatAsState
 import androidx.compose.animation.core.tween
 import androidx.compose.foundation.Canvas
@@ -45,14 +42,13 @@ import androidx.compose.ui.graphics.drawscope.Stroke
 import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextAlign
-import androidx.compose.ui.tooling.preview.Preview
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.lifecycle.viewmodel.compose.viewModel
 import com.example.uptime.room.RoomViewModel.Companion.DAILY_COMPLETION_POINTS
 import com.example.uptime.ui.theme.Amber40
 import com.example.uptime.ui.theme.Coral40
-import com.example.uptime.ui.theme.UpTimeTheme
+import com.example.uptime.walking.WalkingViewModel
 
 // UI state for the dashboard
 data class DashboardState(
@@ -88,18 +84,23 @@ fun walkingColor(done: Int, goal: Int): Color {
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun DashboardScreen(
-    viewModel: DashboardViewModel = viewModel(),
+    dashboardViewModel: DashboardViewModel = viewModel(),
+    walkingViewModel: WalkingViewModel = viewModel(),
     onNavigateToStreak: () -> Unit,
     onNavigateToWalkingProgress: () -> Unit,
     onNavigateToScreenTime: () -> Unit
 ) {
+    LaunchedEffect(Unit) {
+        dashboardViewModel.refreshLiveStats(walkingViewModel)
+    }
+
     // collect live data from Room via ViewModel
-    val log by viewModel.todayLog.collectAsState(initial = null)
-    val stats by viewModel.userStats.collectAsState()
+    val log by dashboardViewModel.todayLog.collectAsState(initial = null)
+    val stats by dashboardViewModel.userStats.collectAsState()
 
     val streak = stats.currentStreak
     val best = stats.bestStreak
-    val quote by viewModel.quote.collectAsState()
+    val quote by dashboardViewModel.quote.collectAsState()
 
     // build UI state from database
     val state = DashboardState(

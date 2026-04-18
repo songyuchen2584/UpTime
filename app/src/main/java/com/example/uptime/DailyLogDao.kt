@@ -19,7 +19,10 @@ interface DailyLogDao {
     suspend fun upsertLog(log: DailyLog)
 
     @Query("SELECT * FROM daily_logs ORDER BY date DESC LIMIT :limit")
-    suspend fun getRecentLogs(limit: Int = 30): List<DailyLog>
+    suspend fun getRecentLogs(limit: Int): List<DailyLog>
+
+    @Query("SELECT COUNT(*) FROM daily_logs WHERE screenTimeMinutes > screenTimeGoal")
+    suspend fun getScreenTimeFailCount(): Int
 
     @Query("SELECT * FROM daily_logs ORDER BY date DESC")
     fun observeAllLogs(): Flow<List<DailyLog>>

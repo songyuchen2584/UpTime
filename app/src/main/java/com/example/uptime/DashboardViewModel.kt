@@ -4,14 +4,19 @@ import android.app.Application
 import androidx.lifecycle.AndroidViewModel
 import androidx.lifecycle.viewModelScope
 import androidx.room.Room
+import com.example.uptime.screentime.ScreenTimePreferences
+import com.example.uptime.screentime.repository.ScreenTimeRepository
+import com.example.uptime.walking.WalkingViewModel
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.SharingStarted
 import kotlinx.coroutines.flow.StateFlow
+import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.flow.map
 import kotlinx.coroutines.flow.stateIn
 import kotlinx.coroutines.launch
 import java.time.LocalDate
+import java.time.ZoneId
 import java.time.format.DateTimeFormatter
 
 class DashboardViewModel(application: Application) : AndroidViewModel(application) {
@@ -35,11 +40,65 @@ class DashboardViewModel(application: Application) : AndroidViewModel(applicatio
 
     init {
         viewModelScope.launch {
-            if (dao.getLogForDate(todayString()) == null) {
-                dao.upsertLog(DailyLog(date = todayString()))
-            }
+            ensureTodayLogExists()
+            catchUpMissedFinalizations()
         }
         fetchQuote()
+    }
+
+    fun refreshLiveStats(walkingViewModel: WalkingViewModel) {
+        viewModelScope.launch {
+            val today = todayString()
+            val log = dao.getLogForDate(today) ?: DailyLog(date = today)
+
+            // Read selected packages directly from preferences
+            val preferences = ScreenTimePreferences(getApplication())
+            val selectedPackages = preferences.selectedPackagesFlow.first()
+
+            // Fresh screen time
+            val screenTimeRepo = ScreenTimeRepository(getApplication())
+            val snapshot = screenTimeRepo.buildTodaySnapshot(selectedPackages)
+            val screenMins = (snapshot.totalTrackedTimeMs / 60_000).toInt()
+
+            // Fresh walking
+            val startOfDay = LocalDate.now()
+                .atStartOfDay(ZoneId.systemDefault()).toInstant().toEpochMilli()
+            val walkMins = walkingViewModel.getWalkingMinutes(
+                startOfDay, System.currentTimeMillis()
+            ).toInt()
+
+            dao.upsertLog(log.copy(
+                screenTimeMinutes = screenMins,
+                walkingMinutes = walkMins,
+                streakMaintained = screenMins <= log.screenTimeGoal
+                        && walkMins >= log.walkingGoal
+            ))
+        }
+    }
+
+    private suspend fun ensureTodayLogExists() {
+        if (dao.getLogForDate(todayString()) == null) {
+            dao.upsertLog(DailyLog(date = todayString()))
+        }
+    }
+
+    private suspend fun catchUpMissedFinalizations() {
+        val formatter = DateTimeFormatter.ISO_LOCAL_DATE
+        val today = LocalDate.now()
+
+        // Check the last 7 days for any unfinalized logs
+        (1..7).forEach { daysAgo ->
+            val date = today.minusDays(daysAgo.toLong()).format(formatter)
+            val log = dao.getLogForDate(date) ?: return@forEach
+
+            // Finalize if streakMaintained might not have been set correctly
+            val shouldHaveMaintained = log.screenTimeMinutes <= log.screenTimeGoal
+                    && log.walkingMinutes >= log.walkingGoal
+
+            if (log.streakMaintained != shouldHaveMaintained) {
+                dao.upsertLog(log.copy(streakMaintained = shouldHaveMaintained))
+            }
+        }
     }
 
     private fun fetchQuote() {

@@ -19,10 +19,7 @@ import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.NavigationBar
 import androidx.compose.material3.NavigationBarItem
 import androidx.compose.material3.NavigationRail
-import androidx.compose.material3.NavigationRailDefaults
 import androidx.compose.material3.NavigationRailItem
-import androidx.compose.material3.NavigationRailItemColors
-import androidx.compose.material3.NavigationRailItemDefaults
 import androidx.compose.material3.Scaffold
 import androidx.compose.material3.SnackbarHost
 import androidx.compose.material3.SnackbarHostState
@@ -43,6 +40,8 @@ import androidx.navigation3.runtime.entryProvider
 import androidx.navigation3.runtime.rememberNavBackStack
 import androidx.navigation3.ui.NavDisplay
 import androidx.window.core.layout.WindowSizeClass
+import androidx.work.WorkInfo
+import androidx.work.WorkManager
 import com.example.uptime.room.RoomScreen
 import com.example.uptime.room.RoomViewModel
 import com.example.uptime.screentime.ScreenTimeRoute
@@ -55,6 +54,18 @@ class MainActivity : ComponentActivity() {
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
         enableEdgeToEdge()
+
+        val workManager = WorkManager.getInstance(this)
+        workManager.getWorkInfosByTagLiveData(DailyFinalizationWorker.WORK_NAME)
+            .observe(this) { workInfos ->
+                val isScheduled = workInfos?.any {
+                    it.state == WorkInfo.State.ENQUEUED || it.state == WorkInfo.State.RUNNING
+                } ?: false
+
+                if (!isScheduled) {
+                    DailyFinalizationWorker.scheduleMidnightWork(this)
+                }
+            }
 
         val roomViewModel: RoomViewModel by viewModels()
         val dashboardViewModel: DashboardViewModel by viewModels()
@@ -151,7 +162,7 @@ fun AppScaffold(roomViewModel: RoomViewModel, dashboardViewModel: DashboardViewM
                                 onNavigateToStreak = { backStack.add(NavDestination.Streak) },
                                 onNavigateToWalkingProgress = { backStack.add(NavDestination.Walking) },
                                 onNavigateToScreenTime = { backStack.add(NavDestination.ScreenTime) },
-                                viewModel = dashboardViewModel
+                                dashboardViewModel = dashboardViewModel
                             )
                             NavDestination.Streak -> StreakScreen(viewModel = dashboardViewModel)
                             NavDestination.Room -> RoomScreen(viewModel = roomViewModel)

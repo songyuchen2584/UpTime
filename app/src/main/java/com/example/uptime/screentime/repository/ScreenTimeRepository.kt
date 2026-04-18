@@ -109,4 +109,52 @@ class ScreenTimeRepository(
             generatedAtMillis = System.currentTimeMillis()
         )
     }
+
+    fun buildYesterdaySnapshot(selectedPackages: Set<String>): ScreenTimeSnapshot {
+        if (!hasUsageAccess() || selectedPackages.isEmpty()) {
+            return ScreenTimeSnapshot(emptyList(), 0L, System.currentTimeMillis())
+        }
+
+        val yesterdayStart = Calendar.getInstance().apply {
+            add(Calendar.DAY_OF_YEAR, -1)
+            set(Calendar.HOUR_OF_DAY, 0)
+            set(Calendar.MINUTE, 0)
+            set(Calendar.SECOND, 0)
+            set(Calendar.MILLISECOND, 0)
+        }.timeInMillis
+
+        val yesterdayEnd = Calendar.getInstance().apply {
+            set(Calendar.HOUR_OF_DAY, 0)
+            set(Calendar.MINUTE, 0)
+            set(Calendar.SECOND, 0)
+            set(Calendar.MILLISECOND, 0)
+        }.timeInMillis
+
+        val appLabels = getInstalledApps().associate { it.packageName to it.appLabel }
+        val aggregatedStats = usageStatsManager.queryAndAggregateUsageStats(
+            yesterdayStart, yesterdayEnd
+        )
+        val maxPossibleMs = yesterdayEnd - yesterdayStart
+
+        val usage = aggregatedStats
+            .asSequence()
+            .filter { (packageName, _) -> packageName in selectedPackages }
+            .map { (packageName, stats) ->
+                AppScreenTime(
+                    packageName = packageName,
+                    appLabel = appLabels[packageName] ?: packageName,
+                    totalTimeMs = stats.totalTimeInForeground
+                        .coerceAtLeast(0L)
+                        .coerceAtMost(maxPossibleMs)
+                )
+            }
+            .filter { it.totalTimeMs > 0L }
+            .toList()
+
+        return ScreenTimeSnapshot(
+            trackedApps = usage,
+            totalTrackedTimeMs = usage.sumOf { it.totalTimeMs },
+            generatedAtMillis = System.currentTimeMillis()
+        )
+    }
 }

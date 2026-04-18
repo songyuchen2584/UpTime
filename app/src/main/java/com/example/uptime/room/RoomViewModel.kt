@@ -3,6 +3,7 @@ package com.example.uptime.room
 import android.app.Application
 import androidx.lifecycle.AndroidViewModel
 import androidx.lifecycle.viewModelScope
+import androidx.room.Transaction
 import com.example.uptime.room.catalogs.AchievementCatalog
 import com.example.uptime.room.catalogs.TrophyCaseCatalog
 import com.example.uptime.UpTimeDatabase
@@ -14,6 +15,7 @@ import kotlinx.coroutines.flow.SharingStarted
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asSharedFlow
 import kotlinx.coroutines.flow.combine
+import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.flow.stateIn
 import kotlinx.coroutines.launch
 
@@ -85,13 +87,19 @@ class RoomViewModel(application: Application) : AndroidViewModel(application) {
         const val DAILY_COMPLETION_POINTS = 50
     }
 
-    private suspend fun checkAndUnlockAchievements(stats: UserStatsRepository.UserStats) {
+    private suspend fun checkAndUnlockAchievements(
+        stats: UserStatsRepository.UserStats,
+        singlePurchaseAmount: Int = 0,
+        isEndOfDay: Boolean = false
+    ) {
         val inventory = invDao.getInventory() ?: UserInventory()
         val alreadyUnlocked = inventory.unlockedAchievementIds
 
+        val statsWithPurchase = stats.copy(largestSinglePurchase = singlePurchaseAmount)
+
         val newlyUnlocked = AchievementCatalog.all
             .filter { it.id !in alreadyUnlocked }
-            .filter { meetsCondition(it, stats) }
+            .filter { meetsCondition(it, statsWithPurchase, isEndOfDay) }
             .map { it.id }
 
         if (newlyUnlocked.isEmpty()) return
@@ -100,72 +108,64 @@ class RoomViewModel(application: Application) : AndroidViewModel(application) {
             inventory.copy(unlockedAchievementIds = alreadyUnlocked + newlyUnlocked)
         )
         _newlyUnlocked.emit(
-            newlyUnlocked.mapNotNull { id ->
-                AchievementCatalog.all.find { it.id == id }
-            }
+            newlyUnlocked.mapNotNull { id -> AchievementCatalog.all.find { it.id == id } }
         )
     }
 
-    private fun meetsCondition(achievement: Achievement, stats: UserStatsRepository.UserStats): Boolean {
+    private fun meetsCondition(achievement: Achievement, stats: UserStatsRepository.UserStats, isEndOfDay: Boolean): Boolean {
         return when (achievement.id) {
-            "start" -> stats.totalWalkingMins > 0
-            "streak_7" -> stats.currentStreak >= 7
-            "streak_14" -> stats.currentStreak >= 14
-            "streak_21" -> stats.currentStreak >= 21
-            "streak_28" -> stats.currentStreak >= 28
-            "streak_50" -> stats.currentStreak >= 50
-            "streak_100" -> stats.currentStreak >= 100
+            // Walking
             "walk_60" -> stats.totalWalkingMins >= 60
             "walk_120" -> stats.totalWalkingMins >= 120
             "walk_360" -> stats.totalWalkingMins >= 360
             "walk_600" -> stats.totalWalkingMins >= 600
             "walk_1000" -> stats.totalWalkingMins >= 1000
+            "walk_2000" -> stats.totalWalkingMins >= 2000
+            "walk_5000" -> stats.totalWalkingMins >= 5000
+            "walk_10000" -> stats.totalWalkingMins >= 10000
+            "walk_20000" -> stats.totalWalkingMins >= 20000
+            "walk_50000" -> stats.totalWalkingMins >= 50000
+
+            // Total spending
+            "spend_50" -> stats.totalPointsSpent >= 50
+            "spend_250" -> stats.totalPointsSpent >= 250
+            "spend_500" -> stats.totalPointsSpent >= 500
+            "spend_1000" -> stats.totalPointsSpent >= 1000
+            "spend_2000" -> stats.totalPointsSpent >= 2000
+            "spend_5000" -> stats.totalPointsSpent >= 5000
+            "spend_10000" -> stats.totalPointsSpent >= 10000
+            "spend_20000" -> stats.totalPointsSpent >= 20000
+            "spend_50000" -> stats.totalPointsSpent >= 50000
+            "spend_100000" -> stats.totalPointsSpent >= 100000
+
+            // Single purchase
+            "save_200" -> stats.largestSinglePurchase >= 200
+            "save_500" -> stats.largestSinglePurchase >= 500
+            "save_1000" -> stats.largestSinglePurchase >= 1000
+            "save_5000" -> stats.largestSinglePurchase >= 5000
+
+            // Special
+            "start" -> true
+
             else -> false
         }
     }
 
     fun purchaseRoomTheme(themeId: String, cost: Int) {
         viewModelScope.launch {
-            val inventory = invDao.getInventory() ?: UserInventory()
-
-            if (inventory.currentPoints < cost) return@launch
-
-            val updatedInventory = inventory.copy(
-                currentPoints = inventory.currentPoints - cost,
-                unlockedRoomThemeIds = inventory.unlockedRoomThemeIds + themeId
-            )
-
-            invDao.upsertInventory(updatedInventory)
+            processPurchase(cost) { it.copy(unlockedRoomThemeIds = it.unlockedRoomThemeIds + themeId) }
         }
     }
 
     fun purchaseWoodTheme(themeId: String, cost: Int) {
         viewModelScope.launch {
-            val inventory = invDao.getInventory() ?: UserInventory()
-
-            if (inventory.currentPoints < cost) return@launch
-
-            val updatedInventory = inventory.copy(
-                currentPoints = inventory.currentPoints - cost,
-                unlockedWoodThemeIds = inventory.unlockedWoodThemeIds + themeId
-            )
-
-            invDao.upsertInventory(updatedInventory)
+            processPurchase(cost) { it.copy(unlockedWoodThemeIds = it.unlockedWoodThemeIds + themeId) }
         }
     }
 
     fun purchaseItem(itemId: String, cost: Int) {
         viewModelScope.launch {
-            val inventory = invDao.getInventory() ?: UserInventory()
-
-            if (inventory.currentPoints < cost) return@launch
-
-            val updatedInventory = inventory.copy(
-                currentPoints = inventory.currentPoints - cost,
-                unlockedWoodThemeIds = inventory.unlockedWoodThemeIds + itemId
-            )
-
-            invDao.upsertInventory(updatedInventory)
+            processPurchase(cost) { it.copy(unlockedRoomItemIds = it.unlockedRoomItemIds + itemId) }
         }
     }
 
@@ -183,6 +183,47 @@ class RoomViewModel(application: Application) : AndroidViewModel(application) {
                 inventory.copy(unlockedRoomItemIds = alreadyUnlocked + newlyUnlocked)
             )
         }
+    }
+
+    @Transaction
+    private suspend fun processPurchase(
+        cost: Int,
+        transform: (UserInventory) -> UserInventory
+    ): Boolean {
+        val inventory = invDao.getInventory() ?: UserInventory()
+        if (inventory.currentPoints < cost) return false
+
+        val updated = transform(
+            inventory.copy(
+                currentPoints = inventory.currentPoints - cost,
+                totalPointsSpent = inventory.totalPointsSpent + cost
+            )
+        )
+        invDao.upsertInventory(updated)
+        checkAndUnlockAchievements(
+            stats = buildUserStats(updated),
+            singlePurchaseAmount = cost
+        )
+        return true
+    }
+
+    private suspend fun buildUserStats(
+        inventory: UserInventory? = null,
+        singlePurchaseAmount: Int = 0,
+        screenTimeOverBy: Int = 0,
+        walkingUnderBy: Int = 0
+    ): UserStatsRepository.UserStats {
+        val inv = inventory ?: invDao.getInventory() ?: UserInventory()
+        val statsFromLogs = statsRepository.userStats.first()
+
+        return statsFromLogs.copy(
+            totalPointsSpent = inv.totalPointsSpent,
+            largestSinglePurchase = singlePurchaseAmount,
+            screenTimeFailCount = inv.screenTimeFailCount,
+            consecutiveScreenTimeSuccess = inv.consecutiveScreenTimeSuccess,
+            screenTimeOverBy = screenTimeOverBy,
+            walkingUnderBy = walkingUnderBy
+        )
     }
 
     fun updatePoints(points: Int) {
