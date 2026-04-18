@@ -80,18 +80,24 @@ class ScreenTimeRepository(
 
         val appLabels = getInstalledApps().associate { it.packageName to it.appLabel }
 
-        val aggregatedStats = usageStatsManager.queryAndAggregateUsageStats(startOfDay, now)
-
         val maxPossibleTodayMs = now - startOfDay
 
-        return aggregatedStats
+        val stats = usageStatsManager.queryUsageStats(
+            UsageStatsManager.INTERVAL_DAILY,
+            startOfDay,
+            now
+        )
+
+        return stats
             .asSequence()
-            .filter { (packageName, _) -> packageName in selectedPackages }
-            .map { (packageName, stats) ->
+            .filter { it.packageName in selectedPackages }
+            .filter { it.lastTimeUsed >= startOfDay }
+            .groupBy { it.packageName }
+            .map { (packageName, statsList) ->
                 AppScreenTime(
                     packageName = packageName,
                     appLabel = appLabels[packageName] ?: packageName,
-                    totalTimeMs = stats.totalTimeInForeground
+                    totalTimeMs = statsList.sumOf { it.totalTimeInForeground }
                         .coerceAtLeast(0L)
                         .coerceAtMost(maxPossibleTodayMs)
                 )
