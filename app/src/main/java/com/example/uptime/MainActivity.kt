@@ -40,6 +40,8 @@ import androidx.navigation3.runtime.entryProvider
 import androidx.navigation3.runtime.rememberNavBackStack
 import androidx.navigation3.ui.NavDisplay
 import androidx.window.core.layout.WindowSizeClass
+import androidx.work.WorkInfo
+import androidx.work.WorkManager
 import com.example.uptime.room.RoomScreen
 import com.example.uptime.room.RoomViewModel
 import com.example.uptime.screentime.ScreenTimeRoute
@@ -52,6 +54,18 @@ class MainActivity : ComponentActivity() {
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
         enableEdgeToEdge()
+
+        val workManager = WorkManager.getInstance(this)
+        workManager.getWorkInfosByTagLiveData(DailyFinalizationWorker.WORK_NAME)
+            .observe(this) { workInfos ->
+                val isScheduled = workInfos?.any {
+                    it.state == WorkInfo.State.ENQUEUED || it.state == WorkInfo.State.RUNNING
+                } ?: false
+
+                if (!isScheduled) {
+                    DailyFinalizationWorker.scheduleMidnightWork(this)
+                }
+            }
 
         val roomViewModel: RoomViewModel by viewModels()
         val dashboardViewModel: DashboardViewModel by viewModels()
@@ -99,7 +113,7 @@ fun AppScaffold(roomViewModel: RoomViewModel, dashboardViewModel: DashboardViewM
         },
         bottomBar = {
             if (!isLandscape) {
-                NavigationBar {
+                NavigationBar(containerColor = MaterialTheme.colorScheme.surfaceVariant) {
                     NavDestination.navBar.forEach { dest ->
                         NavigationBarItem(
                             selected = currentDestination == dest,
@@ -117,7 +131,7 @@ fun AppScaffold(roomViewModel: RoomViewModel, dashboardViewModel: DashboardViewM
     ) { innerPadding ->
         Row(modifier = Modifier.padding(innerPadding).fillMaxSize()) {
             if (isLandscape) {
-                NavigationRail {
+                NavigationRail(containerColor = MaterialTheme.colorScheme.surfaceVariant) {
                     NavDestination.navBar.forEach { dest ->
                         NavigationRailItem(
                             selected = currentDestination == dest,
@@ -148,7 +162,7 @@ fun AppScaffold(roomViewModel: RoomViewModel, dashboardViewModel: DashboardViewM
                                 onNavigateToStreak = { backStack.add(NavDestination.Streak) },
                                 onNavigateToWalkingProgress = { backStack.add(NavDestination.Walking) },
                                 onNavigateToScreenTime = { backStack.add(NavDestination.ScreenTime) },
-                                viewModel = dashboardViewModel
+                                dashboardViewModel = dashboardViewModel
                             )
                             NavDestination.Streak -> StreakScreen(viewModel = dashboardViewModel)
                             NavDestination.Room -> RoomScreen(viewModel = roomViewModel)
@@ -176,7 +190,7 @@ fun TopBar(onSettingsClick: () -> Unit) {
             )
         },
         colors = TopAppBarDefaults.topAppBarColors(
-            containerColor = MaterialTheme.colorScheme.background,
+            containerColor = MaterialTheme.colorScheme.surfaceVariant,
             titleContentColor = MaterialTheme.colorScheme.primary
         ),
         actions = {

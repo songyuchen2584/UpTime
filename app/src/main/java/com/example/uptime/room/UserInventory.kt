@@ -11,5 +11,8 @@ data class UserInventory (
     val unlockedAchievementIds: Set<String> = setOf("start"),
     val unlockedRoomItemIds: Set<String> = emptySet(),
     val unlockedRoomLayoutIds: Set<String> = setOf("default"),
-    val currentPoints: Int = 0
+    val currentPoints: Int = 0,
+    val totalPointsSpent: Int = 0,
+    val screenTimeFailCount: Int = 0,
+    val consecutiveScreenTimeSuccess: Int = 0,
 )

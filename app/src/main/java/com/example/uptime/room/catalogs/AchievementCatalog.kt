@@ -16,41 +16,9 @@ object AchievementCatalog {
             AchievementSize.Small
         ),
         Achievement(
-            "demo_sm",
-            "Demo Medal",
-            "Click place to display this in your trophy case",
-            AchievementTier.Silver,
-            AchievementCategory.Special,
-            AchievementSize.Small
-        ),
-        Achievement(
-            "demo_sm_alt",
-            "Demo Medal",
-            "Click place to display this in your trophy case",
-            AchievementTier.Diamond,
-            AchievementCategory.Special,
-            AchievementSize.Small
-        ),
-        Achievement(
-            "demo_med",
-            "Demo Trophy",
-            "Click place to display this in your trophy case",
-            AchievementTier.Bronze,
-            AchievementCategory.Special,
-            AchievementSize.Medium
-        ),
-        Achievement(
-            "demo_lg",
-            "Demo Trophy (Large)",
-            "Click place to display this in your trophy case",
-            AchievementTier.Bronze,
-            AchievementCategory.Special,
-            AchievementSize.Large
-        ),
-        Achievement(
             "streak_1",
             "First Steps",
-            "1 day streak",
+            "Reach a 1 day streak",
             AchievementTier.Bronze,
             AchievementCategory.Streak,
             AchievementSize.Small
@@ -58,7 +26,7 @@ object AchievementCatalog {
         Achievement(
             "streak_2",
             "A Solid Start",
-            "2 day streak",
+            "Reach a 2 day streak",
             AchievementTier.Bronze,
             AchievementCategory.Streak,
             AchievementSize.Small
@@ -66,7 +34,7 @@ object AchievementCatalog {
         Achievement(
             "streak_3",
             "Consistency",
-            "3 day streak",
+            "Reach a 3 day streak",
             AchievementTier.Bronze,
             AchievementCategory.Streak,
             AchievementSize.Small
@@ -74,7 +42,7 @@ object AchievementCatalog {
         Achievement(
             "streak_7",
             "First Week",
-            "7 day streak",
+            "Reach a 7 day streak",
             AchievementTier.Silver,
             AchievementCategory.Streak,
             AchievementSize.Small
@@ -82,7 +50,7 @@ object AchievementCatalog {
         Achievement(
             "streak_14",
             "Two Week Streak",
-            "14 day streak",
+            "Reach a 14 day streak",
             AchievementTier.Silver,
             AchievementCategory.Streak,
             AchievementSize.Small
@@ -90,7 +58,7 @@ object AchievementCatalog {
         Achievement(
             "streak_21",
             "Three Week Streak",
-            "21 day streak",
+            "Reach a 21 day streak",
             AchievementTier.Gold,
             AchievementCategory.Streak,
             AchievementSize.Small
@@ -98,7 +66,7 @@ object AchievementCatalog {
         Achievement(
             "streak_28",
             "One Month Streak",
-            "28 day streak",
+            "Reach a 28 day streak",
              AchievementTier.Gold,
             AchievementCategory.Streak,
             AchievementSize.Small
@@ -106,7 +74,7 @@ object AchievementCatalog {
         Achievement(
             "streak_50",
             "50 Days Later",
-            "50 day streak",
+            "Reach a 50 day streak",
              AchievementTier.Bronze,
             AchievementCategory.Streak,
             AchievementSize.Medium
@@ -114,7 +82,7 @@ object AchievementCatalog {
         Achievement(
             "streak_100",
             "Streak Master",
-            "100 day streak",
+            "Reach a 100 day streak",
              AchievementTier.Silver,
             AchievementCategory.Streak,
             AchievementSize.Medium
@@ -122,7 +90,7 @@ object AchievementCatalog {
         Achievement(
             "streak_150",
             "Still Going",
-            "100 day streak",
+            "Reach a 150 day streak",
             AchievementTier.Gold,
             AchievementCategory.Streak,
             AchievementSize.Medium
@@ -130,7 +98,7 @@ object AchievementCatalog {
         Achievement(
             "streak_365",
             "Unstoppable",
-            "300 day streak",
+            "Reach a 300 day streak",
             AchievementTier.Bronze,
             AchievementCategory.Streak,
             AchievementSize.Large
@@ -138,7 +106,7 @@ object AchievementCatalog {
         Achievement(
             "streak_500",
             "Juggernaut",
-            "500 day streak",
+            "Reach a 500 day streak",
             AchievementTier.Silver,
             AchievementCategory.Streak,
             AchievementSize.Large
@@ -146,7 +114,7 @@ object AchievementCatalog {
         Achievement(
             "streak_1000",
             "Ascended",
-            "1000 day streak",
+            "Reach a 1000 day streak",
             AchievementTier.Gold,
             AchievementCategory.Streak,
             AchievementSize.Large
@@ -154,7 +122,7 @@ object AchievementCatalog {
         Achievement(
             "streak_1825",
             "True Divinity",
-            "Five year streak",
+            "Reach a Five year streak",
             AchievementTier.Diamond,
             AchievementCategory.Streak,
             AchievementSize.Large
@@ -273,7 +241,7 @@ object AchievementCatalog {
         ),
         Achievement(
             "screen_31",
-            "So Close...",
+            "So Close... (Screen)",
             "Fail your screen time goal by a minute or less",
             AchievementTier.Gold,
             AchievementCategory.Secret,
@@ -281,17 +249,130 @@ object AchievementCatalog {
         ),
         Achievement(
             "walk_29",
-            "So Close...",
+            "So Close... (Walking)",
             "Fail your walking goal by a minute or less",
             AchievementTier.Gold,
             AchievementCategory.Secret,
             AchievementSize.Small
+        ),
+        Achievement(
+            "spend_50",
+            "First Purchase",
+            "Spend points on an item or theme.",
+            AchievementTier.Bronze,
+            AchievementCategory.Exchange,
+            AchievementSize.Small
+        ),
+        Achievement(
+            "save_200",
+            "Saving Up",
+            "Spend 200+ points on a single item or theme.",
+            AchievementTier.Bronze,
+            AchievementCategory.Exchange,
+            AchievementSize.Medium
+        ),
+        Achievement(
+            "save_500",
+            "Saving Up",
+            "Spend 500+ points on a single item or theme.",
+            AchievementTier.Silver,
+            AchievementCategory.Exchange,
+            AchievementSize.Medium
+        ),
+        Achievement(
+            "save_1000",
+            "Iron Will",
+            "Spend 1000+ points on a single item or theme.",
+            AchievementTier.Gold,
+            AchievementCategory.Exchange,
+            AchievementSize.Medium
+        ),
+        Achievement(
+            "save_5000",
+            "Fruits of my Labor",
+            "Spend 5000+ points on a single item or theme.",
+            AchievementTier.Diamond,
+            AchievementCategory.Exchange,
+            AchievementSize.Medium
+        ),
+        Achievement(
+            "spend_250",
+            "Thrifty",
+            "Spend at least 250 points in total.",
+            AchievementTier.Silver,
+            AchievementCategory.Exchange,
+            AchievementSize.Small
+        ),
+        Achievement(
+            "spend_500",
+            "Big Spender",
+            "Spend at least 500 points in total.",
+            AchievementTier.Gold,
+            AchievementCategory.Exchange,
+            AchievementSize.Small
+        ),
+        Achievement(
+            "spend_1000",
+            "Shopaholic",
+            "Spend at least 1000 points in total.",
+            AchievementTier.Bronze,
+            AchievementCategory.Exchange,
+            AchievementSize.Medium
+        ),
+        Achievement(
+            "spend_2000",
+            "Expensive Taste",
+            "Spend at least 2000 points in total.",
+            AchievementTier.Silver,
+            AchievementCategory.Exchange,
+            AchievementSize.Medium
+        ),
+        Achievement(
+            "spend_5000",
+            "More More More",
+            "Spend at least 5000 points in total.",
+            AchievementTier.Gold,
+            AchievementCategory.Exchange,
+            AchievementSize.Medium
+        ),
+        Achievement(
+            "spend_10000",
+            "King's Wealth",
+            "Spend at least 10000 points in total.",
+            AchievementTier.Bronze,
+            AchievementCategory.Exchange,
+            AchievementSize.Large
+        ),
+        Achievement(
+            "spend_20000",
+            "Emperor's Bounty",
+            "Spend at least 20000 points in total.",
+            AchievementTier.Silver,
+            AchievementCategory.Exchange,
+            AchievementSize.Large
+        ),
+        Achievement(
+            "spend_50000",
+            "Dragon's Hoard",
+            "Spend at least 50000 points in total.",
+            AchievementTier.Bronze,
+            AchievementCategory.Exchange,
+            AchievementSize.Large
+        ),
+        Achievement(
+            "spend_100000",
+            "Wealth of Nations",
+            "Spend at least 100000 points in total.",
+            AchievementTier.Diamond,
+            AchievementCategory.Exchange,
+            AchievementSize.Large
         ),
     )
 
     val streakAchievements: List<Achievement> = all.filter { it.category == AchievementCategory.Streak }
     val walkingAchievements: List<Achievement> = all.filter { it.category == AchievementCategory.WalkingTime }
     val screenAchievements: List<Achievement> = all.filter { it.category == AchievementCategory.ScreenTime }
+    val exchangeAchievements: List<Achievement> = all.filter { it.category == AchievementCategory.Exchange }
     val specialAchievements: List<Achievement> = all.filter { it.category == AchievementCategory.Special }
     val secretAchievements: List<Achievement> = all.filter { it.category == AchievementCategory.Secret }
 
@@ -299,5 +380,4 @@ object AchievementCatalog {
     val silverAchievements: List<Achievement> = all.filter { it.tier == AchievementTier.Silver }
     val goldAchievements: List<Achievement> = all.filter { it.tier == AchievementTier.Gold }
     val diamondAchievements: List<Achievement> = all.filter { it.tier == AchievementTier.Diamond }
-
 }

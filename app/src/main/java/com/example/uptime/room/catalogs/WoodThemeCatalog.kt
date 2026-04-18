@@ -26,7 +26,7 @@ object WoodThemeCatalog {
                 woodSide = Color(0xFF5C1E1E),
                 woodDark = Color(0xFF3A0E0E)
             ),
-            100
+            150
         ),
         WoodThemeOption(
             id = "cherry",
@@ -35,7 +35,7 @@ object WoodThemeCatalog {
                 woodFront = Color(0xFFA1473B),
                 woodTop = Color(0xFFB7584B),
                 woodSide = Color(0xFF883B2D),
-                woodDark = Color(0xFF692019)
+                woodDark = Color(0xFF651F18)
             ),
             100
         ),
@@ -47,6 +47,28 @@ object WoodThemeCatalog {
                 woodTop = Color(0xFF5E4A38),
                 woodSide = Color(0xFF342418),
                 woodDark = Color(0xFF1E1208)
+            ),
+            50
+        ),
+        WoodThemeOption(
+            id = "ebony",
+            name = "Ebony",
+            theme = WoodTheme(
+                woodFront = Color(0xFF342920),
+                woodTop = Color(0xFF3B3228),
+                woodSide = Color(0xFF231911),
+                woodDark = Color(0xFF170D08)
+            ),
+            150
+        ),
+        WoodThemeOption(
+            id = "birch",
+            name = "Birch",
+            theme = WoodTheme(
+                woodFront = Color(0xFFA1825D),
+                woodTop = Color(0xFFC4A076),
+                woodSide = Color(0xFF8F6F4D),
+                woodDark = Color(0xFF75563B)
             ),
             50
         ),

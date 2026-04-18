@@ -1,0 +1,177 @@
+package com.example.uptime
+
+import android.content.Context
+import androidx.work.Constraints
+import androidx.work.CoroutineWorker
+import androidx.work.ExistingWorkPolicy
+import androidx.work.OneTimeWorkRequestBuilder
+import androidx.work.WorkManager
+import androidx.work.WorkerParameters
+import com.example.uptime.room.Achievement
+import com.example.uptime.room.UserInventory
+import com.example.uptime.room.catalogs.AchievementCatalog
+import com.example.uptime.screentime.ScreenTimePreferences
+import com.example.uptime.screentime.repository.ScreenTimeRepository
+import com.example.uptime.walking.WalkingRepository
+import com.example.uptime.walking.datasource.DeviceSensorStepsDataSource
+import com.example.uptime.walking.datasource.HealthConnectStepsDataSource
+import kotlinx.coroutines.flow.first
+import java.time.LocalDate
+import java.time.LocalDateTime
+import java.time.ZoneId
+import java.time.format.DateTimeFormatter
+import java.time.temporal.ChronoUnit
+import java.util.concurrent.TimeUnit
+
+// Checks stats at midnight and finalizes goal progress
+class DailyFinalizationWorker(
+    context: Context,
+    params: WorkerParameters
+) : CoroutineWorker(context, params) {
+
+    override suspend fun doWork(): Result {
+        val db = UpTimeDatabase.getDatabase(applicationContext)
+        val dao = db.dailyLogDao()
+        val invDao = db.userInventoryDao()
+        val formatter = DateTimeFormatter.ISO_LOCAL_DATE
+        val today = LocalDate.now().format(formatter)
+        val yesterday = LocalDate.now().minusDays(1).format(formatter)
+
+        // Fetch fresh screen time for yesterday
+        val preferences = ScreenTimePreferences(applicationContext)
+        val selectedPackages = preferences.selectedPackagesFlow.first()
+
+        val screenTimeRepo = ScreenTimeRepository(applicationContext)
+        val screenTimeSnapshot = screenTimeRepo.buildYesterdaySnapshot(selectedPackages)
+        val screenTimeMinutes = (screenTimeSnapshot.totalTrackedTimeMs / 60_000).toInt()
+
+        // Fetch fresh walking minutes for yesterday
+        val healthConnectSource = HealthConnectStepsDataSource(applicationContext)
+        val deviceSensorSource = DeviceSensorStepsDataSource.getInstance(applicationContext)
+        val walkingRepository = WalkingRepository(healthConnectSource, deviceSensorSource)
+
+        val yesterdayStart = LocalDate.now().minusDays(1)
+            .atStartOfDay(ZoneId.systemDefault()).toInstant().toEpochMilli()
+        val yesterdayEnd = LocalDate.now()
+            .atStartOfDay(ZoneId.systemDefault()).toInstant().toEpochMilli()
+
+        val walkingMinutes = try {
+            walkingRepository.getWalkingMinutes(yesterdayStart, yesterdayEnd).toInt()
+        } catch (e: Exception) {
+            // Fall back to whatever was last saved if sources are unavailable
+            dao.getLogForDate(yesterday)?.walkingMinutes ?: 0
+        }
+
+        // Update yesterday's log with fresh values
+        val existingLog = dao.getLogForDate(yesterday) ?: DailyLog(date = yesterday)
+        val finalizedLog = existingLog.copy(
+            screenTimeMinutes = screenTimeMinutes,
+            walkingMinutes = walkingMinutes,
+            streakMaintained = screenTimeMinutes <= existingLog.screenTimeGoal
+                    && walkingMinutes >= existingLog.walkingGoal
+        )
+        dao.upsertLog(finalizedLog)
+
+        // Ensure today's log exists
+        if (dao.getLogForDate(today) == null) {
+            dao.upsertLog(DailyLog(date = today))
+        }
+
+        // Build stats and check achievements
+        val statsRepo = UserStatsRepository(dao)
+        val stats = statsRepo.userStats.first()
+
+        val screenTimeOver = if (finalizedLog.screenTimeMinutes > finalizedLog.screenTimeGoal)
+            finalizedLog.screenTimeMinutes - finalizedLog.screenTimeGoal else -1
+        val walkingUnder = if (finalizedLog.walkingMinutes < finalizedLog.walkingGoal)
+            finalizedLog.walkingGoal - finalizedLog.walkingMinutes else -1
+
+        val statsWithMargins = stats.copy(
+            screenTimeOverBy = screenTimeOver,
+            walkingUnderBy   = walkingUnder
+        )
+
+        val inventory = invDao.getInventory() ?: UserInventory()
+        val alreadyUnlocked = inventory.unlockedAchievementIds
+
+        val newlyUnlocked = AchievementCatalog.all
+            .filter { it.id !in alreadyUnlocked }
+            .filter { achievement ->
+                meetsCondition(achievement, statsWithMargins, isEndOfDay = true)
+            }
+            .map { it.id }
+
+        if (newlyUnlocked.isNotEmpty()) {
+            invDao.upsertInventory(
+                inventory.copy(
+                    unlockedAchievementIds = alreadyUnlocked + newlyUnlocked
+                )
+            )
+        }
+
+        // Schedule next midnight run
+        scheduleMidnightWork(applicationContext)
+
+        return Result.success()
+    }
+
+    // Version of RoomViewModel function just for end of day checks
+    private fun meetsCondition(
+        achievement: Achievement,
+        stats: UserStatsRepository.UserStats,
+        isEndOfDay: Boolean
+    ): Boolean {
+        return when (achievement.id) {
+            // Streak
+            "streak_1" -> stats.currentStreak >= 1
+            "streak_7" -> stats.currentStreak >= 7
+            "streak_14" -> stats.currentStreak >= 14
+            "streak_21" -> stats.currentStreak >= 21
+            "streak_28" -> stats.currentStreak >= 28
+            "streak_50" -> stats.currentStreak >= 50
+            "streak_100" -> stats.currentStreak >= 100
+            "streak_150" -> stats.currentStreak >= 150
+            "streak_365" -> stats.currentStreak >= 365
+            "streak_500" -> stats.currentStreak >= 500
+            "streak_1000" -> stats.currentStreak >= 1000
+            "streak_1825" -> stats.currentStreak >= 1825
+
+            // Screen
+            "screen_fail" -> stats.screenTimeFailCount >= 1
+            "screen_7" -> stats.consecutiveScreenTimeSuccess >= 7
+            "screen_14" -> stats.consecutiveScreenTimeSuccess >= 14
+            "screen_inv_7" -> stats.screenTimeFailCount >= 7
+
+            // Secret
+            "screen_31" -> isEndOfDay && stats.screenTimeOverBy == 1
+            "walk_29" -> isEndOfDay && stats.walkingUnderBy == 1
+            else -> false
+        }
+    }
+
+    companion object {
+        const val WORK_NAME = "daily_finalization"
+
+        fun scheduleMidnightWork(context: Context) {
+            val now = LocalDateTime.now()
+            val nextMidnight = now.toLocalDate().plusDays(1).atStartOfDay()
+            val delayMillis = ChronoUnit.MILLIS.between(now, nextMidnight)
+
+            val request = OneTimeWorkRequestBuilder<DailyFinalizationWorker>()
+                .setInitialDelay(delayMillis, TimeUnit.MILLISECONDS)
+                .setConstraints(
+                    Constraints.Builder()
+                        .setRequiresBatteryNotLow(false)
+                        .build()
+                )
+                .addTag(WORK_NAME)
+                .build()
+
+            WorkManager.getInstance(context).enqueueUniqueWork(
+                WORK_NAME,
+                ExistingWorkPolicy.REPLACE,
+                request
+            )
+        }
+    }
+}
