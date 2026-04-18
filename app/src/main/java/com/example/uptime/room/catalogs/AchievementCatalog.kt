@@ -273,7 +273,7 @@ object AchievementCatalog {
         ),
         Achievement(
             "save_500",
-            "Saving Up",
+            "Worth It",
             "Spend 500+ points on a single item or theme.",
             AchievementTier.Silver,
             AchievementCategory.Exchange,
