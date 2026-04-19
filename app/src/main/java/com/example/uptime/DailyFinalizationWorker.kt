@@ -155,7 +155,7 @@ class DailyFinalizationWorker(
         fun scheduleMidnightWork(context: Context) {
             val now = LocalDateTime.now()
             val nextMidnight = now.toLocalDate().plusDays(1).atStartOfDay()
-            val delayMillis = ChronoUnit.MILLIS.between(now, nextMidnight)
+            val delayMillis = ChronoUnit.MILLIS.between(now, nextMidnight) + (2 * 60 * 1000)
 
             val request = OneTimeWorkRequestBuilder<DailyFinalizationWorker>()
                 .setInitialDelay(delayMillis, TimeUnit.MILLISECONDS)
