@@ -170,7 +170,10 @@ fun AppScaffold(roomViewModel: RoomViewModel, dashboardViewModel: DashboardViewM
                             NavDestination.ScreenTime -> ScreenTimeRoute(
                                 updateScreenTime = dashboardViewModel::updateScreenTime
                             )
-                            NavDestination.Settings -> SettingsScreen()
+                            NavDestination.Settings -> SettingsScreen(
+                                onNavigateToWalking = { backStack.add(NavDestination.Walking) },
+                                onNavigateToScreenTime = { backStack.add(NavDestination.ScreenTime) }
+                            )
                             NavDestination.Profile -> ProfileScreen(
                                 viewModel = dashboardViewModel,
                                 onNavigateToSettings = { backStack.add(NavDestination.Settings) }
