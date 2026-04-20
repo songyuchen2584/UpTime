@@ -1,6 +1,7 @@
 package com.example.uptime
 
-import androidx.compose.foundation.Canvas
+import androidx.compose.foundation.background
+import androidx.compose.foundation.border
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
@@ -13,6 +14,7 @@ import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.rememberScrollState
+import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material3.Card
@@ -24,17 +26,14 @@ import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
-import androidx.compose.ui.geometry.Offset
-import androidx.compose.ui.geometry.Size
-import androidx.compose.ui.graphics.StrokeCap
-import androidx.compose.ui.graphics.drawscope.Stroke
+import androidx.compose.ui.draw.clip
 import androidx.compose.ui.text.font.FontWeight
-import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.lifecycle.viewmodel.compose.viewModel
-import com.example.uptime.ui.theme.Amber40
+import java.time.DayOfWeek
 import java.time.LocalDate
+import java.time.YearMonth
 import java.time.format.DateTimeFormatter
 import java.time.format.TextStyle
 import java.util.Locale
@@ -44,18 +43,19 @@ fun StreakScreen(viewModel: DashboardViewModel = viewModel()) {
     val stats by viewModel.userStats.collectAsState()
     val logs by viewModel.repository.allLogs.collectAsState(initial = emptyList())
 
-    // last 7 days of logs
     val formatter = DateTimeFormatter.ISO_LOCAL_DATE
     val today = LocalDate.now()
-    val last7Days = (0L..6L).map { today.minusDays(it).format(formatter) }
-    val recentLogs = last7Days.map { date ->
-        logs.find { it.date == date } ?: DailyLog(date = date)
-    }
+    val logMap = logs.associateBy { it.date }
 
-    // weekly totals
-    val weeklyWalking = recentLogs.sumOf { it.walkingMinutes }
-    val weeklyScreenTime = recentLogs.sumOf { it.screenTimeMinutes }
-    val daysCompleted = recentLogs.count { it.streakMaintained }
+    // this week's data
+    val weekStart = today.minusDays(today.dayOfWeek.value.toLong() - 1)
+    val thisWeekLogs = (0L..6L).map { offset ->
+        val date = weekStart.plusDays(offset)
+        logMap[date.format(formatter)] ?: DailyLog(date = date.format(formatter))
+    }
+    val weeklyWalking = thisWeekLogs.sumOf { it.walkingMinutes }
+    val weeklyScreenTime = thisWeekLogs.sumOf { it.screenTimeMinutes }
+    val daysCompleted = thisWeekLogs.count { it.streakMaintained }
 
     Column(
         modifier = Modifier
@@ -66,15 +66,14 @@ fun StreakScreen(viewModel: DashboardViewModel = viewModel()) {
     ) {
         Spacer(modifier = Modifier.height(8.dp))
 
-        // streak overview
-        StreakOverviewCard(
+        StatsCard(
             currentStreak = stats.currentStreak,
-            bestStreak = stats.bestStreak
+            totalWalking = stats.totalWalkingMins,
+            totalScreenTime = stats.totalScreenTimeMins
         )
 
         Spacer(modifier = Modifier.height(16.dp))
 
-        // weekly summary
         WeeklySummaryCard(
             weeklyWalking = weeklyWalking,
             weeklyScreenTime = weeklyScreenTime,
@@ -83,15 +82,14 @@ fun StreakScreen(viewModel: DashboardViewModel = viewModel()) {
 
         Spacer(modifier = Modifier.height(16.dp))
 
-        // 7-day history
-        DailyHistoryCard(recentLogs)
+        MonthCalendarCard(logMap = logMap)
 
         Spacer(modifier = Modifier.height(24.dp))
     }
 }
 
 @Composable
-fun StreakOverviewCard(currentStreak: Int, bestStreak: Int) {
+fun StatsCard(currentStreak: Int, totalWalking: Int, totalScreenTime: Int) {
     Card(
         modifier = Modifier.fillMaxWidth(),
         shape = RoundedCornerShape(16.dp),
@@ -103,31 +101,23 @@ fun StreakOverviewCard(currentStreak: Int, bestStreak: Int) {
             modifier = Modifier
                 .fillMaxWidth()
                 .padding(24.dp),
-            horizontalArrangement = Arrangement.SpaceEvenly,
-            verticalAlignment = Alignment.CenterVertically
+            horizontalArrangement = Arrangement.SpaceEvenly
         ) {
-            StreakStat(
-                value = currentStreak,
-                label = "Current streak",
-                emoji = if (currentStreak > 0) "🔥" else "⏸️"
-            )
-            StreakStat(
-                value = bestStreak,
-                label = "Best streak",
-                emoji = "🏆"
-            )
+            StatItem(emoji = "🔥", value = "$currentStreak", label = "Day Streak")
+            StatItem(emoji = "🚶", value = "${totalWalking}m", label = "Total Walking")
+            StatItem(emoji = "📱", value = "${totalScreenTime}m", label = "Screen Time")
         }
     }
 }
 
 @Composable
-fun StreakStat(value: Int, label: String, emoji: String) {
+fun StatItem(emoji: String, value: String, label: String) {
     Column(horizontalAlignment = Alignment.CenterHorizontally) {
-        Text(text = emoji, fontSize = 28.sp)
+        Text(text = emoji, fontSize = 24.sp)
         Spacer(modifier = Modifier.height(4.dp))
         Text(
-            text = "$value",
-            style = MaterialTheme.typography.headlineMedium,
+            text = value,
+            style = MaterialTheme.typography.titleLarge,
             fontWeight = FontWeight.Bold,
             color = MaterialTheme.colorScheme.onSurface
         )
@@ -149,11 +139,22 @@ fun WeeklySummaryCard(weeklyWalking: Int, weeklyScreenTime: Int, daysCompleted: 
         )
     ) {
         Column(modifier = Modifier.padding(20.dp)) {
-            Text(
-                text = "This week",
-                style = MaterialTheme.typography.titleMedium,
-                fontWeight = FontWeight.SemiBold
-            )
+            Row(
+                modifier = Modifier.fillMaxWidth(),
+                horizontalArrangement = Arrangement.SpaceBetween,
+                verticalAlignment = Alignment.CenterVertically
+            ) {
+                Text(
+                    text = "This week",
+                    style = MaterialTheme.typography.titleMedium,
+                    fontWeight = FontWeight.SemiBold
+                )
+                Text(
+                    text = "7-day streak = 50 pts!",
+                    style = MaterialTheme.typography.labelSmall,
+                    color = MaterialTheme.colorScheme.primary
+                )
+            }
 
             Spacer(modifier = Modifier.height(16.dp))
 
@@ -187,7 +188,17 @@ fun WeeklyStat(value: String, label: String) {
 }
 
 @Composable
-fun DailyHistoryCard(logs: List<DailyLog>) {
+fun MonthCalendarCard(logMap: Map<String, DailyLog>) {
+    val today = LocalDate.now()
+    val currentMonth = YearMonth.from(today)
+    val firstOfMonth = currentMonth.atDay(1)
+    val daysInMonth = currentMonth.lengthOfMonth()
+    val formatter = DateTimeFormatter.ISO_LOCAL_DATE
+
+    // Monday = 1, Sunday = 7
+    val startDayOfWeek = firstOfMonth.dayOfWeek.value
+    val dayHeaders = listOf("M", "T", "W", "T", "F", "S", "S")
+
     Card(
         modifier = Modifier.fillMaxWidth(),
         shape = RoundedCornerShape(16.dp),
@@ -197,67 +208,110 @@ fun DailyHistoryCard(logs: List<DailyLog>) {
     ) {
         Column(modifier = Modifier.padding(20.dp)) {
             Text(
-                text = "Last 7 days",
+                text = currentMonth.month.getDisplayName(TextStyle.FULL, Locale.getDefault()) +
+                        " " + currentMonth.year,
                 style = MaterialTheme.typography.titleMedium,
                 fontWeight = FontWeight.SemiBold
             )
 
-            Spacer(modifier = Modifier.height(12.dp))
+            Spacer(modifier = Modifier.height(16.dp))
 
-            logs.forEach { log ->
-                DayRow(log)
-                if (log != logs.last()) {
-                    Spacer(modifier = Modifier.height(10.dp))
+            // day of week headers
+            Row(
+                modifier = Modifier.fillMaxWidth(),
+                horizontalArrangement = Arrangement.SpaceBetween
+            ) {
+                dayHeaders.forEach { day ->
+                    Box(
+                        modifier = Modifier.size(36.dp),
+                        contentAlignment = Alignment.Center
+                    ) {
+                        Text(
+                            text = day,
+                            style = MaterialTheme.typography.labelSmall,
+                            fontWeight = FontWeight.Medium,
+                            color = MaterialTheme.colorScheme.onSurfaceVariant
+                        )
+                    }
                 }
+            }
+
+            Spacer(modifier = Modifier.height(4.dp))
+
+            // calendar grid
+            var dayCounter = 1
+            val totalSlots = startDayOfWeek - 1 + daysInMonth
+            val weeks = (totalSlots + 6) / 7
+
+            for (week in 0 until weeks) {
+                Row(
+                    modifier = Modifier.fillMaxWidth(),
+                    horizontalArrangement = Arrangement.SpaceBetween
+                ) {
+                    for (col in 0..6) {
+                        val slotIndex = week * 7 + col
+                        val dayOfMonth = slotIndex - (startDayOfWeek - 2)
+
+                        if (dayOfMonth in 1..daysInMonth) {
+                            val date = currentMonth.atDay(dayOfMonth)
+                            val dateStr = date.format(formatter)
+                            val log = logMap[dateStr]
+                            val isToday = date == today
+                            val isFuture = date.isAfter(today)
+
+                            MonthDayCell(
+                                dayNumber = dayOfMonth.toString(),
+                                log = log,
+                                isToday = isToday,
+                                isFuture = isFuture
+                            )
+                        } else {
+                            // empty cell for padding
+                            Box(modifier = Modifier.size(36.dp))
+                        }
+                    }
+                }
+
+                Spacer(modifier = Modifier.height(6.dp))
             }
         }
     }
 }
 
 @Composable
-fun DayRow(log: DailyLog) {
-    val date = LocalDate.parse(log.date, DateTimeFormatter.ISO_LOCAL_DATE)
-    val today = LocalDate.now()
-    val dayLabel = when (date) {
-        today -> "Today"
-        today.minusDays(1) -> "Yesterday"
-        else -> date.dayOfWeek.getDisplayName(TextStyle.SHORT, Locale.getDefault())
+fun MonthDayCell(dayNumber: String, log: DailyLog?, isToday: Boolean, isFuture: Boolean) {
+    val hasData = log != null && (log.screenTimeMinutes > 0 || log.walkingMinutes > 0)
+
+    val bgColor = when {
+        isFuture -> MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.3f)
+        log?.streakMaintained == true -> MaterialTheme.colorScheme.primary
+        hasData -> MaterialTheme.colorScheme.error.copy(alpha = 0.7f)
+        else -> MaterialTheme.colorScheme.surfaceVariant
     }
 
-    val statusIcon = when {
-        log.streakMaintained -> "✅"
-        log.screenTimeMinutes == 0 && log.walkingMinutes == 0 -> "—"
-        else -> "❌"
+    val textColor = when {
+        isFuture -> MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.4f)
+        log?.streakMaintained == true -> MaterialTheme.colorScheme.onPrimary
+        hasData -> MaterialTheme.colorScheme.onError
+        else -> MaterialTheme.colorScheme.onSurfaceVariant
     }
 
-    Row(
-        modifier = Modifier.fillMaxWidth(),
-        verticalAlignment = Alignment.CenterVertically,
-        horizontalArrangement = Arrangement.SpaceBetween
-    ) {
-        Row(
-            verticalAlignment = Alignment.CenterVertically,
-            modifier = Modifier.width(100.dp)
-        ) {
-            Text(text = statusIcon, fontSize = 16.sp)
-            Spacer(modifier = Modifier.width(8.dp))
-            Text(
-                text = dayLabel,
-                style = MaterialTheme.typography.bodyMedium,
-                fontWeight = FontWeight.Medium
+    Box(
+        contentAlignment = Alignment.Center,
+        modifier = Modifier
+            .size(36.dp)
+            .clip(CircleShape)
+            .background(bgColor)
+            .then(
+                if (isToday) Modifier.border(2.dp, MaterialTheme.colorScheme.primary, CircleShape)
+                else Modifier
             )
-        }
-
+    ) {
         Text(
-            text = "🚶 ${log.walkingMinutes}m",
+            text = dayNumber,
             style = MaterialTheme.typography.bodySmall,
-            color = MaterialTheme.colorScheme.onSurfaceVariant
-        )
-
-        Text(
-            text = "📱 ${log.screenTimeMinutes}m",
-            style = MaterialTheme.typography.bodySmall,
-            color = MaterialTheme.colorScheme.onSurfaceVariant
+            fontWeight = if (isToday) FontWeight.Bold else FontWeight.Normal,
+            color = textColor
         )
     }
 }
