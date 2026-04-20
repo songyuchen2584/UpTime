@@ -49,6 +49,7 @@ import com.example.uptime.room.RoomViewModel.Companion.DAILY_COMPLETION_POINTS
 import com.example.uptime.ui.theme.Amber40
 import com.example.uptime.ui.theme.Coral40
 import com.example.uptime.walking.WalkingViewModel
+import androidx.compose.material3.Button
 
 // UI state for the dashboard
 data class DashboardState(
@@ -124,7 +125,6 @@ fun DashboardScreen(
         //Streak Banner
         StreakCard(
             currentStreak = state.currentStreak,
-            bestStreak = state.bestStreak,
             bothGoalsMet = state.screenTimeUsed <= state.screenTimeGoal
                     && state.walkingDone >= state.walkingGoal,
             onClick = onNavigateToStreak
@@ -193,7 +193,7 @@ fun DashboardScreen(
 // ── Streak Card ──
 
 @Composable
-fun StreakCard(currentStreak: Int, bestStreak: Int, bothGoalsMet: Boolean, onClick: () -> Unit = {}) {
+fun StreakCard(currentStreak: Int, bothGoalsMet: Boolean, onClick: () -> Unit = {}) {
     Card(
         onClick = onClick,
         modifier = Modifier.fillMaxWidth(),
@@ -211,17 +211,9 @@ fun StreakCard(currentStreak: Int, bestStreak: Int, bothGoalsMet: Boolean, onCli
                 .padding(20.dp),
             verticalAlignment = Alignment.CenterVertically
         ) {
-            // Streak icon area
-            if (currentStreak > 0) Icon(
-                painterResource(R.drawable.streak_24px),
-                contentDescription = "Streak",
-                modifier = Modifier.size(20.dp),
-                tint = MaterialTheme.colorScheme.onSurface
-            ) else Icon(
-                painterResource(R.drawable.pause_24px),
-                contentDescription = "Streak Paused",
-                modifier = Modifier.size(20.dp),
-                tint = MaterialTheme.colorScheme.onSurface
+            Text(
+                text = "🔥",
+                fontSize = 28.sp
             )
 
             Spacer(modifier = Modifier.width(16.dp))
@@ -233,27 +225,21 @@ fun StreakCard(currentStreak: Int, bestStreak: Int, bothGoalsMet: Boolean, onCli
                     fontWeight = FontWeight.Bold,
                     color = MaterialTheme.colorScheme.onSurface
                 )
+                Spacer(modifier = Modifier.height(4.dp))
                 Text(
                     text = if (bothGoalsMet) "Both goals met today — keep it up!"
-                    else "Complete both goals to keep your streak",
+                    else "Complete both goals to keep your streak going!",
                     style = MaterialTheme.typography.bodyMedium,
                     color = MaterialTheme.colorScheme.onSurfaceVariant
                 )
             }
 
-            // Best streak badge
-            Column(horizontalAlignment = Alignment.CenterHorizontally) {
-                Text(
-                    text = "$bestStreak",
-                    style = MaterialTheme.typography.titleMedium,
-                    fontWeight = FontWeight.Bold,
-                    color = Amber40
-                )
-                Text(
-                    text = "best",
-                    style = MaterialTheme.typography.labelSmall,
-                    color = MaterialTheme.colorScheme.onSurfaceVariant
-                )
+            // streak report link
+            Button(onClick = onClick) {
+                Column(horizontalAlignment = Alignment.CenterHorizontally) {
+                    Text("Streak", style = MaterialTheme.typography.labelSmall)
+                    Text("Report", style = MaterialTheme.typography.labelSmall)
+                }
             }
         }
     }
