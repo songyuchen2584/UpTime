@@ -30,14 +30,15 @@ import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.lifecycle.viewmodel.compose.viewModel
-import com.example.uptime.ui.theme.Amber40
 
 @Composable
 fun ProfileScreen(
     viewModel: DashboardViewModel = viewModel(),
+    authViewModel: AuthViewModel = viewModel(),
     onNavigateToSettings: () -> Unit = {}
 ) {
     val stats by viewModel.userStats.collectAsState()
+    val authState by authViewModel.state.collectAsState()
 
     Column(
         modifier = Modifier
@@ -46,14 +47,15 @@ fun ProfileScreen(
             .verticalScroll(rememberScrollState()),
         horizontalAlignment = Alignment.CenterHorizontally
     ) {
-        Spacer(modifier = Modifier.height(8.dp))
+        Spacer(modifier = Modifier.height(24.dp))
 
-        // profile header
-        ProfileHeader()
+        ProfileHeader(
+            isAnonymous = authState.isAnonymous,
+            email = authState.user?.email
+        )
 
         Spacer(modifier = Modifier.height(20.dp))
 
-        // stats overview
         StatsOverviewCard(
             currentStreak = stats.currentStreak,
             trophiesUnlocked = 0 // TODO: wire to room achievements
@@ -61,25 +63,53 @@ fun ProfileScreen(
 
         Spacer(modifier = Modifier.height(16.dp))
 
-        // account section
-        AccountCard(onNavigateToSettings = onNavigateToSettings)
+        if (authState.isAnonymous) {
+            Card(
+                modifier = Modifier.fillMaxWidth(),
+                shape = RoundedCornerShape(16.dp),
+                colors = CardDefaults.cardColors(
+                    containerColor = MaterialTheme.colorScheme.surface
+                )
+            ) {
+                Column(
+                    modifier = Modifier.padding(20.dp),
+                    horizontalAlignment = Alignment.CenterHorizontally
+                ) {
+                    Button(
+                        onClick = onNavigateToSettings,
+                        modifier = Modifier.fillMaxWidth()
+                    ) {
+                        Text("Sign in to save your progress")
+                    }
+                }
+            }
 
-        Spacer(modifier = Modifier.height(16.dp))
+            Spacer(modifier = Modifier.height(16.dp))
+        }
 
-        // friends section placeholder
-        FriendsCard()
+        FriendsCard(isSignedIn = !authState.isAnonymous)
+
+        if (!authState.isAnonymous) {
+            //change space amount later when friends list gets added
+            Spacer(modifier = Modifier.height(180.dp))
+            OutlinedButton(
+                onClick = { authViewModel.signOut() },
+                modifier = Modifier.fillMaxWidth()
+            ) {
+                Text("Sign Out")
+            }
+        }
 
         Spacer(modifier = Modifier.height(24.dp))
     }
 }
 
 @Composable
-fun ProfileHeader() {
+fun ProfileHeader(isAnonymous: Boolean, email: String?) {
     Column(
         horizontalAlignment = Alignment.CenterHorizontally,
         modifier = Modifier.fillMaxWidth()
     ) {
-        // avatar placeholder
         Card(
             shape = RoundedCornerShape(50),
             colors = CardDefaults.cardColors(
@@ -104,13 +134,14 @@ fun ProfileHeader() {
         Spacer(modifier = Modifier.height(12.dp))
 
         Text(
-            text = "Guest",
+            text = if (isAnonymous) "Guest" else email ?: "User",
             style = MaterialTheme.typography.titleLarge,
             fontWeight = FontWeight.Bold
         )
 
         Text(
-            text = "Sign in to save your progress",
+            text = if (isAnonymous) "Sign in to save your progress"
+                   else "Welcome back!",
             style = MaterialTheme.typography.bodySmall,
             color = MaterialTheme.colorScheme.onSurfaceVariant
         )
@@ -164,50 +195,7 @@ fun StatsOverviewCard(currentStreak: Int, trophiesUnlocked: Int) {
 }
 
 @Composable
-fun AccountCard(onNavigateToSettings: () -> Unit) {
-    Card(
-        modifier = Modifier.fillMaxWidth(),
-        shape = RoundedCornerShape(16.dp),
-        colors = CardDefaults.cardColors(
-            containerColor = MaterialTheme.colorScheme.surface
-        )
-    ) {
-        Column(
-            modifier = Modifier.padding(20.dp),
-            horizontalAlignment = Alignment.CenterHorizontally
-        ) {
-            Text(
-                text = "Account",
-                style = MaterialTheme.typography.titleMedium,
-                fontWeight = FontWeight.SemiBold,
-                modifier = Modifier.fillMaxWidth()
-            )
-
-            Spacer(modifier = Modifier.height(12.dp))
-
-            // TODO: replace with Firebase auth
-            Button(
-                onClick = { },
-                modifier = Modifier.fillMaxWidth()
-            ) {
-                Text("Sign Up")
-            }
-
-            Spacer(modifier = Modifier.height(8.dp))
-
-            OutlinedButton(
-                onClick = { },
-                modifier = Modifier.fillMaxWidth()
-            ) {
-                Text("Log In")
-            }
-
-        }
-    }
-}
-
-@Composable
-fun FriendsCard() {
+fun FriendsCard(isSignedIn: Boolean) {
     Card(
         modifier = Modifier.fillMaxWidth(),
         shape = RoundedCornerShape(16.dp),
@@ -229,7 +217,8 @@ fun FriendsCard() {
             Spacer(modifier = Modifier.height(16.dp))
 
             Text(
-                text = "Sign in to add friends and see their streaks",
+                text = if (isSignedIn) "Friends list coming soon"
+                       else "Sign in to add friends and see their streaks",
                 style = MaterialTheme.typography.bodyMedium,
                 color = MaterialTheme.colorScheme.onSurfaceVariant,
                 textAlign = TextAlign.Center,
