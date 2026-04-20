@@ -171,6 +171,10 @@ fun AppScaffold(roomViewModel: RoomViewModel, dashboardViewModel: DashboardViewM
                                 updateScreenTime = dashboardViewModel::updateScreenTime
                             )
                             NavDestination.Settings -> SettingsScreen()
+                            NavDestination.Profile -> ProfileScreen(
+                                viewModel = dashboardViewModel,
+                                onNavigateToSettings = { backStack.add(NavDestination.Settings) }
+                            )
                         }
                     }
                 }

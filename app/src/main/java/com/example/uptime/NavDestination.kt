@@ -13,9 +13,10 @@ enum class NavDestination(
     Room("Room", R.drawable.door_sliding_24px),
     Walking("Walking", R.drawable.directions_walk_24px),
     ScreenTime("Screen Time", R.drawable.analytics_24px),
+    Profile("Profile", R.drawable.person_24px),
     Settings("Settings", R.drawable.settings_24px);
 
     companion object {
-        val navBar = entries.filter { it != Settings && it != Walking && it != ScreenTime }
+        val navBar = listOf(Dashboard, Room, Profile)
     }
 }
