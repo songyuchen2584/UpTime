@@ -17,6 +17,7 @@ import androidx.compose.runtime.Composable
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.unit.dp
 import androidx.health.connect.client.HealthConnectClient
+import com.example.uptime.walking.viewmodel.WalkingUiState
 
 @Composable
 fun WalkingScreen(

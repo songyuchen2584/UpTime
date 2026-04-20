@@ -1,11 +1,15 @@
-package com.example.uptime.walking
+package com.example.uptime.walking.viewmodel
 
 import android.app.Application
 import androidx.lifecycle.AndroidViewModel
 import androidx.lifecycle.viewModelScope
+import com.example.uptime.walking.TrackingMethod
+import com.example.uptime.walking.TrackingPreferences
+import com.example.uptime.walking.WalkingRepository
 import com.example.uptime.walking.datasource.DeviceSensorStepsDataSource
 import com.example.uptime.walking.datasource.HealthConnectStepsDataSource
 import com.example.uptime.walking.model.WalkingStats
+import com.example.uptime.walking.repository.WalkingRepositoryProvider
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.update
@@ -25,7 +29,8 @@ class WalkingViewModel(app: Application) : AndroidViewModel(app) {
 
     private val healthConnectSource = HealthConnectStepsDataSource(app.applicationContext)
     private val deviceSensorSource = DeviceSensorStepsDataSource.getInstance(app.applicationContext)
-    private val repository = WalkingRepository(healthConnectSource, deviceSensorSource)
+    val walkingPreferences = TrackingPreferences(app.applicationContext)
+    private val repository = WalkingRepositoryProvider.get(app)
 
     private val _state = MutableStateFlow(
         WalkingUiState(

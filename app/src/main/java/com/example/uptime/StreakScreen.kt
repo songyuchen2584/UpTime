@@ -19,6 +19,7 @@ import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material3.Card
 import androidx.compose.material3.CardDefaults
+import androidx.compose.material3.Icon
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
@@ -27,6 +28,7 @@ import androidx.compose.runtime.getValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
+import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
@@ -103,17 +105,21 @@ fun StatsCard(currentStreak: Int, totalWalking: Int, totalScreenTime: Int) {
                 .padding(24.dp),
             horizontalArrangement = Arrangement.SpaceEvenly
         ) {
-            StatItem(emoji = "🔥", value = "$currentStreak", label = "Day Streak")
-            StatItem(emoji = "🚶", value = "${totalWalking}m", label = "Total Walking")
-            StatItem(emoji = "📱", value = "${totalScreenTime}m", label = "Screen Time")
+            StatItem(icon = R.drawable.streak_24px, value = "$currentStreak", label = "Day Streak")
+            StatItem(icon = R.drawable.directions_walk_24px, value = "${totalWalking}m", label = "Total Walking")
+            StatItem(icon = R.drawable.timer_24px, value = "${totalScreenTime}m", label = "Screen Time")
         }
     }
 }
 
 @Composable
-fun StatItem(emoji: String, value: String, label: String) {
+fun StatItem(icon: Int, value: String, label: String) {
     Column(horizontalAlignment = Alignment.CenterHorizontally) {
-        Text(text = emoji, fontSize = 24.sp)
+        Icon(
+            painterResource(icon),
+            contentDescription = null,
+            modifier = Modifier.size(24.dp)
+        )
         Spacer(modifier = Modifier.height(4.dp))
         Text(
             text = value,

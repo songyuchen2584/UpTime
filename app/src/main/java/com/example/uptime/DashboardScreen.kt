@@ -46,9 +46,8 @@ import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.lifecycle.viewmodel.compose.viewModel
 import com.example.uptime.room.RoomViewModel.Companion.DAILY_COMPLETION_POINTS
-import com.example.uptime.ui.theme.Amber40
 import com.example.uptime.ui.theme.Coral40
-import com.example.uptime.walking.WalkingViewModel
+import com.example.uptime.walking.viewmodel.WalkingViewModel
 import androidx.compose.material3.Button
 
 // UI state for the dashboard
@@ -211,9 +210,10 @@ fun StreakCard(currentStreak: Int, bothGoalsMet: Boolean, onClick: () -> Unit = 
                 .padding(20.dp),
             verticalAlignment = Alignment.CenterVertically
         ) {
-            Text(
-                text = "🔥",
-                fontSize = 28.sp
+            Icon(
+                painterResource(R.drawable.streak_24px),
+                contentDescription = "Streak",
+                modifier = Modifier.size(28.dp)
             )
 
             Spacer(modifier = Modifier.width(16.dp))
@@ -227,7 +227,7 @@ fun StreakCard(currentStreak: Int, bothGoalsMet: Boolean, onClick: () -> Unit = 
                 )
                 Spacer(modifier = Modifier.height(4.dp))
                 Text(
-                    text = if (bothGoalsMet) "Both goals met today — keep it up!"
+                    text = if (bothGoalsMet) "Both goals met today, keep it up!"
                     else "Complete both goals to keep your streak going!",
                     style = MaterialTheme.typography.bodyMedium,
                     color = MaterialTheme.colorScheme.onSurfaceVariant
@@ -237,7 +237,7 @@ fun StreakCard(currentStreak: Int, bothGoalsMet: Boolean, onClick: () -> Unit = 
             // streak report link
             Button(onClick = onClick) {
                 Column(horizontalAlignment = Alignment.CenterHorizontally) {
-                    Text("Streak", style = MaterialTheme.typography.labelSmall)
+                    Text("View", style = MaterialTheme.typography.labelSmall)
                     Text("Report", style = MaterialTheme.typography.labelSmall)
                 }
             }

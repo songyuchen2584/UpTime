@@ -3,21 +3,20 @@ package com.example.uptime
 import android.app.Application
 import androidx.lifecycle.AndroidViewModel
 import androidx.lifecycle.viewModelScope
-import androidx.room.Room
 import com.example.uptime.screentime.ScreenTimePreferences
 import com.example.uptime.screentime.repository.ScreenTimeRepository
-import com.example.uptime.walking.WalkingViewModel
+import com.example.uptime.walking.viewmodel.WalkingViewModel
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.SharingStarted
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.first
-import kotlinx.coroutines.flow.map
 import kotlinx.coroutines.flow.stateIn
 import kotlinx.coroutines.launch
 import java.time.LocalDate
 import java.time.ZoneId
 import java.time.format.DateTimeFormatter
+import java.util.Date
 
 class DashboardViewModel(application: Application) : AndroidViewModel(application) {
     private val db  = UpTimeDatabase.getDatabase(application)
@@ -66,6 +65,8 @@ class DashboardViewModel(application: Application) : AndroidViewModel(applicatio
             val walkMins = walkingViewModel.getWalkingMinutes(
                 startOfDay, System.currentTimeMillis()
             ).toInt()
+
+            println("walking time for ${Date(startOfDay)} to ${Date(System.currentTimeMillis())}: $walkMins min")
 
             dao.upsertLog(log.copy(
                 screenTimeMinutes = screenMins,

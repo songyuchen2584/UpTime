@@ -15,6 +15,7 @@ import androidx.core.content.ContextCompat
 import androidx.lifecycle.viewmodel.compose.viewModel
 import com.example.uptime.DashboardViewModel
 import com.example.uptime.walking.datasource.StepTrackingService
+import com.example.uptime.walking.viewmodel.WalkingViewModel
 
 @Composable
 fun WalkingRoute(
@@ -22,7 +23,7 @@ fun WalkingRoute(
     dashboardViewModel: DashboardViewModel = viewModel()
 ) {
     val context = LocalContext.current
-    val prefs = TrackingPreferences(context)
+    val prefs = TrackingPreferences(context.applicationContext)
     val state by walkingViewModel.state.collectAsState()
 
     val hcPermissionLauncher = rememberLauncherForActivityResult(

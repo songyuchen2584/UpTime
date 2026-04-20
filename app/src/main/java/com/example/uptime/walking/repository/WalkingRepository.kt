@@ -8,14 +8,23 @@ import com.example.uptime.walking.model.WalkingStats
 
 class WalkingRepository(
     private val healthConnectSource: HealthConnectStepsDataSource,
-    private val deviceSensorSource: DeviceSensorStepsDataSource
+    private val deviceSensorSource: DeviceSensorStepsDataSource,
+    private val prefs: TrackingPreferences
 ) {
-    private val enabledMethods = linkedSetOf<TrackingMethod>()
+    private val enabledMethods = linkedSetOf<TrackingMethod>().apply {
+        if (prefs.isHealthConnectEnabled()) add(TrackingMethod.HEALTH_CONNECT)
+        if (prefs.isDeviceSensorEnabled()) add(TrackingMethod.DEVICE_SENSOR)
+    }
 
     fun isMethodEnabled(method: TrackingMethod): Boolean = method in enabledMethods
 
     fun setMethodEnabled(method: TrackingMethod, enabled: Boolean) {
         if (enabled) enabledMethods += method else enabledMethods -= method
+
+        when (method) {
+            TrackingMethod.HEALTH_CONNECT -> prefs.setHealthConnectEnabled(enabled)
+            TrackingMethod.DEVICE_SENSOR -> prefs.setDeviceSensorEnabled(enabled)
+        }
     }
     suspend fun getWalkingStats(
         startMillis: Long,

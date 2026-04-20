@@ -1,6 +1,7 @@
 package com.example.uptime
 
 import android.content.Context
+import android.util.Log
 import androidx.work.Constraints
 import androidx.work.CoroutineWorker
 import androidx.work.ExistingWorkPolicy
@@ -12,9 +13,12 @@ import com.example.uptime.room.UserInventory
 import com.example.uptime.room.catalogs.AchievementCatalog
 import com.example.uptime.screentime.ScreenTimePreferences
 import com.example.uptime.screentime.repository.ScreenTimeRepository
+import com.example.uptime.walking.TrackingMethod
+import com.example.uptime.walking.TrackingPreferences
 import com.example.uptime.walking.WalkingRepository
 import com.example.uptime.walking.datasource.DeviceSensorStepsDataSource
 import com.example.uptime.walking.datasource.HealthConnectStepsDataSource
+import com.example.uptime.walking.repository.WalkingRepositoryProvider
 import kotlinx.coroutines.flow.first
 import java.time.LocalDate
 import java.time.LocalDateTime
@@ -38,28 +42,44 @@ class DailyFinalizationWorker(
         val yesterday = LocalDate.now().minusDays(1).format(formatter)
 
         // Fetch fresh screen time for yesterday
-        val preferences = ScreenTimePreferences(applicationContext)
-        val selectedPackages = preferences.selectedPackagesFlow.first()
+        val screenTimePreferences = ScreenTimePreferences(applicationContext)
+        val selectedPackages = screenTimePreferences.selectedPackagesFlow.first()
 
         val screenTimeRepo = ScreenTimeRepository(applicationContext)
         val screenTimeSnapshot = screenTimeRepo.buildYesterdaySnapshot(selectedPackages)
         val screenTimeMinutes = (screenTimeSnapshot.totalTrackedTimeMs / 60_000).toInt()
 
         // Fetch fresh walking minutes for yesterday
-        val healthConnectSource = HealthConnectStepsDataSource(applicationContext)
-        val deviceSensorSource = DeviceSensorStepsDataSource.getInstance(applicationContext)
-        val walkingRepository = WalkingRepository(healthConnectSource, deviceSensorSource)
+        val walkingRepository = WalkingRepositoryProvider.get(applicationContext)
+
+        val trackingPrefs = TrackingPreferences(applicationContext)
+        val hcEnabled = trackingPrefs.isHealthConnectEnabled()
+        val sensorEnabled = trackingPrefs.isDeviceSensorEnabled()
+        if (hcEnabled)
+            walkingRepository.setMethodEnabled(TrackingMethod.HEALTH_CONNECT, true)
+        if (sensorEnabled)
+            walkingRepository.setMethodEnabled(TrackingMethod.DEVICE_SENSOR, true)
+
+        Log.d("DailyWorker", "healthConnect=$hcEnabled deviceSensor=$sensorEnabled")
+
+        if (!hcEnabled && !sensorEnabled) {
+            Log.d("DailyWorker", "No methods enabled, falling back to saved value")
+        }
 
         val yesterdayStart = LocalDate.now().minusDays(1)
             .atStartOfDay(ZoneId.systemDefault()).toInstant().toEpochMilli()
         val yesterdayEnd = LocalDate.now()
             .atStartOfDay(ZoneId.systemDefault()).toInstant().toEpochMilli()
 
-        val walkingMinutes = try {
-            walkingRepository.getWalkingMinutes(yesterdayStart, yesterdayEnd).toInt()
-        } catch (e: Exception) {
-            // Fall back to whatever was last saved if sources are unavailable
+        val walkingMinutes = if (!trackingPrefs.isHealthConnectEnabled() && !trackingPrefs.isDeviceSensorEnabled()) {
+            // No methods configured, fall back to last saved value
             dao.getLogForDate(yesterday)?.walkingMinutes ?: 0
+        } else {
+            try {
+                walkingRepository.getWalkingMinutes(yesterdayStart, yesterdayEnd).toInt()
+            } catch (e: Exception) {
+                dao.getLogForDate(yesterday)?.walkingMinutes ?: 0
+            }
         }
 
         // Update yesterday's log with fresh values
@@ -155,7 +175,8 @@ class DailyFinalizationWorker(
         fun scheduleMidnightWork(context: Context) {
             val now = LocalDateTime.now()
             val nextMidnight = now.toLocalDate().plusDays(1).atStartOfDay()
-            val delayMillis = ChronoUnit.MILLIS.between(now, nextMidnight) + (2 * 60 * 1000)
+            // Actually runs 1 min after midnight to let data sources settle
+            val delayMillis = ChronoUnit.MILLIS.between(now, nextMidnight) + (1 * 60 * 1000)
 
             val request = OneTimeWorkRequestBuilder<DailyFinalizationWorker>()
                 .setInitialDelay(delayMillis, TimeUnit.MILLISECONDS)
