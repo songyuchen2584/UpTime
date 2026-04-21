@@ -6,11 +6,14 @@ import androidx.lifecycle.viewModelScope
 import com.example.uptime.screentime.ScreenTimePreferences
 import com.example.uptime.screentime.repository.ScreenTimeRepository
 import com.example.uptime.walking.viewmodel.WalkingViewModel
+import kotlinx.coroutines.ExperimentalCoroutinesApi
+import kotlinx.coroutines.delay
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.SharingStarted
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.first
+import kotlinx.coroutines.flow.flatMapLatest
 import kotlinx.coroutines.flow.stateIn
 import kotlinx.coroutines.launch
 import java.time.LocalDate
@@ -26,7 +29,13 @@ class DashboardViewModel(application: Application) : AndroidViewModel(applicatio
 
     val repository = UserStatsRepository(dao)
 
-    val todayLog: Flow<DailyLog?> = dao.observeLogForDate(todayString())
+    private val _currentDate = MutableStateFlow(todayString())
+    val currentDate: StateFlow<String> = _currentDate
+
+    @OptIn(ExperimentalCoroutinesApi::class)
+    val todayLog: Flow<DailyLog?> = _currentDate.flatMapLatest { date ->
+        dao.observeLogForDate(date)
+    }
 
     val userStats: StateFlow<UserStatsRepository.UserStats> = repository.userStats
         .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5000),
@@ -41,8 +50,21 @@ class DashboardViewModel(application: Application) : AndroidViewModel(applicatio
         viewModelScope.launch {
             ensureTodayLogExists()
             catchUpMissedFinalizations()
+            watchForDateChange()
         }
         fetchQuote()
+    }
+
+    private suspend fun watchForDateChange() {
+        while (true) {
+            delay(60_000)
+            val newDate = todayString()
+            if (newDate != _currentDate.value) {
+                _currentDate.value = newDate
+                ensureTodayLogExists()
+                catchUpMissedFinalizations()
+            }
+        }
     }
 
     fun refreshLiveStats(walkingViewModel: WalkingViewModel) {

@@ -482,7 +482,7 @@ fun GoalsCard(state: DashboardState) {
             if (screenTimeMet && walkingMet) {
                 Spacer(modifier = Modifier.height(12.dp))
                 Text(
-                    text = "🎉 Streak maintained for today!",
+                    text = "Make it to midnight to increase your streak!",
                     style = MaterialTheme.typography.bodyMedium,
                     fontWeight = FontWeight.Medium,
                     color = MaterialTheme.colorScheme.primary,

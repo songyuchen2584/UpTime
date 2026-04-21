@@ -50,13 +50,6 @@ class RoomViewModel(application: Application) : AndroidViewModel(application) {
             }
         }
 
-        // Award points when goals completed
-        viewModelScope.launch {
-            statsRepository.goalCompletionEvents.collect {
-                updatePoints(DAILY_COMPLETION_POINTS)
-            }
-        }
-
         viewModelScope.launch {
             combine(currentSettings, currentInventory) { settings, inventory ->
                 if (settings == null || inventory == null) return@combine null

@@ -9,6 +9,7 @@ import androidx.work.OneTimeWorkRequestBuilder
 import androidx.work.WorkManager
 import androidx.work.WorkerParameters
 import com.example.uptime.room.Achievement
+import com.example.uptime.room.RoomViewModel.Companion.DAILY_COMPLETION_POINTS
 import com.example.uptime.room.UserInventory
 import com.example.uptime.room.catalogs.AchievementCatalog
 import com.example.uptime.screentime.ScreenTimePreferences
@@ -91,6 +92,16 @@ class DailyFinalizationWorker(
                     && walkingMinutes >= existingLog.walkingGoal
         )
         dao.upsertLog(finalizedLog)
+
+        if (finalizedLog.streakMaintained) {
+            val inventory = invDao.getInventory() ?: UserInventory()
+            invDao.upsertInventory(
+                inventory.copy(
+                    currentPoints = inventory.currentPoints + DAILY_COMPLETION_POINTS
+                )
+            )
+            Log.d("DailyWorker", "Awarded $DAILY_COMPLETION_POINTS points for completing yesterday")
+        }
 
         // Ensure today's log exists
         if (dao.getLogForDate(today) == null) {

@@ -26,31 +26,17 @@ class UserStatsRepository(private val dao: DailyLogDao) {
 
     val allLogs: Flow<List<DailyLog>> = dao.observeAllLogs()
 
-    // Emits log entry whenever a day is successfully completed
-    val goalCompletionEvents: Flow<DailyLog> = dao.observeLogForDate(
-        LocalDate.now().format(DateTimeFormatter.ISO_LOCAL_DATE)
-    )
-        .filterNotNull()
-        .distinctUntilChanged { old, new ->
-            old.streakMaintained == new.streakMaintained
-        }
-        .filter { it.streakMaintained }
-
     val userStats: Flow<UserStats> = allLogs.map { logs ->
         val formatter = DateTimeFormatter.ISO_LOCAL_DATE
         val today = LocalDate.now().format(formatter)
-        val streakDates = logs.filter { it.streakMaintained }.map { it.date }.toSet()
+
+        // Filter out today because we can't confirm it was completed yet
+        val confirmedLogs = logs.filter { it.date != today }
+        val streakDates = confirmedLogs.filter { it.streakMaintained }.map { it.date }.toSet()
 
         // Current Streak
         var streak = 0
-        var checkDate = LocalDate.now()
-
-        if (today in streakDates) {
-            streak++
-            checkDate = checkDate.minusDays(1)
-        } else {
-            streak = 0
-        }
+        var checkDate = LocalDate.now().minusDays(1)
 
         while (checkDate.format(formatter) in streakDates) {
             streak++
@@ -60,7 +46,7 @@ class UserStatsRepository(private val dao: DailyLogDao) {
         // Best Streak
         var best = 0
         var run = 0
-        for (log in logs.sortedBy { it.date }) {
+        for (log in confirmedLogs.sortedBy { it.date }) {
             if (log.streakMaintained) { run++; if (run > best) best = run }
             else run = 0
         }
@@ -68,12 +54,10 @@ class UserStatsRepository(private val dao: DailyLogDao) {
         val screenFails = logs.count { it.screenTimeMinutes > it.screenTimeGoal }
 
         var consecutiveScreen = 0
-        var screenCheckDate = LocalDate.now()
-
-        screenCheckDate = screenCheckDate.minusDays(1)
+        var screenCheckDate = LocalDate.now().minusDays(1)
         while (true) {
             val dateStr = screenCheckDate.format(formatter)
-            val log = logs.find { it.date == dateStr } ?: break
+            val log = confirmedLogs.find { it.date == dateStr } ?: break
             if (log.screenTimeMinutes <= log.screenTimeGoal) {
                 consecutiveScreen++
                 screenCheckDate = screenCheckDate.minusDays(1)
