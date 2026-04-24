@@ -90,7 +90,7 @@ class ScreenTimeViewModel(
         viewModelScope.launch {
             val current = preferences.selectedPackagesFlow.first().toMutableSet()
             if (selected) current.add(packageName) else current.remove(packageName)
-            preferences.setSelectedPackages(current)
+            preferences.setPendingPackages(current)
 
             val hasAccess = repository.hasUsageAccess()
             val usage = if (hasAccess) {

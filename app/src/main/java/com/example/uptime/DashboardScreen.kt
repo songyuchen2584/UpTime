@@ -49,6 +49,10 @@ import com.example.uptime.room.RoomViewModel.Companion.DAILY_COMPLETION_POINTS
 import com.example.uptime.ui.theme.Coral40
 import com.example.uptime.walking.viewmodel.WalkingViewModel
 import androidx.compose.material3.Button
+import androidx.compose.runtime.DisposableEffect
+import androidx.lifecycle.Lifecycle
+import androidx.lifecycle.LifecycleEventObserver
+import androidx.lifecycle.compose.LocalLifecycleOwner
 
 // UI state for the dashboard
 data class DashboardState(
@@ -92,6 +96,22 @@ fun DashboardScreen(
 ) {
     LaunchedEffect(Unit) {
         dashboardViewModel.refreshLiveStats(walkingViewModel)
+    }
+
+    val lifecycleOwner = LocalLifecycleOwner.current
+
+    DisposableEffect(lifecycleOwner, dashboardViewModel, walkingViewModel) {
+        val observer = LifecycleEventObserver { _, event ->
+            if (event == Lifecycle.Event.ON_RESUME) {
+                dashboardViewModel.refreshLiveStats(walkingViewModel)
+            }
+        }
+
+        lifecycleOwner.lifecycle.addObserver(observer)
+
+        onDispose {
+            lifecycleOwner.lifecycle.removeObserver(observer)
+        }
     }
 
     // collect live data from Room via ViewModel

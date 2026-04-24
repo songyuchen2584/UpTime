@@ -1,8 +1,12 @@
 package com.example.uptime.screentime.models
 
+import android.graphics.drawable.Drawable
+
 data class InstalledAppInfo(
     val packageName: String,
-    val appLabel: String
+    val appLabel: String,
+    val icon: Drawable?,
+    val isRecommendedSocial: Boolean = false
 )
 
 data class AppScreenTime(

@@ -20,6 +20,17 @@ class ScreenTimeRepository(
     private val usageStatsManager =
         context.getSystemService(Context.USAGE_STATS_SERVICE) as UsageStatsManager
 
+    private val socialKeywords = listOf(
+        "instagram", "facebook", "messenger", "snapchat",
+        "tiktok", "twitter", "x", "reddit",
+        "discord", "whatsapp", "telegram", "youtube"
+    )
+
+    private fun isSocialApp(packageName: String, label: String): Boolean {
+        val combined = "$packageName $label".lowercase()
+        return socialKeywords.any { combined.contains(it) }
+    }
+
     fun hasUsageAccess(): Boolean {
         return ScreenTimePermission.hasUsageAccess(context)
     }
@@ -44,9 +55,13 @@ class ScreenTimeRepository(
                     appInfo.packageName
                 }
 
+                val safeLabel = if (label.isBlank()) appInfo.packageName else label
+
                 InstalledAppInfo(
                     packageName = appInfo.packageName,
-                    appLabel = if (label.isBlank()) appInfo.packageName else label
+                    appLabel = safeLabel,
+                    icon = try { pm.getApplicationIcon(appInfo.packageName) } catch (_: Exception) { null },
+                    isRecommendedSocial = isSocialApp(appInfo.packageName, safeLabel)
                 )
             }
             .distinctBy { it.packageName }
