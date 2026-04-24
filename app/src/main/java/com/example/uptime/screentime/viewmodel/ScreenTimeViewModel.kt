@@ -33,10 +33,15 @@ class ScreenTimeViewModel(
             _uiState.update { it.copy(isLoading = true) }
 
             val installedApps = repository.getInstalledApps()
-            val selectedPackages = preferences.selectedPackagesFlow.first()
+
+            val activePackages = preferences.resolveEffectivePackages()
+            val pendingPackages = preferences.pendingPackagesFlow.first()
+            val displayPackages = pendingPackages ?: activePackages
+
             val hasAccess = repository.hasUsageAccess()
+
             val usage = if (hasAccess) {
-                repository.getTodayUsageForSelectedApps(selectedPackages)
+                repository.getTodayUsageForSelectedApps(activePackages)
             } else {
                 emptyList()
             }
@@ -44,14 +49,14 @@ class ScreenTimeViewModel(
             _uiState.value = ScreenTimeUiState(
                 hasUsageAccess = hasAccess,
                 installedApps = installedApps,
-                selectedPackages = selectedPackages,
+                selectedPackages = displayPackages,
                 todayUsage = usage,
                 totalTrackedTimeMs = usage.sumOf { it.totalTimeMs },
                 isLoading = false
             )
 
             if (hasAccess) {
-                val snapshot = repository.buildTodaySnapshot(selectedPackages)
+                val snapshot = repository.buildTodaySnapshot(activePackages)
                 updateScreenTime(snapshot)
             }
         }
@@ -61,10 +66,14 @@ class ScreenTimeViewModel(
         viewModelScope.launch {
             _uiState.update { it.copy(isLoading = true) }
 
-            val selectedPackages = preferences.selectedPackagesFlow.first()
+            val activePackages = preferences.resolveEffectivePackages()
+            val pendingPackages = preferences.pendingPackagesFlow.first()
+            val displayPackages = pendingPackages ?: activePackages
+
             val hasAccess = repository.hasUsageAccess()
+
             val usage = if (hasAccess) {
-                repository.getTodayUsageForSelectedApps(selectedPackages)
+                repository.getTodayUsageForSelectedApps(activePackages)
             } else {
                 emptyList()
             }
@@ -72,7 +81,7 @@ class ScreenTimeViewModel(
             _uiState.update {
                 it.copy(
                     hasUsageAccess = hasAccess,
-                    selectedPackages = selectedPackages,
+                    selectedPackages = displayPackages,
                     todayUsage = usage,
                     totalTrackedTimeMs = usage.sumOf { app -> app.totalTimeMs },
                     isLoading = false
@@ -80,7 +89,7 @@ class ScreenTimeViewModel(
             }
 
             if (hasAccess) {
-                val snapshot = repository.buildTodaySnapshot(selectedPackages)
+                val snapshot = repository.buildTodaySnapshot(activePackages)
                 updateScreenTime(snapshot)
             }
         }
@@ -88,27 +97,41 @@ class ScreenTimeViewModel(
 
     fun togglePackage(packageName: String, selected: Boolean) {
         viewModelScope.launch {
-            val current = preferences.selectedPackagesFlow.first().toMutableSet()
-            if (selected) current.add(packageName) else current.remove(packageName)
-            preferences.setPendingPackages(current)
+            val activePackages = preferences.resolveEffectivePackages()
+            val pendingPackages = preferences.pendingPackagesFlow.first()
+
+            val currentDisplayPackages =
+                (pendingPackages ?: activePackages).toMutableSet()
+
+            if (selected) {
+                currentDisplayPackages.add(packageName)
+            } else {
+                currentDisplayPackages.remove(packageName)
+            }
+
+            preferences.updatePackagesWithNextDayRule(currentDisplayPackages)
+
+            val newPendingPackages = preferences.pendingPackagesFlow.first()
+            val displayPackages = newPendingPackages ?: currentDisplayPackages
 
             val hasAccess = repository.hasUsageAccess()
+
             val usage = if (hasAccess) {
-                repository.getTodayUsageForSelectedApps(current)
+                repository.getTodayUsageForSelectedApps(activePackages)
             } else {
                 emptyList()
             }
 
             _uiState.update {
                 it.copy(
-                    selectedPackages = current,
+                    selectedPackages = displayPackages,
                     todayUsage = usage,
                     totalTrackedTimeMs = usage.sumOf { app -> app.totalTimeMs }
                 )
             }
 
             if (hasAccess) {
-                val snapshot = repository.buildTodaySnapshot(current)
+                val snapshot = repository.buildTodaySnapshot(activePackages)
                 updateScreenTime(snapshot)
             }
         }
