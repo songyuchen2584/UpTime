@@ -53,7 +53,6 @@ fun SettingsScreen(
     ) {
         Spacer(modifier = Modifier.height(8.dp))
 
-        // account section
         if (authState.isAnonymous) {
             AuthCard(authViewModel = authViewModel)
         } else {
@@ -65,7 +64,6 @@ fun SettingsScreen(
 
         Spacer(modifier = Modifier.height(16.dp))
 
-        // goals section
         Card(
             modifier = Modifier.fillMaxWidth(),
             shape = RoundedCornerShape(16.dp),
@@ -103,7 +101,6 @@ fun SettingsScreen(
 
         Spacer(modifier = Modifier.height(16.dp))
 
-        // about section
         Card(
             modifier = Modifier.fillMaxWidth(),
             shape = RoundedCornerShape(16.dp),
@@ -138,7 +135,8 @@ fun SettingsScreen(
 @Composable
 fun AuthCard(authViewModel: AuthViewModel) {
     val authState by authViewModel.state.collectAsState()
-    var isSignUp by remember { mutableStateOf(true) }
+    var isSignUp by remember { mutableStateOf(false) }
+    var name by remember { mutableStateOf("") }
     var email by remember { mutableStateOf("") }
     var password by remember { mutableStateOf("") }
 
@@ -161,6 +159,18 @@ fun AuthCard(authViewModel: AuthViewModel) {
             )
 
             Spacer(modifier = Modifier.height(16.dp))
+
+            if (isSignUp) {
+                OutlinedTextField(
+                    value = name,
+                    onValueChange = { name = it; authViewModel.clearError() },
+                    label = { Text("Name") },
+                    singleLine = true,
+                    modifier = Modifier.fillMaxWidth()
+                )
+
+                Spacer(modifier = Modifier.height(8.dp))
+            }
 
             OutlinedTextField(
                 value = email,
@@ -197,11 +207,12 @@ fun AuthCard(authViewModel: AuthViewModel) {
             } else {
                 Button(
                     onClick = {
-                        if (isSignUp) authViewModel.signUp(email, password)
+                        if (isSignUp) authViewModel.signUp(name, email, password)
                         else authViewModel.logIn(email, password)
                     },
                     modifier = Modifier.fillMaxWidth(),
                     enabled = email.isNotBlank() && password.length >= 6
+                            && (!isSignUp || name.isNotBlank())
                 ) {
                     Text(if (isSignUp) "Sign Up" else "Log In")
                 }

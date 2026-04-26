@@ -51,7 +51,8 @@ fun ProfileScreen(
     val stats by dashboardViewModel.userStats.collectAsState()
     val authState by authViewModel.state.collectAsState()
     val isSignedIn = !authState.isAnonymous
-
+    var showEditName by remember { mutableStateOf(false) }
+    var editNameText by remember { mutableStateOf("") }
     Column(
         modifier = Modifier
             .fillMaxSize()
@@ -61,11 +62,51 @@ fun ProfileScreen(
     ) {
         Spacer(modifier = Modifier.height(24.dp))
 
-        ProfileHeader(
+                ProfileHeader(
             isAnonymous = authState.isAnonymous,
+            displayName = authState.displayName,
             email = authState.user?.email
         )
+        if (!authState.isAnonymous) {
+            TextButton(onClick = {
+                showEditName = true
+                editNameText = authState.displayName ?: ""
+            }) {
+                Text("Edit Name")
+            }
+        }
 
+        if (showEditName) {
+            AlertDialog(
+                onDismissRequest = { showEditName = false },
+                title = { Text("Edit Name") },
+                text = {
+                    OutlinedTextField(
+                        value = editNameText,
+                        onValueChange = { editNameText = it },
+                        label = { Text("Name") },
+                        singleLine = true,
+                        modifier = Modifier.fillMaxWidth()
+                    )
+                },
+                confirmButton = {
+                    Button(
+                        onClick = {
+                            authViewModel.updateName(editNameText)
+                            showEditName = false
+                        },
+                        enabled = editNameText.isNotBlank()
+                    ) {
+                        Text("Save")
+                    }
+                },
+                dismissButton = {
+                    TextButton(onClick = { showEditName = false }) {
+                        Text("Cancel")
+                    }
+                }
+            )
+        }
         Spacer(modifier = Modifier.height(20.dp))
 
         StatsOverviewCard(
@@ -117,7 +158,7 @@ fun ProfileScreen(
 }
 
 @Composable
-fun ProfileHeader(isAnonymous: Boolean, email: String?) {
+fun ProfileHeader(isAnonymous: Boolean, displayName: String?, email: String?) {
     Column(
         horizontalAlignment = Alignment.CenterHorizontally,
         modifier = Modifier.fillMaxWidth()
@@ -145,18 +186,32 @@ fun ProfileHeader(isAnonymous: Boolean, email: String?) {
 
         Spacer(modifier = Modifier.height(12.dp))
 
-        Text(
-            text = if (isAnonymous) "Guest" else email ?: "User",
-            style = MaterialTheme.typography.titleLarge,
-            fontWeight = FontWeight.Bold
-        )
-
-        Text(
-            text = if (isAnonymous) "Sign in to save your progress"
-                   else "Welcome back!",
-            style = MaterialTheme.typography.bodySmall,
-            color = MaterialTheme.colorScheme.onSurfaceVariant
-        )
+        if (isAnonymous) {
+            Text(
+                text = "Guest",
+                style = MaterialTheme.typography.titleLarge,
+                fontWeight = FontWeight.Bold
+            )
+            Text(
+                text = "Sign in to save your progress",
+                style = MaterialTheme.typography.bodySmall,
+                color = MaterialTheme.colorScheme.onSurfaceVariant
+            )
+        } else {
+            Text(
+                text = if (!displayName.isNullOrBlank()) displayName else email ?: "User",
+                style = MaterialTheme.typography.titleLarge,
+                fontWeight = FontWeight.Bold
+            )
+            if (!email.isNullOrBlank()) {
+                Spacer(modifier = Modifier.height(2.dp))
+                Text(
+                    text = email,
+                    style = MaterialTheme.typography.bodySmall,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant
+                )
+            }
+        }
     }
 }
 
@@ -372,7 +427,7 @@ fun FriendRow(friend: FriendProfile, onRemove: () -> Unit) {
             // info
             Column(modifier = Modifier.weight(1f)) {
                 Text(
-                    text = friend.email,
+                    text = friend.name.ifBlank { friend.email },
                     style = MaterialTheme.typography.bodyMedium,
                     fontWeight = FontWeight.Medium
                 )
