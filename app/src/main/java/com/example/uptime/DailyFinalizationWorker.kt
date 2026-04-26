@@ -20,6 +20,8 @@ import com.example.uptime.walking.WalkingRepository
 import com.example.uptime.walking.datasource.DeviceSensorStepsDataSource
 import com.example.uptime.walking.datasource.HealthConnectStepsDataSource
 import com.example.uptime.walking.repository.WalkingRepositoryProvider
+import com.google.android.play.integrity.internal.u
+import com.google.firebase.auth.FirebaseAuth
 import kotlinx.coroutines.flow.first
 import java.time.LocalDate
 import java.time.LocalDateTime
@@ -41,6 +43,8 @@ class DailyFinalizationWorker(
         val formatter = DateTimeFormatter.ISO_LOCAL_DATE
         val today = LocalDate.now().format(formatter)
         val yesterday = LocalDate.now().minusDays(1).format(formatter)
+
+        val currentUserId = FirebaseAuth.getInstance().currentUser?.uid
 
         // Fetch fresh screen time for yesterday
         val screenTimePreferences = ScreenTimePreferences(applicationContext)
@@ -94,7 +98,7 @@ class DailyFinalizationWorker(
         dao.upsertLog(finalizedLog)
 
         if (finalizedLog.streakMaintained) {
-            val inventory = invDao.getInventory() ?: UserInventory()
+            val inventory = invDao.getInventory(currentUserId!!) ?: UserInventory(currentUserId)
             invDao.upsertInventory(
                 inventory.copy(
                     currentPoints = inventory.currentPoints + DAILY_COMPLETION_POINTS
@@ -122,7 +126,7 @@ class DailyFinalizationWorker(
             walkingUnderBy   = walkingUnder
         )
 
-        val inventory = invDao.getInventory() ?: UserInventory()
+        val inventory = invDao.getInventory(currentUserId!!) ?: UserInventory(currentUserId)
         val alreadyUnlocked = inventory.unlockedAchievementIds
 
         val newlyUnlocked = AchievementCatalog.all
@@ -155,6 +159,8 @@ class DailyFinalizationWorker(
         return when (achievement.id) {
             // Streak
             "streak_1" -> stats.currentStreak >= 1
+            "streak_2" -> stats.currentStreak >= 2
+            "streak_3" -> stats.currentStreak >= 3
             "streak_7" -> stats.currentStreak >= 7
             "streak_14" -> stats.currentStreak >= 14
             "streak_21" -> stats.currentStreak >= 21

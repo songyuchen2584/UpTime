@@ -4,6 +4,7 @@ import androidx.navigation3.runtime.NavKey
 import kotlinx.serialization.Serializable
 
 @Serializable
+data class VisitRoom(val userId: String) : NavKey
 enum class NavDestination(
     val label: String,
     val icon: Int

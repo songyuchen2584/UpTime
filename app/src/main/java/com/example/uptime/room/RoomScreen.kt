@@ -107,6 +107,7 @@ import androidx.compose.ui.util.lerp
 import androidx.compose.ui.zIndex
 import androidx.lifecycle.viewmodel.compose.viewModel
 import com.example.uptime.R
+import com.example.uptime.VisitRoom
 import com.example.uptime.room.catalogs.AchievementCatalog
 import com.example.uptime.room.catalogs.MetalThemeCatalog
 import com.example.uptime.room.catalogs.RoomItemCatalog
@@ -115,6 +116,7 @@ import com.example.uptime.room.catalogs.RoomThemeCatalog
 import com.example.uptime.room.catalogs.TrophyCaseCatalog
 import com.example.uptime.room.catalogs.WoodThemeCatalog
 import com.example.uptime.ui.theme.Neutral70
+import com.google.firebase.auth.FirebaseAuth
 import kotlinx.coroutines.launch
 import kotlin.Int
 import kotlin.collections.filter
@@ -130,7 +132,7 @@ data class RoomItem(
     val pointCost: Int
 )
 
-enum class RoomMode { View, Edit }
+enum class RoomMode { View, Edit, Visit }
 
 data class RoomTheme(
     val wallColor: Color = Color(0xFF606791),
@@ -202,7 +204,7 @@ data class RoomLayoutOption (
     val trophyCaseId: String = "default"
 )
 
-enum class RoomPanel { Achievements, Exchange }
+enum class RoomPanel { Achievements, Exchange, Visit }
 
 data class WoodTheme(
     val woodFront: Color = Color(0xFF8B5E3C),
@@ -221,7 +223,7 @@ data class WoodThemeOption(
 enum class AchievementSize { Small, Medium, Large }
 
 @Composable
-fun RoomScreen(viewModel: RoomViewModel = viewModel()) {
+fun RoomScreen(viewModel: RoomViewModel = viewModel(), onVisitRoom: () -> Unit, onReturn: () -> Unit) {
     val state by viewModel.roomState.collectAsState()
 
     if (state == null) {
@@ -241,6 +243,13 @@ fun RoomScreen(viewModel: RoomViewModel = viewModel()) {
         .find { it.id == roomState.selectedRoomLayoutId }?.trophyCaseId ?: "default"
 
     var roomMode by rememberSaveable { mutableStateOf(RoomMode.View) }
+    val currentUserId = FirebaseAuth.getInstance().currentUser?.uid
+    val isOwner = viewModel.userId == currentUserId
+
+    LaunchedEffect(viewModel.userId) {
+        roomMode = if (isOwner) RoomMode.View else RoomMode.Visit
+    }
+
     var activePanel by rememberSaveable { mutableStateOf<RoomPanel?>(null) }
     var showRoomThemePicker by rememberSaveable { mutableStateOf(false) }
     var showWoodThemePicker by rememberSaveable { mutableStateOf(false) }
@@ -316,89 +325,122 @@ fun RoomScreen(viewModel: RoomViewModel = viewModel()) {
     Box(modifier = Modifier.fillMaxSize()) {
         RoomScaffold(roomState, activeRoomTheme, activeWoodTheme, activeTrophyCaseSlots, roomMode, viewModel)
 
-        Row(modifier = Modifier
-            .align(Alignment.BottomCenter)
-            .padding(12.dp), horizontalArrangement = Arrangement.spacedBy(32.dp)) {
-            AchievementsPanel(onClick = {
-                activePanel = if (activePanel == RoomPanel.Achievements) null
-                else RoomPanel.Achievements
-            })
-            CustomizePanel(isActive = roomMode == RoomMode.Edit,
-                onClick  = {
-                    roomMode = if (roomMode == RoomMode.Edit) RoomMode.View else RoomMode.Edit
-                    showRoomThemePicker = false
-                    showWoodThemePicker = false
+        if (roomMode != RoomMode.Edit) {
+            Row(
+                modifier = Modifier
+                    .align(Alignment.TopEnd)
+                    .padding(12.dp)
+                    .padding(top = 36.dp), horizontalArrangement = Arrangement.End
+            ) {
+                VisitPanel(onClick = {
+                    activePanel = if (activePanel == RoomPanel.Visit) null
+                    else RoomPanel.Visit
                 })
-            ExchangePanel(onClick = {
-                activePanel = if (activePanel == RoomPanel.Exchange) null
-                else RoomPanel.Exchange
-            }, points = roomState.currentPoints, roomMode = roomMode)
-        }
-
-        AnimatedVisibility(
-            visible = roomMode == RoomMode.Edit,
-            enter = fadeIn() + slideInHorizontally(initialOffsetX = { it }),
-            exit = fadeOut() + slideOutHorizontally(targetOffsetX = { it }),
-            modifier = Modifier
-                .align(Alignment.CenterEnd)
-                .padding(end = 12.dp)
-        ) {
-            Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
-                EditToolButton(icon = R.drawable.responsive_layout_24px, label = "Layout", onClick = {})
-                EditToolButton(
-                    icon = R.drawable.room_theme_24px,
-                    label = "Theme",
-                    isActive = showRoomThemePicker,
-                    onClick = {
-                        showWoodThemePicker = false
-                        showRoomThemePicker = !showRoomThemePicker
-                    })
-                EditToolButton(
-                    icon = R.drawable.shelves_24px,
-                    label = "Case",
-                    isActive = showWoodThemePicker,
-                    onClick = {
-                        showRoomThemePicker = false
-                        showWoodThemePicker = !showWoodThemePicker
-                    })
-                EditToolButton(icon = R.drawable.package_2_24px, label = "Items", onClick = {})
             }
         }
 
-        AnimatedVisibility(
-            visible = showRoomThemePicker && roomMode == RoomMode.Edit,
-            enter = fadeIn() + slideInVertically(initialOffsetY = { it / 2 }),
-            exit = fadeOut() + slideOutVertically(targetOffsetY = { it / 2 }),
-            modifier = Modifier.align(Alignment.BottomCenter)
-        ) {
-            RoomThemePickerRow(
-                allRoomThemes = RoomThemeCatalog.all,
-                unlockedRoomThemeIds = roomState.unlockedRoomThemeIds,
+        if (roomMode != RoomMode.Visit) {
+            Row(
                 modifier = Modifier
-                    .padding(bottom = 96.dp),
-                selectedThemeId = roomState.selectedRoomThemeId,
-                onThemeSelected = { themeId ->
-                    viewModel.selectRoomTheme(themeId)
-                }
-            )
-        }
+                    .align(Alignment.BottomCenter)
+                    .padding(12.dp), horizontalArrangement = Arrangement.spacedBy(32.dp)
+            ) {
+                AchievementsPanel(onClick = {
+                    activePanel = if (activePanel == RoomPanel.Achievements) null
+                    else RoomPanel.Achievements
+                })
+                CustomizePanel(
+                    isActive = roomMode == RoomMode.Edit,
+                    onClick = {
+                        roomMode = if (roomMode == RoomMode.Edit) RoomMode.View else RoomMode.Edit
+                        showRoomThemePicker = false
+                        showWoodThemePicker = false
+                    })
+                ExchangePanel(onClick = {
+                    activePanel = if (activePanel == RoomPanel.Exchange) null
+                    else RoomPanel.Exchange
+                }, points = roomState.currentPoints, roomMode = roomMode)
+            }
 
-        AnimatedVisibility(
-            visible = showWoodThemePicker && roomMode == RoomMode.Edit,
-            enter = fadeIn() + slideInVertically(initialOffsetY = { it / 2 }),
-            exit = fadeOut() + slideOutVertically(targetOffsetY = { it / 2 }),
-            modifier = Modifier.align(Alignment.BottomCenter)
-        ) {
-            WoodThemePickerRow(
-                allWoodThemes = WoodThemeCatalog.all,
-                unlockedWoodThemeIds = roomState.unlockedWoodThemeIds,
+            AnimatedVisibility(
+                visible = roomMode == RoomMode.Edit,
+                enter = fadeIn() + slideInHorizontally(initialOffsetX = { it }),
+                exit = fadeOut() + slideOutHorizontally(targetOffsetX = { it }),
                 modifier = Modifier
-                    .padding(bottom = 96.dp),
-                selectedThemeId = roomState.selectedWoodThemeId,
-                onThemeSelected = { themeId ->
-                    viewModel.selectWoodTheme(themeId)
+                    .align(Alignment.CenterEnd)
+                    .padding(end = 12.dp)
+            ) {
+                Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
+                    EditToolButton(
+                        icon = R.drawable.responsive_layout_24px,
+                        label = "Layout",
+                        onClick = {})
+                    EditToolButton(
+                        icon = R.drawable.room_theme_24px,
+                        label = "Theme",
+                        isActive = showRoomThemePicker,
+                        onClick = {
+                            showWoodThemePicker = false
+                            showRoomThemePicker = !showRoomThemePicker
+                        })
+                    EditToolButton(
+                        icon = R.drawable.shelves_24px,
+                        label = "Case",
+                        isActive = showWoodThemePicker,
+                        onClick = {
+                            showRoomThemePicker = false
+                            showWoodThemePicker = !showWoodThemePicker
+                        })
+                    EditToolButton(icon = R.drawable.package_2_24px, label = "Items", onClick = {})
                 }
-            )
+            }
+
+            AnimatedVisibility(
+                visible = showRoomThemePicker && roomMode == RoomMode.Edit,
+                enter = fadeIn() + slideInVertically(initialOffsetY = { it / 2 }),
+                exit = fadeOut() + slideOutVertically(targetOffsetY = { it / 2 }),
+                modifier = Modifier.align(Alignment.BottomCenter)
+            ) {
+                RoomThemePickerRow(
+                    allRoomThemes = RoomThemeCatalog.all,
+                    unlockedRoomThemeIds = roomState.unlockedRoomThemeIds,
+                    modifier = Modifier
+                        .padding(bottom = 96.dp),
+                    selectedThemeId = roomState.selectedRoomThemeId,
+                    onThemeSelected = { themeId ->
+                        viewModel.selectRoomTheme(themeId)
+                    }
+                )
+            }
+
+            AnimatedVisibility(
+                visible = showWoodThemePicker && roomMode == RoomMode.Edit,
+                enter = fadeIn() + slideInVertically(initialOffsetY = { it / 2 }),
+                exit = fadeOut() + slideOutVertically(targetOffsetY = { it / 2 }),
+                modifier = Modifier.align(Alignment.BottomCenter)
+            ) {
+                WoodThemePickerRow(
+                    allWoodThemes = WoodThemeCatalog.all,
+                    unlockedWoodThemeIds = roomState.unlockedWoodThemeIds,
+                    modifier = Modifier
+                        .padding(bottom = 96.dp),
+                    selectedThemeId = roomState.selectedWoodThemeId,
+                    onThemeSelected = { themeId ->
+                        viewModel.selectWoodTheme(themeId)
+                    }
+                )
+            }
+        } else {
+            Row(
+                modifier = Modifier
+                    .align(Alignment.BottomEnd)
+                    .padding(12.dp)
+                    .fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween
+            ) {
+                val isFriend = false // TODO: Replace with check if this user is on your friend list
+                FriendPanel(isFriend = isFriend, onClick = {})
+                ReturnPanel(onClick = onReturn)
+            }
         }
     }
 
@@ -422,6 +464,12 @@ fun RoomScreen(viewModel: RoomViewModel = viewModel()) {
                 unlockedRoomItemIds = roomState.unlockedRoomItemIds,
                 unlockedWoodThemeIds = roomState.unlockedWoodThemeIds,
                 viewModel = viewModel,
+                onClose = { activePanel = null }
+            )
+            RoomPanel.Visit -> VisitDisplay(
+                friendsList = listOf(),
+                viewModel = viewModel,
+                onVisitRoom = {onVisitRoom(); activePanel = null},
                 onClose = { activePanel = null }
             )
             null -> Unit
@@ -454,6 +502,29 @@ fun RoomScaffold(state: RoomState, activeRoomTheme: RoomTheme, activeWoodTheme: 
             ) {
                 Text(
                     text = "Edit Mode",
+                    style = MaterialTheme.typography.labelLarge,
+                    color = MaterialTheme.colorScheme.primary,
+                    modifier = Modifier.padding(10.dp)
+                )
+            }
+        }
+    }
+
+    if (mode == RoomMode.Visit) {
+        Box(
+            modifier = Modifier.fillMaxSize(),
+            contentAlignment = Alignment.TopCenter
+        ) {
+            Card(
+                colors = CardDefaults.cardColors(
+                    containerColor = MaterialTheme.colorScheme.background.copy(
+                        alpha = 0.6f
+                    )
+                ),
+                modifier = Modifier.padding(top = 46.dp)
+            ) {
+                Text(
+                    text = "Visiting",
                     style = MaterialTheme.typography.labelLarge,
                     color = MaterialTheme.colorScheme.primary,
                     modifier = Modifier.padding(10.dp)
@@ -1585,6 +1656,96 @@ private fun DrawScope.drawGrandTrophyModel(x: Float, floorY: Float, metalTheme: 
 }
 
 @Composable
+fun VisitDisplay(
+    friendsList: List<String>,
+    viewModel: RoomViewModel,
+    onVisitRoom: () -> Unit,
+    onClose: () -> Unit
+) {
+    val snackbarHostState = remember { SnackbarHostState() }
+    val scope = rememberCoroutineScope()
+
+    fun displayAlert(message: String) {
+        scope.launch { snackbarHostState.showSnackbar(message) }
+    }
+
+    Box(
+        modifier = Modifier
+            .fillMaxSize()
+            .background(MaterialTheme.colorScheme.surface)
+    ) {
+        Column(modifier = Modifier.fillMaxSize()) {
+            Row(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .padding(horizontal = 16.dp, vertical = 12.dp),
+                verticalAlignment = Alignment.CenterVertically,
+                horizontalArrangement = Arrangement.SpaceBetween
+            ) {
+                Column {
+                    Text(
+                        "Visit other Rooms", style = MaterialTheme.typography.headlineSmall,
+                        fontWeight = FontWeight.Bold
+                    )
+                }
+
+                IconButton(onClick = onClose) {
+                    Icon(painterResource(R.drawable.close_24px), contentDescription = "Close")
+                }
+            }
+
+            Column(modifier = Modifier.padding(12.dp)) {
+                Row(
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .padding(vertical = 8.dp),
+                    verticalAlignment = Alignment.CenterVertically,
+                    horizontalArrangement = Arrangement.SpaceBetween
+                ) {
+                    Text(
+                        "Your Friends",
+                        style = MaterialTheme.typography.titleMedium,
+                        fontWeight = FontWeight.Bold
+                    )
+                }
+                HorizontalDivider()
+                // List Friends here
+            }
+
+            Spacer(modifier = Modifier.height(12.dp))
+
+            Box(modifier = Modifier.fillMaxSize()) {
+                Row(
+                    modifier = Modifier
+                        .align(Alignment.BottomCenter)
+                        .padding(12.dp), horizontalArrangement = Arrangement.End
+                ) {
+                    Column(horizontalAlignment = Alignment.CenterHorizontally) {
+                        FilledIconButton(
+                            onClick = onVisitRoom,
+                            colors = IconButtonColors(
+                                MaterialTheme.colorScheme.primaryContainer.copy(alpha = 0.6f),
+                                MaterialTheme.colorScheme.onSurface,
+                                MaterialTheme.colorScheme.primaryContainer,
+                                MaterialTheme.colorScheme.primaryContainer,
+                            )
+                        ) {
+                            Icon(
+                                painterResource(R.drawable.random_24px),
+                                contentDescription = "Random Room"
+                            )
+                        }
+                        Text("Random")
+                    }
+                }
+            }
+        }
+
+        SnackbarHost(hostState = snackbarHostState, modifier = Modifier.align(Alignment.BottomCenter))
+    }
+}
+
+@Composable
 fun ExchangeDisplay(
     currentPoints: Int,
     unlockedRoomItemIds: Set<String>,
@@ -2180,7 +2341,7 @@ fun CategoryHeader(
     unlockedIds: Set<String>
 ) {
     val unlocked = achievements.count { it.id in unlockedIds }
-    val total    = achievements.size
+    val total = achievements.size
 
     Row(
         modifier = Modifier
@@ -2255,7 +2416,9 @@ fun TrophyCell(
                     contentDescription = null,
                     tint = if (isUnlocked) metalTheme!!.theme.base
                     else MaterialTheme.colorScheme.onSurface.copy(alpha = 0.25f),
-                    modifier = if (isUnlocked || !isSecret) Modifier.size(size).iconShimmer(achievement.tier, isUnlocked) else Modifier.size(28.dp)
+                    modifier = if (isUnlocked || !isSecret) Modifier
+                        .size(size)
+                        .iconShimmer(achievement.tier, isUnlocked) else Modifier.size(28.dp)
                 )
                 Spacer(modifier = Modifier.height(8.dp))
 
@@ -2423,8 +2586,8 @@ fun Modifier.iconShimmer(tier: AchievementTier, isUnlocked: Boolean): Modifier =
                     0.0f to Color.White.copy(alpha = 0f),
                     0.5f to Color.White.copy(alpha = 0.55f),
                     1.0f to Color.White.copy(alpha = 0f),
-                    start = Offset(xOffset*2f, 0f),
-                    end = Offset((xOffset + shimmerWidth)*2f, size.height)
+                    start = Offset(xOffset * 2f, 0f),
+                    end = Offset((xOffset + shimmerWidth) * 2f, size.height)
                 ),
                 blendMode = BlendMode.SrcAtop
             )
@@ -2527,6 +2690,21 @@ fun FloatingPanel(
             Text(label, style = MaterialTheme.typography.labelSmall)
         }
     }
+}
+
+@Composable
+fun VisitPanel(onClick: () -> Unit = {}) {
+    FloatingPanel(icon = R.drawable.visit_24px, label = "Visit", onClick = onClick)
+}
+
+@Composable
+fun ReturnPanel(onClick: () -> Unit = {}) {
+    FloatingPanel(icon = R.drawable.return_24px, label = "Return", onClick = onClick)
+}
+
+@Composable
+fun FriendPanel(isFriend: Boolean, onClick: () -> Unit = {}) {
+    FloatingPanel(icon = if (isFriend) R.drawable.view_profile_24px else R.drawable.add_friend_24px, label = if (isFriend) "Profile" else "Add Friend", onClick = onClick)
 }
 
 @Composable
