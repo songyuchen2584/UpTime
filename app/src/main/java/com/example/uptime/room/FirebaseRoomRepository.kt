@@ -80,7 +80,7 @@ class FirebaseRoomRepository {
             val userRef = firestore.collection("users").document(userId)
             val settingsRef = userRef.collection("room").document("settings")
 
-            batch.set(userRef, mapOf("lastUpdated" to FieldValue.serverTimestamp()), SetOptions.merge())
+            batch.set(userRef, mapOf("lastActivity" to FieldValue.serverTimestamp()), SetOptions.merge())
             batch.set(settingsRef, settings.convert())
 
             batch.commit().await()

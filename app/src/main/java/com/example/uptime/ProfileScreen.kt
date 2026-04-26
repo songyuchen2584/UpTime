@@ -377,14 +377,26 @@ fun FriendRow(friend: FriendProfile, onRemove: () -> Unit) {
                     fontWeight = FontWeight.Medium
                 )
                 Row {
+                    Icon(
+                        painterResource(R.drawable.streak_24px),
+                        contentDescription = "Streak",
+                        modifier = Modifier.size(18.dp),
+                        tint = MaterialTheme.colorScheme.onSurface
+                    )
                     Text(
-                        text = "🔥 ${friend.streak}",
+                        text = "${friend.streak}",
                         style = MaterialTheme.typography.bodySmall,
                         color = MaterialTheme.colorScheme.onSurfaceVariant
                     )
                     Spacer(modifier = Modifier.width(12.dp))
+                    Icon(
+                        painterResource(R.drawable.trophy_24px),
+                        contentDescription = "Achievements",
+                        modifier = Modifier.size(18.dp),
+                        tint = MaterialTheme.colorScheme.onSurface
+                    )
                     Text(
-                        text = "🏆 ${friend.trophies}",
+                        text = "${friend.trophies}",
                         style = MaterialTheme.typography.bodySmall,
                         color = MaterialTheme.colorScheme.onSurfaceVariant
                     )

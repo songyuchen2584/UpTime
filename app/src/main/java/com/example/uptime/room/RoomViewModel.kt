@@ -59,8 +59,15 @@ class RoomViewModel(application: Application, val userId: String) : AndroidViewM
 
     init {
         viewModelScope.launch {
-            if (rsDao.getSettings(userId) == null) rsDao.upsertRoomSettings(RoomSettings(userId))
-            if (invDao.getInventory(userId) == null) invDao.upsertInventory(UserInventory(userId))
+            // Initial records
+            if (rsDao.getSettings(userId) == null) {
+                rsDao.upsertRoomSettings(RoomSettings(userId))
+                firebaseRepo.syncRoomSettings(userId, RoomSettings(userId))
+            }
+            if (invDao.getInventory(userId) == null) {
+                invDao.upsertInventory(UserInventory(userId))
+                firebaseRepo.syncInventory(userId, UserInventory(userId))
+            }
         }
         // Automatically update when repository changes
         viewModelScope.launch {

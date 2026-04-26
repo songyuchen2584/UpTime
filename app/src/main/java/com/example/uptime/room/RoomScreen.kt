@@ -569,7 +569,7 @@ fun RoomLoadingScreen() {
         )
         Spacer(modifier = Modifier.height(6.dp))
 
-        Text("Loading your room...")
+        Text("Loading the room...")
     }
 }
 
