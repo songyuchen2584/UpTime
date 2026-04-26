@@ -28,16 +28,17 @@ import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
-import androidx.compose.ui.unit.sp
 import androidx.lifecycle.viewmodel.compose.viewModel
+import com.example.uptime.room.RoomViewModel
 
 @Composable
 fun ProfileScreen(
-    viewModel: DashboardViewModel = viewModel(),
+    dashboardViewModel: DashboardViewModel = viewModel(),
+    roomViewModel: RoomViewModel = viewModel(),
     authViewModel: AuthViewModel = viewModel(),
     onNavigateToSettings: () -> Unit = {}
 ) {
-    val stats by viewModel.userStats.collectAsState()
+    val stats by dashboardViewModel.userStats.collectAsState()
     val authState by authViewModel.state.collectAsState()
 
     Column(
@@ -58,7 +59,7 @@ fun ProfileScreen(
 
         StatsOverviewCard(
             currentStreak = stats.currentStreak,
-            trophiesUnlocked = 0 // TODO: wire to room achievements
+            trophiesUnlocked = roomViewModel.totalUnlockedAchievements.collectAsState().value
         )
 
         Spacer(modifier = Modifier.height(16.dp))
@@ -164,7 +165,11 @@ fun StatsOverviewCard(currentStreak: Int, trophiesUnlocked: Int) {
             horizontalArrangement = Arrangement.SpaceEvenly
         ) {
             Column(horizontalAlignment = Alignment.CenterHorizontally) {
-                Text(text = "🔥", fontSize = 24.sp)
+                Icon(
+                    painterResource(R.drawable.streak_24px),
+                    contentDescription = "Streak",
+                    tint = MaterialTheme.colorScheme.onSurface
+                )
                 Text(
                     text = "$currentStreak",
                     style = MaterialTheme.typography.titleLarge,
@@ -178,7 +183,11 @@ fun StatsOverviewCard(currentStreak: Int, trophiesUnlocked: Int) {
             }
 
             Column(horizontalAlignment = Alignment.CenterHorizontally) {
-                Text(text = "🏆", fontSize = 24.sp)
+                Icon(
+                    painterResource(R.drawable.trophy_24px),
+                    contentDescription = "Achievements",
+                    tint = MaterialTheme.colorScheme.onSurface
+                )
                 Text(
                     text = "$trophiesUnlocked",
                     style = MaterialTheme.typography.titleLarge,

@@ -5,7 +5,7 @@ import androidx.room.PrimaryKey
 
 @Entity(tableName = "user_inventory")
 data class UserInventory (
-    @PrimaryKey val id: Int = 0,
+    @PrimaryKey val userId: String,
     val unlockedRoomThemeIds: Set<String> = setOf("default"),
     val unlockedWoodThemeIds: Set<String> = setOf("oak"),
     val unlockedAchievementIds: Set<String> = setOf("start"),

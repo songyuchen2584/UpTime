@@ -1,5 +1,6 @@
 package com.example.uptime
 
+import android.app.Application
 import android.os.Bundle
 import androidx.activity.ComponentActivity
 import androidx.activity.compose.BackHandler
@@ -36,6 +37,7 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.tooling.preview.Preview
+import androidx.lifecycle.viewmodel.compose.viewModel
 import androidx.navigation3.runtime.entryProvider
 import androidx.navigation3.runtime.rememberNavBackStack
 import androidx.navigation3.ui.NavDisplay
@@ -44,9 +46,11 @@ import androidx.work.WorkInfo
 import androidx.work.WorkManager
 import com.example.uptime.room.RoomScreen
 import com.example.uptime.room.RoomViewModel
+import com.example.uptime.room.RoomViewModelFactory
 import com.example.uptime.screentime.ScreenTimeRoute
 import com.example.uptime.ui.theme.UpTimeTheme
 import com.example.uptime.walking.WalkingRoute
+import com.google.firebase.auth.FirebaseAuth
 import kotlinx.coroutines.launch
 import kotlin.getValue
 
@@ -67,14 +71,24 @@ class MainActivity : ComponentActivity() {
                 }
             }
 
-        val roomViewModel: RoomViewModel by viewModels()
+        val currentUserId = FirebaseAuth.getInstance().currentUser?.uid
+        if (currentUserId == null) {
+            // TODO: handle anon
+            return
+        }
+
+        val roomViewModel: RoomViewModel by viewModels {
+            RoomViewModelFactory(application, currentUserId)
+        }
         val dashboardViewModel: DashboardViewModel by viewModels()
 
         setContent {
             UpTimeTheme {
                 AppScaffold(
                     roomViewModel = roomViewModel,
-                    dashboardViewModel = dashboardViewModel
+                    dashboardViewModel = dashboardViewModel,
+                    application = application,
+                    currentUserId
                 )
             }
         }
@@ -83,7 +97,7 @@ class MainActivity : ComponentActivity() {
 
 @OptIn(ExperimentalMaterial3WindowSizeClassApi::class)
 @Composable
-fun AppScaffold(roomViewModel: RoomViewModel, dashboardViewModel: DashboardViewModel) {
+fun AppScaffold(roomViewModel: RoomViewModel, dashboardViewModel: DashboardViewModel, application: Application, currentUserId: String) {
     val windowSizeClass = currentWindowAdaptiveInfo().windowSizeClass
     val isLandscape = windowSizeClass.isWidthAtLeastBreakpoint(WindowSizeClass.WIDTH_DP_MEDIUM_LOWER_BOUND)
 
@@ -165,7 +179,15 @@ fun AppScaffold(roomViewModel: RoomViewModel, dashboardViewModel: DashboardViewM
                                 dashboardViewModel = dashboardViewModel
                             )
                             NavDestination.Streak -> StreakScreen(viewModel = dashboardViewModel)
-                            NavDestination.Room -> RoomScreen(viewModel = roomViewModel)
+                            NavDestination.Room -> RoomScreen(viewModel = roomViewModel,
+                                onVisitRoom = {
+                                    roomViewModel.getRandomUserRoom { userId ->
+                                        if (userId != null) {
+                                            backStack.add(VisitRoom(userId))
+                                        }
+                                    }
+                                },
+                                onReturn = {backStack.add(VisitRoom(currentUserId))})
                             NavDestination.Walking -> WalkingRoute()
                             NavDestination.ScreenTime -> ScreenTimeRoute(
                                 updateScreenTime = dashboardViewModel::updateScreenTime
@@ -175,10 +197,24 @@ fun AppScaffold(roomViewModel: RoomViewModel, dashboardViewModel: DashboardViewM
                                 onNavigateToScreenTime = { backStack.add(NavDestination.ScreenTime) }
                             )
                             NavDestination.Profile -> ProfileScreen(
-                                viewModel = dashboardViewModel,
+                                dashboardViewModel = dashboardViewModel,
                                 onNavigateToSettings = { backStack.add(NavDestination.Settings) }
                             )
                         }
+                    }
+
+                    entry<VisitRoom> { destination ->
+                        val visitViewModel: RoomViewModel = viewModel(
+                            factory = RoomViewModelFactory(application, destination.userId),
+                            key = "room_${destination.userId}"
+                        )
+                        RoomScreen(
+                            viewModel = visitViewModel,
+                            onVisitRoom = {visitViewModel.getRandomUserRoom { userId ->
+                            if (userId != null) {
+                                backStack.add(VisitRoom(userId))
+                            }}},
+                            onReturn = {backStack.add(VisitRoom(currentUserId))})
                     }
                 }
             )

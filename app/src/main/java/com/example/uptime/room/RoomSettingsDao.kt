@@ -9,11 +9,11 @@ import kotlinx.coroutines.flow.Flow
 @Dao
 interface RoomSettingsDao {
 
-    @Query("SELECT * FROM room_settings WHERE id = 0")
-    fun observeRoomSettings(): Flow<RoomSettings?>
+    @Query("SELECT * FROM room_settings WHERE userId = :userId")
+    fun observeRoomSettings(userId: String): Flow<RoomSettings?>
 
-    @Query("SELECT * FROM room_settings WHERE id = 0")
-    suspend fun getSettings(): RoomSettings?
+    @Query("SELECT * FROM room_settings WHERE userId = :userId")
+    suspend fun getSettings(userId: String): RoomSettings?
 
     @Insert(onConflict = OnConflictStrategy.REPLACE)
     suspend fun upsertRoomSettings(settings: RoomSettings)
