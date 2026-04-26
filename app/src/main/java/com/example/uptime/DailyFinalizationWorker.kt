@@ -96,25 +96,27 @@ class DailyFinalizationWorker(
                     && walkingMinutes >= existingLog.walkingGoal
         )
         dao.upsertLog(finalizedLog)
+        val inventory = invDao.getInventory(currentUserId!!) ?: UserInventory(currentUserId)
+        // Build stats and check achievements
+        val statsRepo = UserStatsRepository(dao)
+        val stats = statsRepo.userStats.first()
+        val streak = stats.currentStreak
+        val isMilestone = streak > 0 && streak % 7 == 0
 
         if (finalizedLog.streakMaintained) {
-            val inventory = invDao.getInventory(currentUserId!!) ?: UserInventory(currentUserId)
             invDao.upsertInventory(
                 inventory.copy(
-                    currentPoints = inventory.currentPoints + DAILY_COMPLETION_POINTS
+                    currentPoints = if (isMilestone) inventory.currentPoints + 2*DAILY_COMPLETION_POINTS else inventory.currentPoints + DAILY_COMPLETION_POINTS
                 )
             )
             Log.d("DailyWorker", "Awarded $DAILY_COMPLETION_POINTS points for completing yesterday")
+            if (isMilestone) Log.d("DailyWorker", "Awarded an extra $DAILY_COMPLETION_POINTS points for completing a 7-day streak")
         }
 
         // Ensure today's log exists
         if (dao.getLogForDate(today) == null) {
             dao.upsertLog(DailyLog(date = today))
         }
-
-        // Build stats and check achievements
-        val statsRepo = UserStatsRepository(dao)
-        val stats = statsRepo.userStats.first()
 
         val screenTimeOver = if (finalizedLog.screenTimeMinutes > finalizedLog.screenTimeGoal)
             finalizedLog.screenTimeMinutes - finalizedLog.screenTimeGoal else -1
@@ -125,8 +127,6 @@ class DailyFinalizationWorker(
             screenTimeOverBy = screenTimeOver,
             walkingUnderBy   = walkingUnder
         )
-
-        val inventory = invDao.getInventory(currentUserId!!) ?: UserInventory(currentUserId)
         val alreadyUnlocked = inventory.unlockedAchievementIds
 
         val newlyUnlocked = AchievementCatalog.all

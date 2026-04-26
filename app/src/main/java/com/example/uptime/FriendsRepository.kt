@@ -1,5 +1,6 @@
 package com.example.uptime
 
+import android.util.Log
 import com.google.firebase.auth.FirebaseAuth
 import com.google.firebase.firestore.FirebaseFirestore
 import kotlinx.coroutines.channels.awaitClose
@@ -88,6 +89,41 @@ class FriendsRepository {
         }
 
         return Result.success(friendUid)
+    }
+
+    suspend fun addFriendById(userId: String): Result<String> {
+        val uid = currentUid() ?: return Result.failure(Exception("Not signed in"))
+
+        if (userId == uid) return Result.failure(Exception("Can't add yourself"))
+
+        Log.d("AddFriend", "Trying to add: $userId")
+
+        val friendDoc = db.collection("users")
+            .document(userId)
+            .get()
+            .await()
+
+        if (!friendDoc.exists()) {
+            return Result.failure(Exception("No user found with that ID"))
+        }
+
+        val myFriends = getFriendIds()?.toMutableList() ?: mutableListOf()
+        if (userId in myFriends) return Result.failure(Exception("Already friends"))
+
+        myFriends.add(userId)
+        db.collection("users").document(uid)
+            .update("friends", myFriends)
+            .await()
+
+        val theirFriends = getFriendIdsFor(userId)?.toMutableList() ?: mutableListOf()
+        if (uid !in theirFriends) {
+            theirFriends.add(uid)
+            db.collection("users").document(userId)
+                .update("friends", theirFriends)
+                .await()
+        }
+
+        return Result.success(userId)
     }
 
     suspend fun removeFriend(friendUid: String) {

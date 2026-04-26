@@ -234,7 +234,7 @@ fun StatsOverviewCard(currentStreak: Int, trophiesUnlocked: Int) {
                 Icon(
                     painterResource(R.drawable.streak_24px),
                     contentDescription = "Streak",
-                    tint = MaterialTheme.colorScheme.onSurface
+                    tint = MaterialTheme.colorScheme.primary
                 )
                 Text(
                     text = "$currentStreak",
@@ -252,7 +252,7 @@ fun StatsOverviewCard(currentStreak: Int, trophiesUnlocked: Int) {
                 Icon(
                     painterResource(R.drawable.trophy_24px),
                     contentDescription = "Achievements",
-                    tint = MaterialTheme.colorScheme.onSurface
+                    tint = MaterialTheme.colorScheme.tertiary
                 )
                 Text(
                     text = "$trophiesUnlocked",
@@ -338,14 +338,17 @@ fun FriendsListCard(authViewModel: AuthViewModel) {
 
             if (friends.isEmpty()) {
                 Text(
-                    text = "No friends yet. Add someone by their email!",
+                    text = "No friends yet. Add someone by their email or visit their Room!",
                     style = MaterialTheme.typography.bodyMedium,
                     color = MaterialTheme.colorScheme.onSurfaceVariant,
                     textAlign = TextAlign.Center,
                     modifier = Modifier.fillMaxWidth()
                 )
             } else {
-                friends.forEach { friend ->
+                friends
+                    .sortedWith(compareByDescending<FriendProfile> { it.trophies }
+                        .thenByDescending {it.streak})
+                    .forEach { friend ->
                     FriendRow(
                         friend = friend,
                         onRemove = {
@@ -436,10 +439,10 @@ fun FriendRow(friend: FriendProfile, onRemove: () -> Unit) {
                         painterResource(R.drawable.streak_24px),
                         contentDescription = "Streak",
                         modifier = Modifier.size(18.dp),
-                        tint = MaterialTheme.colorScheme.onSurface
+                        tint = MaterialTheme.colorScheme.primary
                     )
                     Text(
-                        text = "${friend.streak}",
+                        text = " ${friend.streak}",
                         style = MaterialTheme.typography.bodySmall,
                         color = MaterialTheme.colorScheme.onSurfaceVariant
                     )
@@ -448,10 +451,10 @@ fun FriendRow(friend: FriendProfile, onRemove: () -> Unit) {
                         painterResource(R.drawable.trophy_24px),
                         contentDescription = "Achievements",
                         modifier = Modifier.size(18.dp),
-                        tint = MaterialTheme.colorScheme.onSurface
+                        tint = MaterialTheme.colorScheme.tertiary
                     )
                     Text(
-                        text = "${friend.trophies}",
+                        text = " ${friend.trophies}",
                         style = MaterialTheme.typography.bodySmall,
                         color = MaterialTheme.colorScheme.onSurfaceVariant
                     )

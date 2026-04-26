@@ -10,9 +10,17 @@ import androidx.activity.viewModels
 import androidx.compose.animation.EnterTransition
 import androidx.compose.animation.ExitTransition
 import androidx.compose.animation.togetherWith
+import androidx.compose.foundation.layout.Arrangement
+import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
+import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.layout.size
+import androidx.compose.foundation.layout.width
+import androidx.compose.foundation.shape.RoundedCornerShape
+import androidx.compose.material3.Card
+import androidx.compose.material3.CardDefaults
 import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
@@ -33,10 +41,12 @@ import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.rememberCoroutineScope
+import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.tooling.preview.Preview
+import androidx.compose.ui.unit.dp
 import androidx.lifecycle.viewmodel.compose.viewModel
 import androidx.navigation3.runtime.entryProvider
 import androidx.navigation3.runtime.rememberNavBackStack
@@ -73,7 +83,7 @@ class MainActivity : ComponentActivity() {
 
         val currentUserId = FirebaseAuth.getInstance().currentUser?.uid
         if (currentUserId == null) {
-            // TODO: handle anon
+            // TODO: handle null Ids
             return
         }
 
@@ -180,12 +190,15 @@ fun AppScaffold(roomViewModel: RoomViewModel, dashboardViewModel: DashboardViewM
                             )
                             NavDestination.Streak -> StreakScreen(viewModel = dashboardViewModel)
                             NavDestination.Room -> RoomScreen(viewModel = roomViewModel,
-                                onVisitRoom = {
+                                onVisitRandomRoom = {
                                     roomViewModel.getRandomUserRoom { userId ->
                                         if (userId != null) {
                                             backStack.add(VisitRoom(userId))
                                         }
                                     }
+                                },
+                                onVisitUserRoom = {userId ->
+                                    backStack.add(VisitRoom(userId))
                                 },
                                 onReturn = {backStack.add(VisitRoom(currentUserId))})
                             NavDestination.Walking -> WalkingRoute()
@@ -210,10 +223,13 @@ fun AppScaffold(roomViewModel: RoomViewModel, dashboardViewModel: DashboardViewM
                         )
                         RoomScreen(
                             viewModel = visitViewModel,
-                            onVisitRoom = {visitViewModel.getRandomUserRoom { userId ->
+                            onVisitRandomRoom = {visitViewModel.getRandomUserRoom { userId ->
                             if (userId != null) {
                                 backStack.add(VisitRoom(userId))
                             }}},
+                            onVisitUserRoom = {userId ->
+                                backStack.add(VisitRoom(userId))
+                            },
                             onReturn = {backStack.add(VisitRoom(currentUserId))})
                     }
                 }
@@ -227,10 +243,32 @@ fun AppScaffold(roomViewModel: RoomViewModel, dashboardViewModel: DashboardViewM
 fun TopBar(onSettingsClick: () -> Unit) {
     TopAppBar(
         title = {
-            Text(
-                "UpTime",
-                fontWeight = FontWeight.Bold
-            )
+            Row() {
+                Card(
+                    shape = RoundedCornerShape(50),
+                    colors = CardDefaults.cardColors(
+                        containerColor = MaterialTheme.colorScheme.primary
+                    ),
+                    modifier = Modifier.size(30.dp)
+                ) {
+                    Column(
+                        modifier = Modifier.fillMaxSize(),
+                        verticalArrangement = Arrangement.Center,
+                        horizontalAlignment = Alignment.CenterHorizontally
+                    ) {
+                        Icon(
+                            painterResource(R.drawable.streak_24px),
+                            contentDescription = "Profile",
+                            tint = MaterialTheme.colorScheme.onPrimary
+                        )
+                    }
+                }
+                Spacer(Modifier.width(6.dp))
+                Text(
+                    "UpTime",
+                    fontWeight = FontWeight.Bold
+                )
+            }
         },
         colors = TopAppBarDefaults.topAppBarColors(
             containerColor = MaterialTheme.colorScheme.surfaceVariant,

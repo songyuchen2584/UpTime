@@ -109,6 +109,7 @@ class FirebaseRoomRepository {
     suspend fun getRandomUserId(excludeUserId: String? = null): String? {
         return try {
             val snapshot = firestore.collection("users")
+                .whereNotEqualTo("email", null)
                 .get() // may want to limit later if this collection gets too big
                 .await()
 
