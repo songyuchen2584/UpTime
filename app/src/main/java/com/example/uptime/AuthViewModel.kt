@@ -21,12 +21,12 @@ data class AuthState(
 class AuthViewModel(application: Application) : AndroidViewModel(application) {
 
     private val auth = FirebaseAuth.getInstance()
+    val friendsRepository = FriendsRepository()
 
     private val _state = MutableStateFlow(AuthState())
     val state: StateFlow<AuthState> = _state
 
     init {
-        // sign in anonymously if no user exists
         val currentUser = auth.currentUser
         if (currentUser != null) {
             _state.value = AuthState(
@@ -62,7 +62,6 @@ class AuthViewModel(application: Application) : AndroidViewModel(application) {
             try {
                 val currentUser = auth.currentUser
                 if (currentUser != null && currentUser.isAnonymous) {
-                    // link anonymous account to email/password
                     val credential = EmailAuthProvider.getCredential(email, password)
                     val result = currentUser.linkWithCredential(credential).await()
                     _state.value = AuthState(
@@ -70,13 +69,14 @@ class AuthViewModel(application: Application) : AndroidViewModel(application) {
                         isAnonymous = false
                     )
                 } else {
-                    // create new account
                     val result = auth.createUserWithEmailAndPassword(email, password).await()
                     _state.value = AuthState(
                         user = result.user,
                         isAnonymous = false
                     )
                 }
+                // save profile to Firestore so friends can find this user
+                friendsRepository.saveUserProfile(email = email, streak = 0, trophies = 0)
             } catch (e: Exception) {
                 _state.value = _state.value.copy(
                     isLoading = false,
@@ -94,6 +94,12 @@ class AuthViewModel(application: Application) : AndroidViewModel(application) {
                 _state.value = AuthState(
                     user = result.user,
                     isAnonymous = false
+                )
+                // ensure profile exists in Firestore
+                friendsRepository.saveUserProfile(
+                    email = email,
+                    streak = 0,
+                    trophies = 0
                 )
             } catch (e: Exception) {
                 _state.value = _state.value.copy(
