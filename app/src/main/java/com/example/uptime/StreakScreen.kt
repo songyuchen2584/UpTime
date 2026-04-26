@@ -33,6 +33,7 @@ import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.lifecycle.viewmodel.compose.viewModel
+import com.example.uptime.room.RoomViewModel.Companion.DAILY_COMPLETION_POINTS
 import java.time.DayOfWeek
 import java.time.LocalDate
 import java.time.YearMonth
@@ -156,7 +157,7 @@ fun WeeklySummaryCard(weeklyWalking: Int, weeklyScreenTime: Int, daysCompleted: 
                     fontWeight = FontWeight.SemiBold
                 )
                 Text(
-                    text = "7-day streak = 50 pts!",
+                    text = "7-day streak = +$DAILY_COMPLETION_POINTS pts!",
                     style = MaterialTheme.typography.labelSmall,
                     color = MaterialTheme.colorScheme.primary
                 )
@@ -309,7 +310,7 @@ fun MonthDayCell(dayNumber: String, log: DailyLog?, isToday: Boolean, isFuture: 
             .clip(CircleShape)
             .background(bgColor)
             .then(
-                if (isToday) Modifier.border(2.dp, MaterialTheme.colorScheme.primary, CircleShape)
+                if (isToday) Modifier.border(2.dp, MaterialTheme.colorScheme.tertiary, CircleShape)
                 else Modifier
             )
     ) {

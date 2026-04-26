@@ -233,7 +233,8 @@ fun StreakCard(currentStreak: Int, bothGoalsMet: Boolean, onClick: () -> Unit = 
             Icon(
                 painterResource(R.drawable.streak_24px),
                 contentDescription = "Streak",
-                modifier = Modifier.size(28.dp)
+                modifier = Modifier.size(32.dp),
+                tint = if (bothGoalsMet) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.error
             )
 
             Spacer(modifier = Modifier.width(16.dp))
@@ -247,17 +248,19 @@ fun StreakCard(currentStreak: Int, bothGoalsMet: Boolean, onClick: () -> Unit = 
                 )
                 Spacer(modifier = Modifier.height(4.dp))
                 Text(
-                    text = if (bothGoalsMet) "Both goals met today, keep it up!"
-                    else "Complete both goals to keep your streak going!",
+                    text = if (bothGoalsMet) "Both goals met today, keep it up until midnight!"
+                    else "Complete both goals by midnight to get your today's streak!",
                     style = MaterialTheme.typography.bodyMedium,
                     color = MaterialTheme.colorScheme.onSurfaceVariant
                 )
             }
 
+            Spacer(modifier = Modifier.width(16.dp))
+
             // streak report link
-            Button(onClick = onClick) {
-                Column(horizontalAlignment = Alignment.CenterHorizontally) {
-                    Text("View", style = MaterialTheme.typography.labelSmall)
+            Card(onClick = onClick, colors = CardDefaults.cardColors(MaterialTheme.colorScheme.primary)) {
+                Column(Modifier.padding(8.dp), horizontalAlignment = Alignment.CenterHorizontally) {
+                    Text("Monthly", style = MaterialTheme.typography.labelSmall)
                     Text("Report", style = MaterialTheme.typography.labelSmall)
                 }
             }

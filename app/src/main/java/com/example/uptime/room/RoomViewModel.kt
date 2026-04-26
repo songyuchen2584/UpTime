@@ -5,6 +5,7 @@ import android.util.Log
 import androidx.lifecycle.AndroidViewModel
 import androidx.lifecycle.viewModelScope
 import androidx.room.Transaction
+import com.example.uptime.FriendsRepository
 import com.example.uptime.room.catalogs.AchievementCatalog
 import com.example.uptime.room.catalogs.TrophyCaseCatalog
 import com.example.uptime.UpTimeDatabase
@@ -17,6 +18,7 @@ import kotlinx.coroutines.flow.SharingStarted
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asSharedFlow
 import kotlinx.coroutines.flow.combine
+import kotlinx.coroutines.flow.distinctUntilChanged
 import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.flow.map
 import kotlinx.coroutines.flow.stateIn
@@ -27,7 +29,8 @@ class RoomViewModel(application: Application, val userId: String) : AndroidViewM
     private val rsDao = db.roomSettingsDao()
     private val invDao = db.userInventoryDao()
     private val statsRepository = UserStatsRepository(db.dailyLogDao())
-    private val firebaseRepo = FirebaseRoomRepository()
+    private val roomRepository = FirebaseRoomRepository()
+    val friendsRepository = FriendsRepository()
     val currentUserId = FirebaseAuth.getInstance().currentUser?.uid
     val isOwner = userId == currentUserId
 
@@ -38,7 +41,7 @@ class RoomViewModel(application: Application, val userId: String) : AndroidViewM
         rsDao.observeRoomSettings(userId)
             .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5000), null)
     } else {
-        firebaseRepo.observeRoomSettings(userId)
+        roomRepository.observeRoomSettings(userId)
             .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5000), null)
     }
 
@@ -46,7 +49,7 @@ class RoomViewModel(application: Application, val userId: String) : AndroidViewM
         invDao.observeUserInventory(userId)
             .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5000), null)
     } else {
-        firebaseRepo.observeUserInventory(userId)
+        roomRepository.observeUserInventory(userId)
             .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5000), null)
     }
 
@@ -62,17 +65,34 @@ class RoomViewModel(application: Application, val userId: String) : AndroidViewM
             // Initial records
             if (rsDao.getSettings(userId) == null) {
                 rsDao.upsertRoomSettings(RoomSettings(userId))
-                firebaseRepo.syncRoomSettings(userId, RoomSettings(userId))
+                roomRepository.syncRoomSettings(userId, RoomSettings(userId))
             }
             if (invDao.getInventory(userId) == null) {
                 invDao.upsertInventory(UserInventory(userId))
-                firebaseRepo.syncInventory(userId, UserInventory(userId))
+                roomRepository.syncInventory(userId, UserInventory(userId))
             }
         }
         // Automatically update when repository changes
         viewModelScope.launch {
             statsRepository.userStats.collect { stats ->
                 checkAndUnlockAchievements(stats)
+            }
+        }
+
+        viewModelScope.launch {
+            combine(
+                totalUnlockedAchievements,
+                statsRepository.userStats
+            ) {
+                trophies, stats ->
+                trophies to stats.currentStreak
+            }
+                .distinctUntilChanged()
+                .collect { (trophies, streak) ->
+                friendsRepository.syncStats(
+                    streak = streak,
+                    trophies = trophies
+                )
             }
         }
 
@@ -107,8 +127,8 @@ class RoomViewModel(application: Application, val userId: String) : AndroidViewM
                 if (isOwner && settings != null && inventory != null) {
                     // Sync to Firestore
                     viewModelScope.launch {
-                        firebaseRepo.syncRoomSettings(userId, settings)
-                        firebaseRepo.syncInventory(userId, inventory)
+                        roomRepository.syncRoomSettings(userId, settings)
+                        roomRepository.syncInventory(userId, inventory)
                     }
                 }
             }
@@ -119,10 +139,16 @@ class RoomViewModel(application: Application, val userId: String) : AndroidViewM
         const val DAILY_COMPLETION_POINTS = 50
     }
 
+    fun addFriendById(userId: String){
+        viewModelScope.launch {
+            friendsRepository.addFriendById(userId)
+        }
+    }
+
     fun getRandomUserRoom(onResult: (String?) -> Unit) {
         viewModelScope.launch {
             val currentUserId = FirebaseAuth.getInstance().currentUser?.uid
-            val randomUserId = firebaseRepo.getRandomUserId(currentUserId)
+            val randomUserId = roomRepository.getRandomUserId(currentUserId)
             onResult(randomUserId)
             Log.d("RandomRoom", "CurrentUserId: $currentUserId")
             Log.d("RandomRoom", "RandomUserId: $randomUserId")

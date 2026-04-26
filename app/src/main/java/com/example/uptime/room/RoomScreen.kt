@@ -3,13 +3,11 @@ package com.example.uptime.room
 import androidx.compose.animation.AnimatedVisibility
 import androidx.compose.animation.core.CubicBezierEasing
 import androidx.compose.animation.core.EaseInOut
-import androidx.compose.animation.core.FastOutSlowInEasing
 import androidx.compose.animation.core.LinearEasing
 import androidx.compose.animation.core.RepeatMode
 import androidx.compose.animation.core.animateFloat
 import androidx.compose.animation.core.animateFloatAsState
 import androidx.compose.animation.core.infiniteRepeatable
-import androidx.compose.animation.core.keyframes
 import androidx.compose.animation.core.rememberInfiniteTransition
 import androidx.compose.animation.core.tween
 import androidx.compose.animation.fadeIn
@@ -21,14 +19,12 @@ import androidx.compose.animation.slideOutVertically
 import androidx.compose.foundation.BorderStroke
 import androidx.compose.foundation.Canvas
 import androidx.compose.foundation.background
-import androidx.compose.foundation.border
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
-import androidx.compose.foundation.layout.aspectRatio
 import androidx.compose.foundation.layout.fillMaxHeight
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
@@ -75,7 +71,6 @@ import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.composed
-import androidx.compose.ui.draw.clip
 import androidx.compose.ui.draw.drawWithCache
 import androidx.compose.ui.draw.drawWithContent
 import androidx.compose.ui.geometry.CornerRadius
@@ -103,11 +98,10 @@ import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.tooling.preview.Preview
 import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.dp
-import androidx.compose.ui.util.lerp
 import androidx.compose.ui.zIndex
 import androidx.lifecycle.viewmodel.compose.viewModel
+import com.example.uptime.FriendProfile
 import com.example.uptime.R
-import com.example.uptime.VisitRoom
 import com.example.uptime.room.catalogs.AchievementCatalog
 import com.example.uptime.room.catalogs.MetalThemeCatalog
 import com.example.uptime.room.catalogs.RoomItemCatalog
@@ -115,7 +109,6 @@ import com.example.uptime.room.catalogs.RoomLayoutCatalog
 import com.example.uptime.room.catalogs.RoomThemeCatalog
 import com.example.uptime.room.catalogs.TrophyCaseCatalog
 import com.example.uptime.room.catalogs.WoodThemeCatalog
-import com.example.uptime.ui.theme.Neutral70
 import com.google.firebase.auth.FirebaseAuth
 import kotlinx.coroutines.launch
 import kotlin.Int
@@ -223,7 +216,7 @@ data class WoodThemeOption(
 enum class AchievementSize { Small, Medium, Large }
 
 @Composable
-fun RoomScreen(viewModel: RoomViewModel = viewModel(), onVisitRoom: () -> Unit, onReturn: () -> Unit) {
+fun RoomScreen(viewModel: RoomViewModel = viewModel(), onVisitRandomRoom: () -> Unit, onVisitUserRoom: (String) -> Unit, onReturn: () -> Unit) {
     val state by viewModel.roomState.collectAsState()
 
     if (state == null) {
@@ -253,6 +246,8 @@ fun RoomScreen(viewModel: RoomViewModel = viewModel(), onVisitRoom: () -> Unit, 
     var activePanel by rememberSaveable { mutableStateOf<RoomPanel?>(null) }
     var showRoomThemePicker by rememberSaveable { mutableStateOf(false) }
     var showWoodThemePicker by rememberSaveable { mutableStateOf(false) }
+
+    val friends by viewModel.friendsRepository.observeFriends().collectAsState(emptyList())
 
     val activeTrophyCaseSlots = TrophyCaseCatalog.all
         .find { it.id == trophyCaseId }?.shelfSlots ?: listOf(
@@ -437,8 +432,9 @@ fun RoomScreen(viewModel: RoomViewModel = viewModel(), onVisitRoom: () -> Unit, 
                     .padding(12.dp)
                     .fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween
             ) {
-                val isFriend = false // TODO: Replace with check if this user is on your friend list
-                FriendPanel(isFriend = isFriend, onClick = {})
+                val visitingId = viewModel.userId
+                val isFriend = friends.any { it.uid == visitingId }
+                FriendPanel(isFriend = isFriend, onClick = { viewModel.addFriendById(visitingId) })
                 ReturnPanel(onClick = onReturn)
             }
         }
@@ -467,9 +463,10 @@ fun RoomScreen(viewModel: RoomViewModel = viewModel(), onVisitRoom: () -> Unit, 
                 onClose = { activePanel = null }
             )
             RoomPanel.Visit -> VisitDisplay(
-                friendsList = listOf(),
+                friendsList = friends,
                 viewModel = viewModel,
-                onVisitRoom = {onVisitRoom(); activePanel = null},
+                onVisitRandomRoom = {onVisitRandomRoom(); activePanel = null},
+                onVisitUserRoom = onVisitUserRoom,
                 onClose = { activePanel = null }
             )
             null -> Unit
@@ -1657,9 +1654,10 @@ private fun DrawScope.drawGrandTrophyModel(x: Float, floorY: Float, metalTheme: 
 
 @Composable
 fun VisitDisplay(
-    friendsList: List<String>,
+    friendsList: List<FriendProfile>,
     viewModel: RoomViewModel,
-    onVisitRoom: () -> Unit,
+    onVisitRandomRoom: () -> Unit,
+    onVisitUserRoom: (String) -> Unit,
     onClose: () -> Unit
 ) {
     val snackbarHostState = remember { SnackbarHostState() }
@@ -1694,7 +1692,7 @@ fun VisitDisplay(
                 }
             }
 
-            Column(modifier = Modifier.padding(12.dp)) {
+            Column(modifier = Modifier.weight(1f).padding(12.dp)) {
                 Row(
                     modifier = Modifier
                         .fillMaxWidth()
@@ -1709,39 +1707,148 @@ fun VisitDisplay(
                     )
                 }
                 HorizontalDivider()
-                // List Friends here
+                if (friendsList.isEmpty()) {
+                    Text(
+                        text = "No friends yet. Visit a random user's Room and add them!",
+                        style = MaterialTheme.typography.bodyMedium,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant,
+                        textAlign = TextAlign.Center,
+                        modifier = Modifier.fillMaxWidth().padding(6.dp)
+                    )
+                } else {
+                    LazyVerticalGrid(
+                        columns = GridCells.Fixed(3),
+                        contentPadding = PaddingValues(16.dp),
+                        horizontalArrangement = Arrangement.spacedBy(12.dp),
+                        verticalArrangement = Arrangement.spacedBy(12.dp),
+                        modifier = Modifier.fillMaxSize()
+                    ) {
+                        items(
+                            friendsList
+                        ) { friend ->
+                            FriendCardCell(
+                                friendProfile = friend,
+                                onClick = { onVisitUserRoom(friend.uid) }
+                            )
+                        }
+                    }
+                }
             }
 
             Spacer(modifier = Modifier.height(12.dp))
 
-            Box(modifier = Modifier.fillMaxSize()) {
-                Row(
-                    modifier = Modifier
-                        .align(Alignment.BottomCenter)
-                        .padding(12.dp), horizontalArrangement = Arrangement.End
-                ) {
-                    Column(horizontalAlignment = Alignment.CenterHorizontally) {
-                        FilledIconButton(
-                            onClick = onVisitRoom,
-                            colors = IconButtonColors(
-                                MaterialTheme.colorScheme.primaryContainer.copy(alpha = 0.6f),
-                                MaterialTheme.colorScheme.onSurface,
-                                MaterialTheme.colorScheme.primaryContainer,
-                                MaterialTheme.colorScheme.primaryContainer,
-                            )
-                        ) {
-                            Icon(
-                                painterResource(R.drawable.random_24px),
-                                contentDescription = "Random Room"
-                            )
-                        }
-                        Text("Random")
+
+            Row(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .padding(12.dp), horizontalArrangement = Arrangement.Center
+            ) {
+                Column(horizontalAlignment = Alignment.CenterHorizontally) {
+                    FilledIconButton(
+                        onClick = onVisitRandomRoom,
+                        colors = IconButtonColors(
+                            MaterialTheme.colorScheme.primaryContainer.copy(alpha = 0.6f),
+                            MaterialTheme.colorScheme.onSurface,
+                            MaterialTheme.colorScheme.primaryContainer,
+                            MaterialTheme.colorScheme.primaryContainer,
+                        )
+                    ) {
+                        Icon(
+                            painterResource(R.drawable.random_24px),
+                            contentDescription = "Random Room"
+                        )
                     }
+                    Text("Random")
                 }
             }
         }
 
         SnackbarHost(hostState = snackbarHostState, modifier = Modifier.align(Alignment.BottomCenter))
+    }
+}
+
+@Composable
+fun FriendCardCell(
+    friendProfile: FriendProfile,
+    onClick: (String) -> Unit) {
+    Box {
+        Card(
+            shape = RoundedCornerShape(16.dp),
+            colors = CardDefaults.cardColors(
+                MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.65f)
+            ),
+            modifier = Modifier
+                .fillMaxWidth()
+                .height(210.dp)
+        ) {
+            Column(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .fillMaxHeight()
+                    .padding(12.dp),
+                horizontalAlignment = Alignment.CenterHorizontally
+            ) {
+                Card(
+                    shape = RoundedCornerShape(50),
+                    colors = CardDefaults.cardColors(
+                        containerColor = MaterialTheme.colorScheme.primary.copy(alpha = 0.12f)
+                    ),
+                    modifier = Modifier.size(36.dp)
+                ) {
+                    Column(
+                        modifier = Modifier.fillMaxSize(),
+                        verticalArrangement = Arrangement.Center,
+                        horizontalAlignment = Alignment.CenterHorizontally
+                    ) {
+                        Icon(
+                            painterResource(R.drawable.person_24px),
+                            contentDescription = "icon",
+                            modifier = Modifier.size(18.dp),
+                            tint = MaterialTheme.colorScheme.primary
+                        )
+                    }
+                }
+
+                Spacer(modifier = Modifier.height(4.dp))
+
+                Text(
+                    if (friendProfile.name != "") friendProfile.name else friendProfile.email,
+                    style = MaterialTheme.typography.labelMedium,
+                    fontWeight = FontWeight.SemiBold,
+                    textAlign = TextAlign.Center,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.8f)
+                )
+                Spacer(modifier = Modifier.weight(1f))
+
+                Icon(
+                    painterResource(R.drawable.trophy_24px),
+                    contentDescription = "Achievements",
+                    modifier = Modifier.size(18.dp),
+                    tint = MaterialTheme.colorScheme.tertiary
+                )
+                Text(
+                    text = "${friendProfile.trophies}",
+                    style = MaterialTheme.typography.bodySmall,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant
+                )
+
+                Spacer(modifier = Modifier.height(8.dp))
+
+                FilledTonalButton(
+                    onClick = { onClick(friendProfile.uid) },
+                    modifier = Modifier.height(32.dp),
+                    colors = ButtonDefaults.filledTonalButtonColors(
+                        containerColor = MaterialTheme.colorScheme.primaryContainer,
+                        contentColor = MaterialTheme.colorScheme.onSurfaceVariant
+                    )
+                ) {
+                    Text(
+                        "Visit",
+                        style = MaterialTheme.typography.labelSmall
+                    )
+                }
+            }
+        }
     }
 }
 
