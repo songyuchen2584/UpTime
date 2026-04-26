@@ -5,7 +5,7 @@ import androidx.room.PrimaryKey
 
 @Entity(tableName = "room_settings")
 data class RoomSettings (
-    @PrimaryKey val id: Int = 0,
+    @PrimaryKey val userId: String,
     val selectedRoomLayoutId: String = "default",
     val displayName: String = "My Room",
     val selectedRoomThemeId: String = "default",
