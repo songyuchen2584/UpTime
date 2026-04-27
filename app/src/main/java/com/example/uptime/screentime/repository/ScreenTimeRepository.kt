@@ -89,54 +89,56 @@ class ScreenTimeRepository(
         end: Long,
         selectedPackages: Set<String>
     ): Map<String, Long> {
-
         val usageEvents = usageStatsManager.queryEvents(start, end)
         val event = UsageEvents.Event()
 
         val totalTime = mutableMapOf<String, Long>()
-        val activeSessions = mutableMapOf<String, Long>()
+
+        var foregroundPackage: String? = null
+        var foregroundStartTime: Long = 0L
+
+        fun closeForegroundSession(closeTime: Long) {
+            val pkg = foregroundPackage ?: return
+
+            if (pkg in selectedPackages) {
+                val duration = closeTime - foregroundStartTime
+                if (duration > 0) {
+                    totalTime[pkg] = totalTime.getOrDefault(pkg, 0L) + duration
+                }
+            }
+
+            foregroundPackage = null
+            foregroundStartTime = 0L
+        }
 
         while (usageEvents.hasNextEvent()) {
             usageEvents.getNextEvent(event)
 
-            val pkg = event.packageName
-            if (pkg !in selectedPackages) continue
+            val pkg = event.packageName ?: continue
+            val time = event.timeStamp.coerceIn(start, end)
 
             when (event.eventType) {
-
                 UsageEvents.Event.ACTIVITY_RESUMED -> {
-                    if (!activeSessions.containsKey(pkg)) {
-                        activeSessions[pkg] = event.timeStamp
+                    // If another app was already marked foreground, close it first.
+                    closeForegroundSession(time)
+
+                    if (pkg in selectedPackages) {
+                        foregroundPackage = pkg
+                        foregroundStartTime = time
                     }
                 }
 
                 UsageEvents.Event.ACTIVITY_PAUSED -> {
-                    val startTime = activeSessions[pkg]
-
-                    if (startTime != null) {
-                        val duration = event.timeStamp - startTime
-                        if (duration > 0) {
-                            totalTime[pkg] = totalTime.getOrDefault(pkg, 0L) + duration
-                        }
-                        activeSessions.remove(pkg)
-                    } else {
-                        // Session started before start of day
-                        val duration = event.timeStamp - start
-                        if (duration > 0) {
-                            totalTime[pkg] = totalTime.getOrDefault(pkg, 0L) + duration
-                        }
+                    // Only close if this pause belongs to the currently active app.
+                    if (foregroundPackage == pkg) {
+                        closeForegroundSession(time)
                     }
                 }
             }
         }
 
-        // Close sessions still active at end of day
-        activeSessions.forEach { (pkg, startTime) ->
-            val duration = end - startTime
-            if (duration > 0) {
-                totalTime[pkg] = totalTime.getOrDefault(pkg, 0L) + duration
-            }
-        }
+        // If selected app is still open at query end, count until now/end.
+        closeForegroundSession(end)
 
         return totalTime
     }
