@@ -117,7 +117,7 @@ fun WalkingScreen(
 
                 if (state.statsToday.usedEstimatedMinutesFallback) {
                     Text(
-                        "Minutes estimated from steps because no walking sessions were available.",
+                        "Walking time estimated from steps for better accuracy.",
                         style = MaterialTheme.typography.bodySmall,
                         color = MaterialTheme.colorScheme.onSurfaceVariant
                     )

@@ -63,11 +63,21 @@ class WalkingRepository(
         val mergedSessions = WalkingMergeEngine.mergeSessions(sessionCandidates)
         val measuredMinutes = WalkingMergeEngine.totalMinutes(mergedSessions)
 
-        val usedFallback = measuredMinutes == 0L && totalSteps > 0L
-        val finalMinutes = when {
-            measuredMinutes > 0L -> measuredMinutes
-            totalSteps > 0L -> maxOf(1L, totalSteps / 100L)
-            else -> 0L
+        val estimatedMinutes = totalSteps / 100L
+
+        val usedFallback = when {
+            totalSteps == 0L -> false
+            measuredMinutes == 0L -> true
+            else -> {
+                val ratio = measuredMinutes.toDouble() / estimatedMinutes.coerceAtLeast(1)
+                ratio < 0.5   // threshold (tune this)
+            }
+        }
+
+        val finalMinutes = if (usedFallback) {
+            maxOf(1L, estimatedMinutes)
+        } else {
+            measuredMinutes
         }
 
         return WalkingStats(
