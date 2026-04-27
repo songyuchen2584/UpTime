@@ -54,10 +54,14 @@ import androidx.navigation3.ui.NavDisplay
 import androidx.window.core.layout.WindowSizeClass
 import androidx.work.WorkInfo
 import androidx.work.WorkManager
+import com.example.uptime.dashboard.DashboardScreen
+import com.example.uptime.dashboard.DashboardViewModel
+import com.example.uptime.profile.ProfileScreen
 import com.example.uptime.room.RoomScreen
 import com.example.uptime.room.RoomViewModel
 import com.example.uptime.room.RoomViewModelFactory
 import com.example.uptime.screentime.ScreenTimeRoute
+import com.example.uptime.streak.StreakScreen
 import com.example.uptime.ui.theme.UpTimeTheme
 import com.example.uptime.walking.WalkingRoute
 import com.google.firebase.auth.FirebaseAuth

@@ -1,8 +1,13 @@
-package com.example.uptime
+package com.example.uptime.dashboard
 
 import android.app.Application
 import androidx.lifecycle.AndroidViewModel
 import androidx.lifecycle.viewModelScope
+import com.example.uptime.api.Quote
+import com.example.uptime.api.QuoteApi
+import com.example.uptime.data.DailyLog
+import com.example.uptime.data.UpTimeDatabase
+import com.example.uptime.data.UserStatsRepository
 import com.example.uptime.screentime.ScreenTimePreferences
 import com.example.uptime.screentime.repository.ScreenTimeRepository
 import com.example.uptime.walking.viewmodel.WalkingViewModel
@@ -22,7 +27,7 @@ import java.time.format.DateTimeFormatter
 import java.util.Date
 
 class DashboardViewModel(application: Application) : AndroidViewModel(application) {
-    private val db  = UpTimeDatabase.getDatabase(application)
+    private val db  = UpTimeDatabase.Companion.getDatabase(application)
     private val dao = db.dailyLogDao()
     private val formatter = DateTimeFormatter.ISO_LOCAL_DATE
     private fun todayString() = LocalDate.now().format(formatter)
@@ -38,7 +43,8 @@ class DashboardViewModel(application: Application) : AndroidViewModel(applicatio
     }
 
     val userStats: StateFlow<UserStatsRepository.UserStats> = repository.userStats
-        .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5000),
+        .stateIn(
+            viewModelScope, SharingStarted.Companion.WhileSubscribed(5000),
             UserStatsRepository.UserStats()
         )
 

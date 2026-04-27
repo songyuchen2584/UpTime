@@ -8,6 +8,9 @@ import androidx.work.ExistingWorkPolicy
 import androidx.work.OneTimeWorkRequestBuilder
 import androidx.work.WorkManager
 import androidx.work.WorkerParameters
+import com.example.uptime.data.DailyLog
+import com.example.uptime.data.UpTimeDatabase
+import com.example.uptime.data.UserStatsRepository
 import com.example.uptime.room.Achievement
 import com.example.uptime.room.RoomViewModel.Companion.DAILY_COMPLETION_POINTS
 import com.example.uptime.room.UserInventory

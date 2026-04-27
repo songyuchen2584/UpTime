@@ -1,4 +1,4 @@
-package com.example.uptime
+package com.example.uptime.streak
 
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
@@ -12,7 +12,6 @@ import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
-import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
@@ -24,22 +23,24 @@ import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.collectAsState
-import androidx.compose.runtime.getValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
-import androidx.compose.ui.unit.sp
 import androidx.lifecycle.viewmodel.compose.viewModel
-import com.example.uptime.room.RoomViewModel.Companion.DAILY_COMPLETION_POINTS
-import java.time.DayOfWeek
+import com.example.uptime.R
+import com.example.uptime.dashboard.DashboardViewModel
+import com.example.uptime.data.DailyLog
+import com.example.uptime.room.RoomViewModel
 import java.time.LocalDate
 import java.time.YearMonth
 import java.time.format.DateTimeFormatter
 import java.time.format.TextStyle
 import java.util.Locale
+import androidx.compose.runtime.getValue
+import androidx.compose.runtime.setValue
 
 @Composable
 fun StreakScreen(viewModel: DashboardViewModel = viewModel()) {
@@ -61,13 +62,13 @@ fun StreakScreen(viewModel: DashboardViewModel = viewModel()) {
     val daysCompleted = thisWeekLogs.count { it.streakMaintained }
 
     Column(
-        modifier = Modifier
+        modifier = Modifier.Companion
             .fillMaxSize()
             .padding(horizontal = 20.dp)
             .verticalScroll(rememberScrollState()),
-        horizontalAlignment = Alignment.CenterHorizontally
+        horizontalAlignment = Alignment.Companion.CenterHorizontally
     ) {
-        Spacer(modifier = Modifier.height(8.dp))
+        Spacer(modifier = Modifier.Companion.height(8.dp))
 
         StatsCard(
             currentStreak = stats.currentStreak,
@@ -75,7 +76,7 @@ fun StreakScreen(viewModel: DashboardViewModel = viewModel()) {
             totalScreenTime = stats.totalScreenTimeMins
         )
 
-        Spacer(modifier = Modifier.height(16.dp))
+        Spacer(modifier = Modifier.Companion.height(16.dp))
 
         WeeklySummaryCard(
             weeklyWalking = weeklyWalking,
@@ -83,49 +84,57 @@ fun StreakScreen(viewModel: DashboardViewModel = viewModel()) {
             daysCompleted = daysCompleted
         )
 
-        Spacer(modifier = Modifier.height(16.dp))
+        Spacer(modifier = Modifier.Companion.height(16.dp))
 
         MonthCalendarCard(logMap = logMap)
 
-        Spacer(modifier = Modifier.height(24.dp))
+        Spacer(modifier = Modifier.Companion.height(24.dp))
     }
 }
 
 @Composable
 fun StatsCard(currentStreak: Int, totalWalking: Int, totalScreenTime: Int) {
     Card(
-        modifier = Modifier.fillMaxWidth(),
+        modifier = Modifier.Companion.fillMaxWidth(),
         shape = RoundedCornerShape(16.dp),
         colors = CardDefaults.cardColors(
             containerColor = MaterialTheme.colorScheme.primary.copy(alpha = 0.12f)
         )
     ) {
         Row(
-            modifier = Modifier
+            modifier = Modifier.Companion
                 .fillMaxWidth()
                 .padding(24.dp),
             horizontalArrangement = Arrangement.SpaceEvenly
         ) {
             StatItem(icon = R.drawable.streak_24px, value = "$currentStreak", label = "Day Streak")
-            StatItem(icon = R.drawable.directions_walk_24px, value = "${totalWalking}m", label = "Total Walking")
-            StatItem(icon = R.drawable.timer_24px, value = "${totalScreenTime}m", label = "Screen Time")
+            StatItem(
+                icon = R.drawable.directions_walk_24px,
+                value = "${totalWalking}m",
+                label = "Total Walking"
+            )
+            StatItem(
+                icon = R.drawable.timer_24px,
+                value = "${totalScreenTime}m",
+                label = "Screen Time"
+            )
         }
     }
 }
 
 @Composable
 fun StatItem(icon: Int, value: String, label: String) {
-    Column(horizontalAlignment = Alignment.CenterHorizontally) {
+    Column(horizontalAlignment = Alignment.Companion.CenterHorizontally) {
         Icon(
             painterResource(icon),
             contentDescription = null,
-            modifier = Modifier.size(24.dp)
+            modifier = Modifier.Companion.size(24.dp)
         )
-        Spacer(modifier = Modifier.height(4.dp))
+        Spacer(modifier = Modifier.Companion.height(4.dp))
         Text(
             text = value,
             style = MaterialTheme.typography.titleLarge,
-            fontWeight = FontWeight.Bold,
+            fontWeight = FontWeight.Companion.Bold,
             color = MaterialTheme.colorScheme.onSurface
         )
         Text(
@@ -139,34 +148,34 @@ fun StatItem(icon: Int, value: String, label: String) {
 @Composable
 fun WeeklySummaryCard(weeklyWalking: Int, weeklyScreenTime: Int, daysCompleted: Int) {
     Card(
-        modifier = Modifier.fillMaxWidth(),
-        shape = RoundedCornerShape(16.dp),
+        modifier = Modifier.Companion.fillMaxWidth(),
+        shape = androidx.compose.foundation.shape.RoundedCornerShape(16.dp),
         colors = CardDefaults.cardColors(
             containerColor = MaterialTheme.colorScheme.surface
         )
     ) {
-        Column(modifier = Modifier.padding(20.dp)) {
+        Column(modifier = Modifier.Companion.padding(20.dp)) {
             Row(
-                modifier = Modifier.fillMaxWidth(),
+                modifier = Modifier.Companion.fillMaxWidth(),
                 horizontalArrangement = Arrangement.SpaceBetween,
-                verticalAlignment = Alignment.CenterVertically
+                verticalAlignment = Alignment.Companion.CenterVertically
             ) {
                 Text(
                     text = "This week",
                     style = MaterialTheme.typography.titleMedium,
-                    fontWeight = FontWeight.SemiBold
+                    fontWeight = FontWeight.Companion.SemiBold
                 )
                 Text(
-                    text = "7-day streak = +$DAILY_COMPLETION_POINTS pts!",
+                    text = "7-day streak = +${RoomViewModel.Companion.DAILY_COMPLETION_POINTS} pts!",
                     style = MaterialTheme.typography.labelSmall,
                     color = MaterialTheme.colorScheme.primary
                 )
             }
 
-            Spacer(modifier = Modifier.height(16.dp))
+            Spacer(modifier = Modifier.Companion.height(16.dp))
 
             Row(
-                modifier = Modifier.fillMaxWidth(),
+                modifier = Modifier.Companion.fillMaxWidth(),
                 horizontalArrangement = Arrangement.SpaceBetween
             ) {
                 WeeklyStat(value = "$daysCompleted/7", label = "Goals met")
@@ -179,11 +188,11 @@ fun WeeklySummaryCard(weeklyWalking: Int, weeklyScreenTime: Int, daysCompleted: 
 
 @Composable
 fun WeeklyStat(value: String, label: String) {
-    Column(horizontalAlignment = Alignment.CenterHorizontally) {
+    Column(horizontalAlignment = Alignment.Companion.CenterHorizontally) {
         Text(
             text = value,
             style = MaterialTheme.typography.titleLarge,
-            fontWeight = FontWeight.Bold,
+            fontWeight = FontWeight.Companion.Bold,
             color = MaterialTheme.colorScheme.primary
         )
         Text(
@@ -207,43 +216,43 @@ fun MonthCalendarCard(logMap: Map<String, DailyLog>) {
     val dayHeaders = listOf("M", "T", "W", "T", "F", "S", "S")
 
     Card(
-        modifier = Modifier.fillMaxWidth(),
-        shape = RoundedCornerShape(16.dp),
+        modifier = Modifier.Companion.fillMaxWidth(),
+        shape = androidx.compose.foundation.shape.RoundedCornerShape(16.dp),
         colors = CardDefaults.cardColors(
             containerColor = MaterialTheme.colorScheme.surface
         )
     ) {
-        Column(modifier = Modifier.padding(20.dp)) {
+        Column(modifier = Modifier.Companion.padding(20.dp)) {
             Text(
                 text = currentMonth.month.getDisplayName(TextStyle.FULL, Locale.getDefault()) +
                         " " + currentMonth.year,
                 style = MaterialTheme.typography.titleMedium,
-                fontWeight = FontWeight.SemiBold
+                fontWeight = FontWeight.Companion.SemiBold
             )
 
-            Spacer(modifier = Modifier.height(16.dp))
+            Spacer(modifier = Modifier.Companion.height(16.dp))
 
             // day of week headers
             Row(
-                modifier = Modifier.fillMaxWidth(),
+                modifier = Modifier.Companion.fillMaxWidth(),
                 horizontalArrangement = Arrangement.SpaceBetween
             ) {
                 dayHeaders.forEach { day ->
                     Box(
-                        modifier = Modifier.size(36.dp),
-                        contentAlignment = Alignment.Center
+                        modifier = Modifier.Companion.size(36.dp),
+                        contentAlignment = Alignment.Companion.Center
                     ) {
                         Text(
                             text = day,
                             style = MaterialTheme.typography.labelSmall,
-                            fontWeight = FontWeight.Medium,
+                            fontWeight = FontWeight.Companion.Medium,
                             color = MaterialTheme.colorScheme.onSurfaceVariant
                         )
                     }
                 }
             }
 
-            Spacer(modifier = Modifier.height(4.dp))
+            Spacer(modifier = Modifier.Companion.height(4.dp))
 
             // calendar grid
             var dayCounter = 1
@@ -252,7 +261,7 @@ fun MonthCalendarCard(logMap: Map<String, DailyLog>) {
 
             for (week in 0 until weeks) {
                 Row(
-                    modifier = Modifier.fillMaxWidth(),
+                    modifier = Modifier.Companion.fillMaxWidth(),
                     horizontalArrangement = Arrangement.SpaceBetween
                 ) {
                     for (col in 0..6) {
@@ -274,12 +283,12 @@ fun MonthCalendarCard(logMap: Map<String, DailyLog>) {
                             )
                         } else {
                             // empty cell for padding
-                            Box(modifier = Modifier.size(36.dp))
+                            Box(modifier = Modifier.Companion.size(36.dp))
                         }
                     }
                 }
 
-                Spacer(modifier = Modifier.height(6.dp))
+                Spacer(modifier = Modifier.Companion.height(6.dp))
             }
         }
     }
@@ -304,20 +313,24 @@ fun MonthDayCell(dayNumber: String, log: DailyLog?, isToday: Boolean, isFuture: 
     }
 
     Box(
-        contentAlignment = Alignment.Center,
-        modifier = Modifier
+        contentAlignment = Alignment.Companion.Center,
+        modifier = Modifier.Companion
             .size(36.dp)
             .clip(CircleShape)
             .background(bgColor)
             .then(
-                if (isToday) Modifier.border(2.dp, MaterialTheme.colorScheme.tertiary, CircleShape)
-                else Modifier
+                if (isToday) Modifier.Companion.border(
+                    2.dp,
+                    MaterialTheme.colorScheme.tertiary,
+                    CircleShape
+                )
+                else Modifier.Companion
             )
     ) {
         Text(
             text = dayNumber,
             style = MaterialTheme.typography.bodySmall,
-            fontWeight = if (isToday) FontWeight.Bold else FontWeight.Normal,
+            fontWeight = if (isToday) FontWeight.Companion.Bold else FontWeight.Companion.Normal,
             color = textColor
         )
     }

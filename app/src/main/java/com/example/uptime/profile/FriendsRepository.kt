@@ -1,8 +1,10 @@
-package com.example.uptime
+package com.example.uptime.profile
 
 import android.util.Log
 import com.google.firebase.auth.FirebaseAuth
+import com.google.firebase.firestore.FieldPath
 import com.google.firebase.firestore.FirebaseFirestore
+import com.google.firebase.firestore.SetOptions
 import kotlinx.coroutines.channels.awaitClose
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.callbackFlow
@@ -35,7 +37,7 @@ class FriendsRepository {
                     "trophies" to trophies,
                     "friends" to existing
                 ),
-                com.google.firebase.firestore.SetOptions.merge()
+                SetOptions.merge()
             ).await()
         } catch (_: Exception) {
             db.collection("users").document(uid).set(
@@ -157,7 +159,8 @@ class FriendsRepository {
                 }
 
                 db.collection("users")
-                    .whereIn(com.google.firebase.firestore.FieldPath.documentId(),
+                    .whereIn(
+                        FieldPath.documentId(),
                         friendIds.map { it.toString() })
                     .get()
                     .addOnSuccessListener { friendDocs ->

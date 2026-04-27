@@ -1,4 +1,4 @@
-package com.example.uptime
+package com.example.uptime.data
 
 import android.content.Context
 import androidx.room.Database

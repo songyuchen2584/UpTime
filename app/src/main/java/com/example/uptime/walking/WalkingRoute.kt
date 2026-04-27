@@ -13,7 +13,7 @@ import androidx.compose.runtime.getValue
 import androidx.compose.ui.platform.LocalContext
 import androidx.core.content.ContextCompat
 import androidx.lifecycle.viewmodel.compose.viewModel
-import com.example.uptime.DashboardViewModel
+import com.example.uptime.dashboard.DashboardViewModel
 import com.example.uptime.walking.datasource.StepTrackingService
 import com.example.uptime.walking.viewmodel.WalkingViewModel
 

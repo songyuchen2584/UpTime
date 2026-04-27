@@ -1,7 +1,8 @@
-package com.example.uptime
+package com.example.uptime.api
 
 import com.google.firebase.auth.FirebaseAuth
 import com.google.firebase.firestore.FirebaseFirestore
+import com.google.firebase.firestore.SetOptions
 
 object FirestoreSync {
 
@@ -12,7 +13,7 @@ object FirestoreSync {
     // save any data under the current user's document
     fun saveUserData(data: Map<String, Any>) {
         val uid = getUserId() ?: return
-        db.collection("users").document(uid).set(data, com.google.firebase.firestore.SetOptions.merge())
+        db.collection("users").document(uid).set(data, SetOptions.merge())
     }
 
     // save to a subcollection under the user

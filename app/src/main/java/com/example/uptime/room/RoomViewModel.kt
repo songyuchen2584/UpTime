@@ -5,11 +5,11 @@ import android.util.Log
 import androidx.lifecycle.AndroidViewModel
 import androidx.lifecycle.viewModelScope
 import androidx.room.Transaction
-import com.example.uptime.FriendsRepository
+import com.example.uptime.profile.FriendsRepository
 import com.example.uptime.room.catalogs.AchievementCatalog
 import com.example.uptime.room.catalogs.TrophyCaseCatalog
-import com.example.uptime.UpTimeDatabase
-import com.example.uptime.UserStatsRepository
+import com.example.uptime.data.UpTimeDatabase
+import com.example.uptime.data.UserStatsRepository
 import com.example.uptime.room.catalogs.RoomItemCatalog
 import com.google.firebase.auth.FirebaseAuth
 import kotlinx.coroutines.flow.MutableSharedFlow

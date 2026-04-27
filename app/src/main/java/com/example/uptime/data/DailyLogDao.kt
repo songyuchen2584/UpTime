@@ -1,4 +1,4 @@
-package com.example.uptime
+package com.example.uptime.data
 
 import androidx.room.Dao
 import androidx.room.Insert
@@ -15,7 +15,7 @@ interface DailyLogDao {
     @Query("SELECT * FROM daily_logs WHERE date = :date LIMIT 1")
     suspend fun getLogForDate(date: String): DailyLog?
 
-    @Insert(onConflict = OnConflictStrategy.REPLACE)
+    @Insert(onConflict = OnConflictStrategy.Companion.REPLACE)
     suspend fun upsertLog(log: DailyLog)
 
     @Query("SELECT * FROM daily_logs ORDER BY date DESC LIMIT :limit")

@@ -1,4 +1,4 @@
-package com.example.uptime
+package com.example.uptime.api
 
 import com.google.gson.annotations.SerializedName
 import retrofit2.Retrofit

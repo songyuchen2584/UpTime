@@ -1,4 +1,4 @@
-package com.example.uptime
+package com.example.uptime.profile
 
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
@@ -26,11 +26,9 @@ import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.collectAsState
-import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.rememberCoroutineScope
-import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.res.painterResource
@@ -38,8 +36,14 @@ import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
 import androidx.lifecycle.viewmodel.compose.viewModel
-import kotlinx.coroutines.launch
+import com.example.uptime.profile.FriendProfile
+import com.example.uptime.R
+import com.example.uptime.auth.AuthViewModel
+import com.example.uptime.dashboard.DashboardViewModel
 import com.example.uptime.room.RoomViewModel
+import kotlinx.coroutines.launch
+import androidx.compose.runtime.getValue
+import androidx.compose.runtime.setValue
 
 @Composable
 fun ProfileScreen(
@@ -54,15 +58,15 @@ fun ProfileScreen(
     var showEditName by remember { mutableStateOf(false) }
     var editNameText by remember { mutableStateOf("") }
     Column(
-        modifier = Modifier
+        modifier = Modifier.Companion
             .fillMaxSize()
             .padding(horizontal = 20.dp)
             .verticalScroll(rememberScrollState()),
-        horizontalAlignment = Alignment.CenterHorizontally
+        horizontalAlignment = Alignment.Companion.CenterHorizontally
     ) {
-        Spacer(modifier = Modifier.height(24.dp))
+        Spacer(modifier = Modifier.Companion.height(24.dp))
 
-                ProfileHeader(
+        ProfileHeader(
             isAnonymous = authState.isAnonymous,
             displayName = authState.displayName,
             email = authState.user?.email
@@ -86,7 +90,7 @@ fun ProfileScreen(
                         onValueChange = { editNameText = it },
                         label = { Text("Name") },
                         singleLine = true,
-                        modifier = Modifier.fillMaxWidth()
+                        modifier = Modifier.Companion.fillMaxWidth()
                     )
                 },
                 confirmButton = {
@@ -107,90 +111,90 @@ fun ProfileScreen(
                 }
             )
         }
-        Spacer(modifier = Modifier.height(20.dp))
+        Spacer(modifier = Modifier.Companion.height(20.dp))
 
         StatsOverviewCard(
             currentStreak = stats.currentStreak,
             trophiesUnlocked = roomViewModel.totalUnlockedAchievements.collectAsState().value
         )
 
-        Spacer(modifier = Modifier.height(16.dp))
+        Spacer(modifier = Modifier.Companion.height(16.dp))
 
         if (authState.isAnonymous) {
             Card(
-                modifier = Modifier.fillMaxWidth(),
+                modifier = Modifier.Companion.fillMaxWidth(),
                 shape = RoundedCornerShape(16.dp),
                 colors = CardDefaults.cardColors(
                     containerColor = MaterialTheme.colorScheme.surface
                 )
             ) {
                 Column(
-                    modifier = Modifier.padding(20.dp),
-                    horizontalAlignment = Alignment.CenterHorizontally
+                    modifier = Modifier.Companion.padding(20.dp),
+                    horizontalAlignment = Alignment.Companion.CenterHorizontally
                 ) {
                     Button(
                         onClick = onNavigateToSettings,
-                        modifier = Modifier.fillMaxWidth()
+                        modifier = Modifier.Companion.fillMaxWidth()
                     ) {
                         Text("Sign in to save your progress")
                     }
                 }
             }
 
-            Spacer(modifier = Modifier.height(16.dp))
+            Spacer(modifier = Modifier.Companion.height(16.dp))
 
             FriendsCardPlaceholder()
         } else {
             FriendsListCard(authViewModel = authViewModel)
 
-            Spacer(modifier = Modifier.height(64.dp))
+            Spacer(modifier = Modifier.Companion.height(64.dp))
 
             OutlinedButton(
                 onClick = { authViewModel.signOut() },
-                modifier = Modifier.fillMaxWidth()
+                modifier = Modifier.Companion.fillMaxWidth()
             ) {
                 Text("Sign Out")
             }
         }
 
-        Spacer(modifier = Modifier.height(24.dp))
+        Spacer(modifier = Modifier.Companion.height(24.dp))
     }
 }
 
 @Composable
 fun ProfileHeader(isAnonymous: Boolean, displayName: String?, email: String?) {
     Column(
-        horizontalAlignment = Alignment.CenterHorizontally,
-        modifier = Modifier.fillMaxWidth()
+        horizontalAlignment = Alignment.Companion.CenterHorizontally,
+        modifier = Modifier.Companion.fillMaxWidth()
     ) {
         Card(
-            shape = RoundedCornerShape(50),
+            shape = androidx.compose.foundation.shape.RoundedCornerShape(50),
             colors = CardDefaults.cardColors(
                 containerColor = MaterialTheme.colorScheme.primary.copy(alpha = 0.12f)
             ),
-            modifier = Modifier.size(80.dp)
+            modifier = Modifier.Companion.size(80.dp)
         ) {
             Column(
-                modifier = Modifier.fillMaxSize(),
+                modifier = Modifier.Companion.fillMaxSize(),
                 verticalArrangement = Arrangement.Center,
-                horizontalAlignment = Alignment.CenterHorizontally
+                horizontalAlignment = Alignment.Companion.CenterHorizontally
             ) {
                 Icon(
                     painterResource(R.drawable.person_24px),
                     contentDescription = "Profile",
-                    modifier = Modifier.size(40.dp),
+                    modifier = Modifier.Companion.size(40.dp),
                     tint = MaterialTheme.colorScheme.primary
                 )
             }
         }
 
-        Spacer(modifier = Modifier.height(12.dp))
+        Spacer(modifier = Modifier.Companion.height(12.dp))
 
         if (isAnonymous) {
             Text(
                 text = "Guest",
                 style = MaterialTheme.typography.titleLarge,
-                fontWeight = FontWeight.Bold
+                fontWeight = FontWeight.Companion.Bold
             )
             Text(
                 text = "Sign in to save your progress",
@@ -201,10 +205,10 @@ fun ProfileHeader(isAnonymous: Boolean, displayName: String?, email: String?) {
             Text(
                 text = if (!displayName.isNullOrBlank()) displayName else email ?: "User",
                 style = MaterialTheme.typography.titleLarge,
-                fontWeight = FontWeight.Bold
+                fontWeight = FontWeight.Companion.Bold
             )
             if (!email.isNullOrBlank()) {
-                Spacer(modifier = Modifier.height(2.dp))
+                Spacer(modifier = Modifier.Companion.height(2.dp))
                 Text(
                     text = email,
                     style = MaterialTheme.typography.bodySmall,
@@ -218,19 +222,19 @@ fun ProfileHeader(isAnonymous: Boolean, displayName: String?, email: String?) {
 @Composable
 fun StatsOverviewCard(currentStreak: Int, trophiesUnlocked: Int) {
     Card(
-        modifier = Modifier.fillMaxWidth(),
-        shape = RoundedCornerShape(16.dp),
+        modifier = Modifier.Companion.fillMaxWidth(),
+        shape = androidx.compose.foundation.shape.RoundedCornerShape(16.dp),
         colors = CardDefaults.cardColors(
             containerColor = MaterialTheme.colorScheme.surface
         )
     ) {
         Row(
-            modifier = Modifier
+            modifier = Modifier.Companion
                 .fillMaxWidth()
                 .padding(20.dp),
             horizontalArrangement = Arrangement.SpaceEvenly
         ) {
-            Column(horizontalAlignment = Alignment.CenterHorizontally) {
+            Column(horizontalAlignment = Alignment.Companion.CenterHorizontally) {
                 Icon(
                     painterResource(R.drawable.streak_24px),
                     contentDescription = "Streak",
@@ -239,7 +243,7 @@ fun StatsOverviewCard(currentStreak: Int, trophiesUnlocked: Int) {
                 Text(
                     text = "$currentStreak",
                     style = MaterialTheme.typography.titleLarge,
-                    fontWeight = FontWeight.Bold
+                    fontWeight = FontWeight.Companion.Bold
                 )
                 Text(
                     text = "Day streak",
@@ -248,7 +252,7 @@ fun StatsOverviewCard(currentStreak: Int, trophiesUnlocked: Int) {
                 )
             }
 
-            Column(horizontalAlignment = Alignment.CenterHorizontally) {
+            Column(horizontalAlignment = Alignment.Companion.CenterHorizontally) {
                 Icon(
                     painterResource(R.drawable.trophy_24px),
                     contentDescription = "Achievements",
@@ -257,7 +261,7 @@ fun StatsOverviewCard(currentStreak: Int, trophiesUnlocked: Int) {
                 Text(
                     text = "$trophiesUnlocked",
                     style = MaterialTheme.typography.titleLarge,
-                    fontWeight = FontWeight.Bold
+                    fontWeight = FontWeight.Companion.Bold
                 )
                 Text(
                     text = "Trophies",
@@ -272,31 +276,31 @@ fun StatsOverviewCard(currentStreak: Int, trophiesUnlocked: Int) {
 @Composable
 fun FriendsCardPlaceholder() {
     Card(
-        modifier = Modifier.fillMaxWidth(),
-        shape = RoundedCornerShape(16.dp),
+        modifier = Modifier.Companion.fillMaxWidth(),
+        shape = androidx.compose.foundation.shape.RoundedCornerShape(16.dp),
         colors = CardDefaults.cardColors(
             containerColor = MaterialTheme.colorScheme.surface
         )
     ) {
         Column(
-            modifier = Modifier.padding(20.dp),
-            horizontalAlignment = Alignment.CenterHorizontally
+            modifier = Modifier.Companion.padding(20.dp),
+            horizontalAlignment = Alignment.Companion.CenterHorizontally
         ) {
             Text(
                 text = "Friends",
                 style = MaterialTheme.typography.titleMedium,
-                fontWeight = FontWeight.SemiBold,
-                modifier = Modifier.fillMaxWidth()
+                fontWeight = FontWeight.Companion.SemiBold,
+                modifier = Modifier.Companion.fillMaxWidth()
             )
 
-            Spacer(modifier = Modifier.height(16.dp))
+            Spacer(modifier = Modifier.Companion.height(16.dp))
 
             Text(
                 text = "Sign in to add friends and see their streaks",
                 style = MaterialTheme.typography.bodyMedium,
                 color = MaterialTheme.colorScheme.onSurfaceVariant,
-                textAlign = TextAlign.Center,
-                modifier = Modifier.fillMaxWidth()
+                textAlign = TextAlign.Companion.Center,
+                modifier = Modifier.Companion.fillMaxWidth()
             )
         }
     }
@@ -312,53 +316,53 @@ fun FriendsListCard(authViewModel: AuthViewModel) {
     var addError by remember { mutableStateOf<String?>(null) }
 
     Card(
-        modifier = Modifier.fillMaxWidth(),
-        shape = RoundedCornerShape(16.dp),
+        modifier = Modifier.Companion.fillMaxWidth(),
+        shape = androidx.compose.foundation.shape.RoundedCornerShape(16.dp),
         colors = CardDefaults.cardColors(
             containerColor = MaterialTheme.colorScheme.surface
         )
     ) {
-        Column(modifier = Modifier.padding(20.dp)) {
+        Column(modifier = Modifier.Companion.padding(20.dp)) {
             Row(
-                modifier = Modifier.fillMaxWidth(),
+                modifier = Modifier.Companion.fillMaxWidth(),
                 horizontalArrangement = Arrangement.SpaceBetween,
-                verticalAlignment = Alignment.CenterVertically
+                verticalAlignment = Alignment.Companion.CenterVertically
             ) {
                 Text(
                     text = "Friends",
                     style = MaterialTheme.typography.titleMedium,
-                    fontWeight = FontWeight.SemiBold
+                    fontWeight = FontWeight.Companion.SemiBold
                 )
                 TextButton(onClick = { showAddDialog = true }) {
                     Text("+ Add")
                 }
             }
 
-            Spacer(modifier = Modifier.height(8.dp))
+            Spacer(modifier = Modifier.Companion.height(8.dp))
 
             if (friends.isEmpty()) {
                 Text(
                     text = "No friends yet. Add someone by their email or visit their Room!",
                     style = MaterialTheme.typography.bodyMedium,
                     color = MaterialTheme.colorScheme.onSurfaceVariant,
-                    textAlign = TextAlign.Center,
-                    modifier = Modifier.fillMaxWidth()
+                    textAlign = TextAlign.Companion.Center,
+                    modifier = Modifier.Companion.fillMaxWidth()
                 )
             } else {
                 friends
                     .sortedWith(compareByDescending<FriendProfile> { it.trophies }
-                        .thenByDescending {it.streak})
+                        .thenByDescending { it.streak })
                     .forEach { friend ->
-                    FriendRow(
-                        friend = friend,
-                        onRemove = {
-                            scope.launch {
-                                authViewModel.friendsRepository.removeFriend(friend.uid)
+                        FriendRow(
+                            friend = friend,
+                            onRemove = {
+                                scope.launch {
+                                    authViewModel.friendsRepository.removeFriend(friend.uid)
+                                }
                             }
-                        }
-                    )
-                    Spacer(modifier = Modifier.height(8.dp))
-                }
+                        )
+                        Spacer(modifier = Modifier.Companion.height(8.dp))
+                    }
             }
         }
     }
@@ -391,54 +395,54 @@ fun FriendsListCard(authViewModel: AuthViewModel) {
 @Composable
 fun FriendRow(friend: FriendProfile, onRemove: () -> Unit) {
     Card(
-        modifier = Modifier.fillMaxWidth(),
-        shape = RoundedCornerShape(12.dp),
+        modifier = Modifier.Companion.fillMaxWidth(),
+        shape = androidx.compose.foundation.shape.RoundedCornerShape(12.dp),
         colors = CardDefaults.cardColors(
             containerColor = MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.5f)
         )
     ) {
         Row(
-            modifier = Modifier
+            modifier = Modifier.Companion
                 .fillMaxWidth()
                 .padding(12.dp),
-            verticalAlignment = Alignment.CenterVertically
+            verticalAlignment = Alignment.Companion.CenterVertically
         ) {
             // avatar
             Card(
-                shape = RoundedCornerShape(50),
+                shape = androidx.compose.foundation.shape.RoundedCornerShape(50),
                 colors = CardDefaults.cardColors(
                     containerColor = MaterialTheme.colorScheme.primary.copy(alpha = 0.12f)
                 ),
-                modifier = Modifier.size(36.dp)
+                modifier = Modifier.Companion.size(36.dp)
             ) {
                 Column(
-                    modifier = Modifier.fillMaxSize(),
+                    modifier = Modifier.Companion.fillMaxSize(),
                     verticalArrangement = Arrangement.Center,
-                    horizontalAlignment = Alignment.CenterHorizontally
+                    horizontalAlignment = Alignment.Companion.CenterHorizontally
                 ) {
                     Icon(
                         painterResource(R.drawable.person_24px),
                         contentDescription = null,
-                        modifier = Modifier.size(18.dp),
+                        modifier = Modifier.Companion.size(18.dp),
                         tint = MaterialTheme.colorScheme.primary
                     )
                 }
             }
 
-            Spacer(modifier = Modifier.width(12.dp))
+            Spacer(modifier = Modifier.Companion.width(12.dp))
 
             // info
-            Column(modifier = Modifier.weight(1f)) {
+            Column(modifier = Modifier.Companion.weight(1f)) {
                 Text(
                     text = friend.name.ifBlank { friend.email },
                     style = MaterialTheme.typography.bodyMedium,
-                    fontWeight = FontWeight.Medium
+                    fontWeight = FontWeight.Companion.Medium
                 )
                 Row {
                     Icon(
                         painterResource(R.drawable.streak_24px),
                         contentDescription = "Streak",
-                        modifier = Modifier.size(18.dp),
+                        modifier = Modifier.Companion.size(18.dp),
                         tint = MaterialTheme.colorScheme.primary
                     )
                     Text(
@@ -446,11 +450,11 @@ fun FriendRow(friend: FriendProfile, onRemove: () -> Unit) {
                         style = MaterialTheme.typography.bodySmall,
                         color = MaterialTheme.colorScheme.onSurfaceVariant
                     )
-                    Spacer(modifier = Modifier.width(12.dp))
+                    Spacer(modifier = Modifier.Companion.width(12.dp))
                     Icon(
                         painterResource(R.drawable.trophy_24px),
                         contentDescription = "Achievements",
-                        modifier = Modifier.size(18.dp),
+                        modifier = Modifier.Companion.size(18.dp),
                         tint = MaterialTheme.colorScheme.tertiary
                     )
                     Text(
@@ -464,12 +468,12 @@ fun FriendRow(friend: FriendProfile, onRemove: () -> Unit) {
             // remove button
             IconButton(
                 onClick = onRemove,
-                modifier = Modifier.size(32.dp)
+                modifier = Modifier.Companion.size(32.dp)
             ) {
                 Icon(
                     painterResource(R.drawable.close_24px),
                     contentDescription = "Remove friend",
-                    modifier = Modifier.size(16.dp),
+                    modifier = Modifier.Companion.size(16.dp),
                     tint = MaterialTheme.colorScheme.onSurfaceVariant
                 )
             }
@@ -494,16 +498,16 @@ fun AddFriendDialog(
                     text = "Enter your friend's email address",
                     style = MaterialTheme.typography.bodyMedium
                 )
-                Spacer(modifier = Modifier.height(12.dp))
+                Spacer(modifier = Modifier.Companion.height(12.dp))
                 OutlinedTextField(
                     value = email,
                     onValueChange = { email = it },
                     label = { Text("Email") },
                     singleLine = true,
-                    modifier = Modifier.fillMaxWidth()
+                    modifier = Modifier.Companion.fillMaxWidth()
                 )
                 error?.let {
-                    Spacer(modifier = Modifier.height(8.dp))
+                    Spacer(modifier = Modifier.Companion.height(8.dp))
                     Text(
                         text = it,
                         style = MaterialTheme.typography.bodySmall,

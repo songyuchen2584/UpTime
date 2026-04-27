@@ -1,4 +1,4 @@
-package com.example.uptime
+package com.example.uptime.dashboard
 
 import androidx.compose.animation.core.animateFloatAsState
 import androidx.compose.animation.core.tween
@@ -26,12 +26,11 @@ import androidx.compose.material3.LinearProgressIndicator
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.DisposableEffect
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.collectAsState
-import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableFloatStateOf
 import androidx.compose.runtime.remember
-import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.geometry.Offset
@@ -40,19 +39,22 @@ import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.StrokeCap
 import androidx.compose.ui.graphics.drawscope.Stroke
 import androidx.compose.ui.res.painterResource
+import androidx.compose.ui.text.font.FontStyle
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
-import androidx.lifecycle.viewmodel.compose.viewModel
-import com.example.uptime.room.RoomViewModel.Companion.DAILY_COMPLETION_POINTS
-import com.example.uptime.ui.theme.Coral40
-import com.example.uptime.walking.viewmodel.WalkingViewModel
-import androidx.compose.material3.Button
-import androidx.compose.runtime.DisposableEffect
 import androidx.lifecycle.Lifecycle
 import androidx.lifecycle.LifecycleEventObserver
 import androidx.lifecycle.compose.LocalLifecycleOwner
+import androidx.lifecycle.viewmodel.compose.viewModel
+import com.example.uptime.api.Quote
+import com.example.uptime.R
+import com.example.uptime.room.RoomViewModel
+import com.example.uptime.ui.theme.Coral40
+import com.example.uptime.walking.viewmodel.WalkingViewModel
+import androidx.compose.runtime.getValue
+import androidx.compose.runtime.setValue
 
 // UI state for the dashboard
 data class DashboardState(
@@ -133,13 +135,13 @@ fun DashboardScreen(
     )
 
     Column(
-        modifier = Modifier
+        modifier = Modifier.Companion
             .fillMaxSize()
             .padding(horizontal = 20.dp)
             .verticalScroll(rememberScrollState()),
-        horizontalAlignment = Alignment.CenterHorizontally
+        horizontalAlignment = Alignment.Companion.CenterHorizontally
     ) {
-        Spacer(modifier = Modifier.height(8.dp))
+        Spacer(modifier = Modifier.Companion.height(8.dp))
 
         //Streak Banner
         StreakCard(
@@ -149,11 +151,11 @@ fun DashboardScreen(
             onClick = onNavigateToStreak
         )
 
-        Spacer(modifier = Modifier.height(24.dp))
+        Spacer(modifier = Modifier.Companion.height(24.dp))
 
         // Progress Rings
         Row(
-            modifier = Modifier.fillMaxWidth(),
+            modifier = Modifier.Companion.fillMaxWidth(),
             horizontalArrangement = Arrangement.SpaceEvenly
         ) {
             // Screen time (lower is better)
@@ -166,7 +168,10 @@ fun DashboardScreen(
                 unit = "min",
                 subtitle = "${state.screenTimeGoal - state.screenTimeUsed} min left",
                 progress = screenFraction.coerceIn(0f, 1f),
-                ringColor = if (!screenOver) screenTimeColor(state.screenTimeUsed, state.screenTimeGoal) else Coral40,
+                ringColor = if (!screenOver) screenTimeColor(
+                    state.screenTimeUsed,
+                    state.screenTimeGoal
+                ) else Coral40,
                 trackColor = MaterialTheme.colorScheme.surfaceVariant,
                 onClick = onNavigateToScreenTime
             )
@@ -188,34 +193,32 @@ fun DashboardScreen(
             )
         }
 
-        Spacer(modifier = Modifier.height(28.dp))
+        Spacer(modifier = Modifier.Companion.height(28.dp))
 
         // daily status
         DailyStatusCard(state, onNavigateToWalkingProgress, onNavigateToScreenTime)
 
-        Spacer(modifier = Modifier.height(16.dp))
+        Spacer(modifier = Modifier.Companion.height(16.dp))
 
         //Today's goals checklist
         GoalsCard(state)
 
-        Spacer(modifier = Modifier.height(16.dp))
+        Spacer(modifier = Modifier.Companion.height(16.dp))
 
         // daily motivational quote from API
         quote?.let {
             QuoteCard(it)
         }
 
-        Spacer(modifier = Modifier.height(24.dp))
+        Spacer(modifier = Modifier.Companion.height(24.dp))
     }
 }
-
-// ── Streak Card ──
 
 @Composable
 fun StreakCard(currentStreak: Int, bothGoalsMet: Boolean, onClick: () -> Unit = {}) {
     Card(
         onClick = onClick,
-        modifier = Modifier.fillMaxWidth(),
+        modifier = Modifier.Companion.fillMaxWidth(),
         shape = RoundedCornerShape(16.dp),
         colors = CardDefaults.cardColors(
             containerColor = if (bothGoalsMet)
@@ -225,28 +228,28 @@ fun StreakCard(currentStreak: Int, bothGoalsMet: Boolean, onClick: () -> Unit = 
         )
     ) {
         Row(
-            modifier = Modifier
+            modifier = Modifier.Companion
                 .fillMaxWidth()
                 .padding(20.dp),
-            verticalAlignment = Alignment.CenterVertically
+            verticalAlignment = Alignment.Companion.CenterVertically
         ) {
             Icon(
                 painterResource(R.drawable.streak_24px),
                 contentDescription = "Streak",
-                modifier = Modifier.size(32.dp),
+                modifier = Modifier.Companion.size(32.dp),
                 tint = if (bothGoalsMet) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.error
             )
 
-            Spacer(modifier = Modifier.width(16.dp))
+            Spacer(modifier = Modifier.Companion.width(16.dp))
 
-            Column(modifier = Modifier.weight(1f)) {
+            Column(modifier = Modifier.Companion.weight(1f)) {
                 Text(
                     text = "$currentStreak day streak",
                     style = MaterialTheme.typography.titleLarge,
-                    fontWeight = FontWeight.Bold,
+                    fontWeight = FontWeight.Companion.Bold,
                     color = MaterialTheme.colorScheme.onSurface
                 )
-                Spacer(modifier = Modifier.height(4.dp))
+                Spacer(modifier = Modifier.Companion.height(4.dp))
                 Text(
                     text = if (bothGoalsMet) "Both goals met today, keep it up until midnight!"
                     else "Complete both goals by midnight to get your today's streak!",
@@ -255,11 +258,17 @@ fun StreakCard(currentStreak: Int, bothGoalsMet: Boolean, onClick: () -> Unit = 
                 )
             }
 
-            Spacer(modifier = Modifier.width(16.dp))
+            Spacer(modifier = Modifier.Companion.width(16.dp))
 
             // streak report link
-            Card(onClick = onClick, colors = CardDefaults.cardColors(MaterialTheme.colorScheme.primary)) {
-                Column(Modifier.padding(8.dp), horizontalAlignment = Alignment.CenterHorizontally) {
+            Card(
+                onClick = onClick,
+                colors = CardDefaults.cardColors(MaterialTheme.colorScheme.primary)
+            ) {
+                Column(
+                    Modifier.Companion.padding(8.dp),
+                    horizontalAlignment = Alignment.Companion.CenterHorizontally
+                ) {
                     Text("Monthly", style = MaterialTheme.typography.labelSmall)
                     Text("Report", style = MaterialTheme.typography.labelSmall)
                 }
@@ -267,8 +276,6 @@ fun StreakCard(currentStreak: Int, bothGoalsMet: Boolean, onClick: () -> Unit = 
         }
     }
 }
-
-// ── Progress Ring ──
 
 @Composable
 fun ProgressRing(
@@ -280,7 +287,7 @@ fun ProgressRing(
     ringColor: Color,
     trackColor: Color,
     onClick: () -> Unit,
-    modifier: Modifier = Modifier
+    modifier: Modifier = Modifier.Companion
 ) {
     // Animate the arc on first appearance
     var targetProgress by remember { mutableFloatStateOf(0f) }
@@ -294,7 +301,7 @@ fun ProgressRing(
     }
 
     Column(
-        horizontalAlignment = Alignment.CenterHorizontally,
+        horizontalAlignment = Alignment.Companion.CenterHorizontally,
         modifier = modifier.clickable(onClick = onClick)
 
     ) {
@@ -304,13 +311,13 @@ fun ProgressRing(
             color = MaterialTheme.colorScheme.onSurfaceVariant
         )
 
-        Spacer(modifier = Modifier.height(8.dp))
+        Spacer(modifier = Modifier.Companion.height(8.dp))
 
         Box(
-            contentAlignment = Alignment.Center,
-            modifier = Modifier.size(140.dp)
+            contentAlignment = Alignment.Companion.Center,
+            modifier = Modifier.Companion.size(140.dp)
         ) {
-            Canvas(modifier = Modifier.size(140.dp)) {
+            Canvas(modifier = Modifier.Companion.size(140.dp)) {
                 val strokeWidth = 12.dp.toPx()
                 val arcSize = size.width - strokeWidth
                 val topLeft = Offset(strokeWidth / 2, strokeWidth / 2)
@@ -323,7 +330,7 @@ fun ProgressRing(
                     useCenter = false,
                     topLeft = topLeft,
                     size = Size(arcSize, arcSize),
-                    style = Stroke(width = strokeWidth, cap = StrokeCap.Round)
+                    style = Stroke(width = strokeWidth, cap = StrokeCap.Companion.Round)
                 )
 
                 // Progress arc
@@ -334,16 +341,16 @@ fun ProgressRing(
                     useCenter = false,
                     topLeft = topLeft,
                     size = Size(arcSize, arcSize),
-                    style = Stroke(width = strokeWidth, cap = StrokeCap.Round)
+                    style = Stroke(width = strokeWidth, cap = StrokeCap.Companion.Round)
                 )
             }
 
             // Center text
-            Column(horizontalAlignment = Alignment.CenterHorizontally) {
+            Column(horizontalAlignment = Alignment.Companion.CenterHorizontally) {
                 Text(
                     text = value,
                     fontSize = 32.sp,
-                    fontWeight = FontWeight.Bold,
+                    fontWeight = FontWeight.Companion.Bold,
                     color = MaterialTheme.colorScheme.onSurface
                 )
                 Text(
@@ -354,36 +361,34 @@ fun ProgressRing(
             }
         }
 
-        Spacer(modifier = Modifier.height(6.dp))
+        Spacer(modifier = Modifier.Companion.height(6.dp))
 
         Text(
             text = subtitle,
             style = MaterialTheme.typography.bodySmall,
             color = ringColor,
-            fontWeight = FontWeight.Medium
+            fontWeight = FontWeight.Companion.Medium
         )
     }
 }
 
-//Daily Status Card
-
 @Composable
 fun DailyStatusCard(state: DashboardState, onClickWalking: () -> Unit, onClickScreenTime: () -> Unit) {
     Card(
-        modifier = Modifier.fillMaxWidth(),
-        shape = RoundedCornerShape(16.dp),
+        modifier = Modifier.Companion.fillMaxWidth(),
+        shape = androidx.compose.foundation.shape.RoundedCornerShape(16.dp),
         colors = CardDefaults.cardColors(
             containerColor = MaterialTheme.colorScheme.surfaceVariant
         )
     ) {
-        Column(modifier = Modifier.padding(20.dp)) {
+        Column(modifier = Modifier.Companion.padding(20.dp)) {
             Text(
                 text = "Today's Progress",
                 style = MaterialTheme.typography.titleMedium,
-                fontWeight = FontWeight.SemiBold
+                fontWeight = FontWeight.Companion.SemiBold
             )
 
-            Spacer(modifier = Modifier.height(16.dp))
+            Spacer(modifier = Modifier.Companion.height(16.dp))
 
             // Screen time bar
             ProgressRow(
@@ -395,7 +400,7 @@ fun DailyStatusCard(state: DashboardState, onClickWalking: () -> Unit, onClickSc
                 isInverted = true  // lower is better
             )
 
-            Spacer(modifier = Modifier.height(14.dp))
+            Spacer(modifier = Modifier.Companion.height(14.dp))
 
             // Walking bar
             ProgressRow(
@@ -427,9 +432,9 @@ fun ProgressRow(
         else -> MaterialTheme.colorScheme.secondary
     }
 
-    Column(modifier = Modifier.clickable(onClick=onClick)) {
+    Column(modifier = Modifier.Companion.clickable(onClick = onClick)) {
         Row(
-            modifier = Modifier.fillMaxWidth(),
+            modifier = Modifier.Companion.fillMaxWidth(),
             horizontalArrangement = Arrangement.SpaceBetween
         ) {
             Text(
@@ -440,26 +445,24 @@ fun ProgressRow(
             Text(
                 text = "$current / $goal $unit",
                 style = MaterialTheme.typography.bodyMedium,
-                fontWeight = FontWeight.Medium,
+                fontWeight = FontWeight.Companion.Medium,
                 color = MaterialTheme.colorScheme.onSurfaceVariant
             )
         }
 
-        Spacer(modifier = Modifier.height(6.dp))
+        Spacer(modifier = Modifier.Companion.height(6.dp))
 
         LinearProgressIndicator(
             progress = { fraction },
-            modifier = Modifier
+            modifier = Modifier.Companion
                 .fillMaxWidth()
                 .height(8.dp),
             color = barColor,
             trackColor = MaterialTheme.colorScheme.surface,
-            strokeCap = StrokeCap.Round
+            strokeCap = StrokeCap.Companion.Round
         )
     }
 }
-
-//Goals Checklist Card
 
 @Composable
 fun GoalsCard(state: DashboardState) {
@@ -467,26 +470,26 @@ fun GoalsCard(state: DashboardState) {
     val walkingMet = state.walkingDone >= state.walkingGoal
 
     Card(
-        modifier = Modifier.fillMaxWidth(),
-        shape = RoundedCornerShape(16.dp),
+        modifier = Modifier.Companion.fillMaxWidth(),
+        shape = androidx.compose.foundation.shape.RoundedCornerShape(16.dp),
         colors = CardDefaults.cardColors(
             containerColor = MaterialTheme.colorScheme.surfaceVariant
         )
     ) {
-        Column(modifier = Modifier.padding(20.dp)) {
+        Column(modifier = Modifier.Companion.padding(20.dp)) {
             Text(
                 text = "Daily Goals",
                 style = MaterialTheme.typography.titleMedium,
-                fontWeight = FontWeight.SemiBold
+                fontWeight = FontWeight.Companion.SemiBold
             )
 
             Text(
-                text = "Complete both to earn $DAILY_COMPLETION_POINTS pts",
+                text = "Complete both to earn ${RoomViewModel.Companion.DAILY_COMPLETION_POINTS} pts",
                 style = MaterialTheme.typography.labelSmall,
                 color = MaterialTheme.colorScheme.primary
             )
 
-            Spacer(modifier = Modifier.height(12.dp))
+            Spacer(modifier = Modifier.Companion.height(12.dp))
 
             GoalRow(
                 icon = if (screenTimeMet) R.drawable.check_box_checked_24px else R.drawable.check_box_blank_24px,
@@ -494,7 +497,7 @@ fun GoalsCard(state: DashboardState) {
                 isDone = screenTimeMet
             )
 
-            Spacer(modifier = Modifier.height(8.dp))
+            Spacer(modifier = Modifier.Companion.height(8.dp))
 
             GoalRow(
                 icon = if (walkingMet) R.drawable.check_box_checked_24px else R.drawable.check_box_blank_24px,
@@ -503,14 +506,14 @@ fun GoalsCard(state: DashboardState) {
             )
 
             if (screenTimeMet && walkingMet) {
-                Spacer(modifier = Modifier.height(12.dp))
+                Spacer(modifier = Modifier.Companion.height(12.dp))
                 Text(
                     text = "Make it to midnight to increase your streak!",
                     style = MaterialTheme.typography.bodyMedium,
-                    fontWeight = FontWeight.Medium,
+                    fontWeight = FontWeight.Companion.Medium,
                     color = MaterialTheme.colorScheme.primary,
-                    modifier = Modifier.fillMaxWidth(),
-                    textAlign = TextAlign.Center
+                    modifier = Modifier.Companion.fillMaxWidth(),
+                    textAlign = TextAlign.Companion.Center
                 )
             }
         }
@@ -520,16 +523,16 @@ fun GoalsCard(state: DashboardState) {
 @Composable
 fun GoalRow(icon: Int, text: String, isDone: Boolean) {
     Row(
-        verticalAlignment = Alignment.CenterVertically,
-        modifier = Modifier.fillMaxWidth()
+        verticalAlignment = Alignment.Companion.CenterVertically,
+        modifier = Modifier.Companion.fillMaxWidth()
     ) {
         Icon(
             painterResource(icon),
             contentDescription = null,
-            modifier = Modifier.size(20.dp),
+            modifier = Modifier.Companion.size(20.dp),
             tint = MaterialTheme.colorScheme.primary
         )
-        Spacer(modifier = Modifier.width(12.dp))
+        Spacer(modifier = Modifier.Companion.width(12.dp))
         Text(
             text = text,
             style = MaterialTheme.typography.bodyMedium,
@@ -543,27 +546,27 @@ fun GoalRow(icon: Int, text: String, isDone: Boolean) {
 @Composable
 fun QuoteCard(quote: Quote) {
     Card(
-        modifier = Modifier.fillMaxWidth(),
-        shape = RoundedCornerShape(16.dp),
+        modifier = Modifier.Companion.fillMaxWidth(),
+        shape = androidx.compose.foundation.shape.RoundedCornerShape(16.dp),
         colors = CardDefaults.cardColors(
             containerColor = MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.5f)
         )
     ) {
-        Column(modifier = Modifier.padding(20.dp)) {
+        Column(modifier = Modifier.Companion.padding(20.dp)) {
             Text(
                 text = "\"${quote.text}\"",
                 style = MaterialTheme.typography.bodyMedium,
-                fontStyle = androidx.compose.ui.text.font.FontStyle.Italic,
+                fontStyle = FontStyle.Italic,
                 color = MaterialTheme.colorScheme.onSurface
             )
-            Spacer(modifier = Modifier.height(8.dp))
+            Spacer(modifier = Modifier.Companion.height(8.dp))
             Text(
                 text = "— ${quote.author}",
                 style = MaterialTheme.typography.bodySmall,
-                fontWeight = FontWeight.Medium,
+                fontWeight = FontWeight.Companion.Medium,
                 color = MaterialTheme.colorScheme.onSurfaceVariant,
-                modifier = Modifier.fillMaxWidth(),
-                textAlign = TextAlign.End
+                modifier = Modifier.Companion.fillMaxWidth(),
+                textAlign = TextAlign.Companion.End
             )
         }
     }
