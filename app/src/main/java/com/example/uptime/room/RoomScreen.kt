@@ -104,6 +104,7 @@ import androidx.compose.ui.zIndex
 import androidx.lifecycle.viewmodel.compose.viewModel
 import com.example.uptime.profile.FriendProfile
 import com.example.uptime.R
+import com.example.uptime.profile.UserProfileOverlay
 import com.example.uptime.room.catalogs.AchievementCatalog
 import com.example.uptime.room.catalogs.MetalThemeCatalog
 import com.example.uptime.room.catalogs.RoomItemCatalog
@@ -124,10 +125,13 @@ data class RoomItem(
     val id: String,
     val name: String,
     val icon: Int,
+    val category: RoomItemCategory,
     val pointCost: Int
 )
 
 enum class RoomMode { View, Edit, Visit }
+
+enum class RoomItemCategory { Floor, Wall, Floating }
 
 data class RoomTheme(
     val wallColor: Color = Color(0xFF606791),
@@ -240,15 +244,16 @@ fun RoomScreen(viewModel: RoomViewModel = viewModel(), onVisitRandomRoom: () -> 
     var roomMode by rememberSaveable { mutableStateOf(RoomMode.View) }
     val currentUserId = FirebaseAuth.getInstance().currentUser?.uid
     val isOwner = viewModel.userId == currentUserId
-
-    LaunchedEffect(viewModel.userId) {
-        roomMode = if (isOwner) RoomMode.View else RoomMode.Visit
-        Log.d("RoomScreen", "RoomMode is currently $roomMode")
-    }
-
+    var showVisitorProfile by remember { mutableStateOf(false) }
     var activePanel by rememberSaveable { mutableStateOf<RoomPanel?>(null) }
     var showRoomThemePicker by rememberSaveable { mutableStateOf(false) }
     var showWoodThemePicker by rememberSaveable { mutableStateOf(false) }
+
+    LaunchedEffect(viewModel.userId) {
+        if (isOwner) {roomMode = RoomMode.View; showVisitorProfile = false} else {roomMode = RoomMode.Visit;}
+        Log.d("RoomScreen", "RoomMode is currently $roomMode")
+        activePanel = null
+    }
 
     val friends by viewModel.friendsRepository.observeFriends().collectAsState(emptyList())
 
@@ -339,7 +344,7 @@ fun RoomScreen(viewModel: RoomViewModel = viewModel(), onVisitRandomRoom: () -> 
                         val visitingId = viewModel.userId
                         val isFriend = friends.any { it.uid == visitingId }
                         FriendPanel(isFriend = isFriend, onClick = { if(isFriend) viewModel.removeFriendById(visitingId) else viewModel.addFriendById(visitingId) })
-                        ProfilePanel(onClick = {})
+                        ProfilePanel(onClick = { showVisitorProfile = true })
                         ReturnPanel(onClick = onReturn)
                     }
                 }
@@ -447,6 +452,16 @@ fun RoomScreen(viewModel: RoomViewModel = viewModel(), onVisitRandomRoom: () -> 
                 VisitTrophyDisplay(roomState.placedAchievements)
             }
         }
+        if (showVisitorProfile && !viewModel.isOwner) {
+            UserProfileOverlay(
+                profile = viewModel.getFriendProfileById(userId = viewModel.userId),
+                isFriend = friends.any { it.uid == viewModel.userId },
+                onAddFriend = { viewModel.addFriendById(viewModel.userId) },
+                onRemoveFriend = { viewModel.removeFriendById(viewModel.userId) },
+                onVisitRoom = { showVisitorProfile = false },
+                onDismiss = { showVisitorProfile = false }
+            )
+        }
     }
 
     AnimatedVisibility(
@@ -491,8 +506,9 @@ fun RoomScaffold(state: RoomState, activeRoomTheme: RoomTheme, activeWoodTheme: 
         modifier = Modifier
             .fillMaxSize()
             .background(MaterialTheme.colorScheme.surfaceVariant)
-    )
-    RoomCanvas(activeRoomTheme = activeRoomTheme, state.placedAchievements, layoutId = state.selectedRoomLayoutId, activeTrophyCaseSlots = activeTrophyCaseSlots, woodTheme = activeWoodTheme)
+    ){
+        RoomCanvas(activeRoomTheme = activeRoomTheme, state.placedAchievements, layoutId = state.selectedRoomLayoutId, activeTrophyCaseSlots = activeTrophyCaseSlots, woodTheme = activeWoodTheme)
+    }
 
     if (mode == RoomMode.Edit) {
         Box(

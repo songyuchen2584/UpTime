@@ -2,6 +2,8 @@ package com.example.uptime.room
 
 import android.app.Application
 import android.util.Log
+import androidx.compose.runtime.Composable
+import androidx.compose.runtime.collectAsState
 import androidx.lifecycle.AndroidViewModel
 import androidx.lifecycle.viewModelScope
 import androidx.room.Transaction
@@ -10,6 +12,7 @@ import com.example.uptime.room.catalogs.AchievementCatalog
 import com.example.uptime.room.catalogs.TrophyCaseCatalog
 import com.example.uptime.data.UpTimeDatabase
 import com.example.uptime.data.UserStatsRepository
+import com.example.uptime.profile.FriendProfile
 import com.example.uptime.room.catalogs.RoomItemCatalog
 import com.google.firebase.auth.FirebaseAuth
 import kotlinx.coroutines.flow.MutableSharedFlow
@@ -149,6 +152,11 @@ class RoomViewModel(application: Application, val userId: String) : AndroidViewM
         viewModelScope.launch {
             friendsRepository.removeFriend(userId)
         }
+    }
+
+    @Composable
+    fun getFriendProfileById(userId: String): FriendProfile? {
+        return friendsRepository.observeFriendProfile(userId).collectAsState(null).value
     }
 
     fun getRandomUserRoom(onResult: (String?) -> Unit) {
