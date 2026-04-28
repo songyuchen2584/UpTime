@@ -215,7 +215,10 @@ fun AppScaffold(roomViewModel: RoomViewModel, dashboardViewModel: DashboardViewM
                             )
                             NavDestination.Profile -> ProfileScreen(
                                 dashboardViewModel = dashboardViewModel,
-                                onNavigateToSettings = { backStack.add(NavDestination.Settings) }
+                                onNavigateToSettings = { backStack.add(NavDestination.Settings) },
+                                onVisitRoom = {userId ->
+                                    backStack.add(VisitRoom(userId))
+                                }
                             )
                         }
                     }
