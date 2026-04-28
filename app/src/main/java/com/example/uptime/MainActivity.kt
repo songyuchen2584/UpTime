@@ -67,6 +67,8 @@ import com.example.uptime.walking.WalkingRoute
 import com.google.firebase.auth.FirebaseAuth
 import kotlinx.coroutines.launch
 import kotlin.getValue
+import com.example.uptime.notification.NotificationSettingsRoute
+
 
 class MainActivity : ComponentActivity() {
     override fun onCreate(savedInstanceState: Bundle?) {
@@ -211,12 +213,17 @@ fun AppScaffold(roomViewModel: RoomViewModel, dashboardViewModel: DashboardViewM
                             )
                             NavDestination.Settings -> SettingsScreen(
                                 onNavigateToWalking = { backStack.add(NavDestination.Walking) },
-                                onNavigateToScreenTime = { backStack.add(NavDestination.ScreenTime) }
+                                onNavigateToScreenTime = { backStack.add(NavDestination.ScreenTime) },
+                                onNavigateToNotifications = { backStack.add(NavDestination.Notifications) }
                             )
                             NavDestination.Profile -> ProfileScreen(
                                 dashboardViewModel = dashboardViewModel,
-                                onNavigateToSettings = { backStack.add(NavDestination.Settings) }
+                                onNavigateToSettings = { backStack.add(NavDestination.Settings) },
+                                onVisitRoom = {userId ->
+                                    backStack.add(VisitRoom(userId))
+                                }
                             )
+                            NavDestination.Notifications -> NotificationSettingsRoute()
                         }
                     }
 

@@ -180,6 +180,51 @@ class FriendsRepository {
         awaitClose { listener.remove() }
     }
 
+    suspend fun getFriendProfileById(userId: String): FriendProfile? {
+        return try {
+            val doc = db.collection("users")
+                .document(userId)
+                .get()
+                .await()
+
+            if (!doc.exists()) return null
+
+            FriendProfile(
+                uid = doc.id,
+                name = doc.getString("name") ?: "",
+                email = doc.getString("email") ?: "",
+                streak = (doc.getLong("streak") ?: 0).toInt(),
+                trophies = (doc.getLong("trophies") ?: 0).toInt()
+            )
+        } catch (e: Exception) {
+            Log.e("FriendsRepo", "Failed to fetch profile for $userId", e)
+            null
+        }
+    }
+
+    fun observeFriendProfile(userId: String): Flow<FriendProfile?> = callbackFlow {
+        val listener = db.collection("users")
+            .document(userId)
+            .addSnapshotListener { doc, _ ->
+                if (doc == null || !doc.exists()) {
+                    trySend(null)
+                    return@addSnapshotListener
+                }
+
+                trySend(
+                    FriendProfile(
+                        uid = doc.id,
+                        name = doc.getString("name") ?: "",
+                        email = doc.getString("email") ?: "",
+                        streak = (doc.getLong("streak") ?: 0).toInt(),
+                        trophies = (doc.getLong("trophies") ?: 0).toInt()
+                    )
+                )
+            }
+
+        awaitClose { listener.remove() }
+    }
+
     // get current user's name from Firestore
     suspend fun getCurrentUserName(): String? {
         val uid = currentUid() ?: return null

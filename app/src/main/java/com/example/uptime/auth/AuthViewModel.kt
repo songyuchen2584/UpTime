@@ -1,8 +1,11 @@
 package com.example.uptime.auth
 
 import android.app.Application
+import androidx.compose.runtime.Composable
+import androidx.compose.runtime.collectAsState
 import androidx.lifecycle.AndroidViewModel
 import androidx.lifecycle.viewModelScope
+import com.example.uptime.profile.FriendProfile
 import com.example.uptime.profile.FriendsRepository
 import com.google.firebase.auth.EmailAuthProvider
 import com.google.firebase.auth.FirebaseAuth
@@ -49,6 +52,23 @@ class AuthViewModel(application: Application) : AndroidViewModel(application) {
         } else {
             signInAnonymously()
         }
+    }
+
+    fun addFriendById(userId: String){
+        viewModelScope.launch {
+            friendsRepository.addFriendById(userId)
+        }
+    }
+
+    fun removeFriendById(userId: String){
+        viewModelScope.launch {
+            friendsRepository.removeFriend(userId)
+        }
+    }
+
+    @Composable
+    fun getFriendProfileById(userId: String): FriendProfile? {
+        return friendsRepository.observeFriendProfile(userId).collectAsState(null).value
     }
 
     private fun signInAnonymously() {
