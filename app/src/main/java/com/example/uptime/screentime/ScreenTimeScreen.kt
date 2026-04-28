@@ -15,6 +15,8 @@ import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
+import androidx.compose.foundation.rememberScrollState
+import androidx.compose.foundation.verticalScroll
 import androidx.compose.material3.AssistChip
 import androidx.compose.material3.Button
 import androidx.compose.material3.Card
@@ -61,6 +63,7 @@ fun ScreenTimeScreen(
     Column(
         modifier = Modifier
             .fillMaxSize()
+            .verticalScroll(rememberScrollState())
             .padding(16.dp)
     ) {
         Text(
@@ -92,13 +95,60 @@ fun ScreenTimeScreen(
                 }
             }
 
-            Spacer(modifier = Modifier.height(16.dp))
+            Spacer(modifier = Modifier.height(12.dp))
         }
 
-        Text(
-            text = "Tracked today: ${formatDuration(uiState.totalTrackedTimeMs)}",
-            style = MaterialTheme.typography.titleMedium
-        )
+        Card(modifier = Modifier.fillMaxWidth()) {
+            Column(modifier = Modifier.padding(12.dp)) {
+                Text(
+                    text = "Tracked today: ${formatDuration(uiState.totalTrackedTimeMs)}",
+                    style = MaterialTheme.typography.titleMedium
+                )
+
+                Spacer(modifier = Modifier.height(8.dp))
+
+                Text(
+                    text = "Today's usage for selected apps",
+                    style = MaterialTheme.typography.bodyMedium
+                )
+
+                Spacer(modifier = Modifier.height(4.dp))
+
+                if (uiState.todayUsage.isEmpty()) {
+                    Text(
+                        text = "No usage recorded yet.",
+                        style = MaterialTheme.typography.bodySmall
+                    )
+                } else {
+                    uiState.todayUsage.take(3).forEach { item ->
+                        Row(
+                            modifier = Modifier
+                                .fillMaxWidth()
+                                .padding(vertical = 2.dp),
+                            horizontalArrangement = Arrangement.SpaceBetween
+                        ) {
+                            Text(
+                                text = item.appLabel,
+                                modifier = Modifier.weight(1f),
+                                style = MaterialTheme.typography.bodySmall
+                            )
+
+                            Text(
+                                text = formatDuration(item.totalTimeMs),
+                                style = MaterialTheme.typography.bodySmall
+                            )
+                        }
+                    }
+
+                    if (uiState.todayUsage.size > 3) {
+                        Text(
+                            text = "+${uiState.todayUsage.size - 3} more tracked apps",
+                            style = MaterialTheme.typography.bodySmall
+                        )
+                    }
+                }
+            }
+        }
 
         Spacer(modifier = Modifier.height(12.dp))
 
@@ -109,11 +159,11 @@ fun ScreenTimeScreen(
             Text("Refresh Screen Time")
         }
 
-        Spacer(modifier = Modifier.height(16.dp))
+        Spacer(modifier = Modifier.height(12.dp))
 
         if (uiState.isLoading) {
             CircularProgressIndicator()
-            Spacer(modifier = Modifier.height(16.dp))
+            Spacer(modifier = Modifier.height(12.dp))
         }
 
         Text(
@@ -138,7 +188,10 @@ fun ScreenTimeScreen(
             horizontalArrangement = Arrangement.SpaceBetween,
             verticalAlignment = Alignment.CenterVertically
         ) {
-            Text("Show recommended social apps only")
+            Text(
+                text = "Show recommended social apps only",
+                modifier = Modifier.weight(1f)
+            )
 
             Switch(
                 checked = showRecommendedOnly,
@@ -146,12 +199,18 @@ fun ScreenTimeScreen(
             )
         }
 
-        Spacer(modifier = Modifier.height(8.dp))
+        Spacer(modifier = Modifier.height(12.dp))
 
+        // 🔥 INNER SCROLLABLE LIST (fixed height)
         LazyColumn(
-            modifier = Modifier.weight(1f, fill = true)
+            modifier = Modifier
+                .fillMaxWidth()
+                .height(400.dp) // adjust height as needed
         ) {
-            items(filteredApps, key = { it.packageName }) { app ->
+            items(
+                items = filteredApps,
+                key = { it.packageName }
+            ) { app ->
                 val checked = app.packageName in uiState.selectedPackages
 
                 Column(
@@ -213,34 +272,7 @@ fun ScreenTimeScreen(
             }
         }
 
-        Spacer(modifier = Modifier.height(12.dp))
-
-        Text(
-            text = "Today's usage for selected apps",
-            style = MaterialTheme.typography.titleMedium
-        )
-
-        Spacer(modifier = Modifier.height(8.dp))
-
-        if (uiState.todayUsage.isEmpty()) {
-            Text("No usage recorded yet.")
-        } else {
-            uiState.todayUsage.forEach { item ->
-                Row(
-                    modifier = Modifier
-                        .fillMaxWidth()
-                        .padding(vertical = 4.dp),
-                    horizontalArrangement = Arrangement.SpaceBetween
-                ) {
-                    Text(
-                        text = item.appLabel,
-                        modifier = Modifier.weight(1f)
-                    )
-
-                    Text(formatDuration(item.totalTimeMs))
-                }
-            }
-        }
+        Spacer(modifier = Modifier.height(16.dp))
     }
 }
 
