@@ -15,6 +15,7 @@ import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.tasks.await
+import android.util.Log
 
 data class AuthState(
     val user: FirebaseUser? = null,
@@ -80,11 +81,13 @@ class AuthViewModel(application: Application) : AndroidViewModel(application) {
                     user = result.user,
                     isAnonymous = true
                 )
+                Log.d("Auth", "Signed in anonymously, uid=${result.user?.uid}")
             } catch (e: Exception) {
                 _state.value = _state.value.copy(
                     isLoading = false,
                     error = e.message
                 )
+                Log.e("Auth", "Anonymous sign-in failed", e)
             }
         }
     }
@@ -127,11 +130,13 @@ class AuthViewModel(application: Application) : AndroidViewModel(application) {
                     streak = 0,
                     trophies = 0
                 )
+                Log.d("Auth", "Sign up successful: $email, name=$name")
             } catch (e: Exception) {
                 _state.value = _state.value.copy(
                     isLoading = false,
                     error = e.message
                 )
+                Log.e("Auth", "Sign up failed: $email", e)
             }
         }
     }
@@ -170,11 +175,13 @@ class AuthViewModel(application: Application) : AndroidViewModel(application) {
                     streak = 0,
                     trophies = 0
                 )
+                Log.d("Auth", "Login successful: $email")
             } catch (e: Exception) {
                 _state.value = _state.value.copy(
                     isLoading = false,
                     error = e.message
                 )
+                Log.e("Auth", "Login failed: $email", e)
             }
         }
     }
@@ -182,6 +189,7 @@ class AuthViewModel(application: Application) : AndroidViewModel(application) {
     fun signOut() {
         auth.signOut()
         _state.value = AuthState()
+        Log.d("Auth", "User signed out")
         signInAnonymously()
     }
 

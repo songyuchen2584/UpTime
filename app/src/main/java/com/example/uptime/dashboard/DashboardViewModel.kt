@@ -25,6 +25,7 @@ import java.time.LocalDate
 import java.time.ZoneId
 import java.time.format.DateTimeFormatter
 import java.util.Date
+import android.util.Log
 
 class DashboardViewModel(application: Application) : AndroidViewModel(application) {
     private val db  = UpTimeDatabase.Companion.getDatabase(application)
@@ -55,6 +56,7 @@ class DashboardViewModel(application: Application) : AndroidViewModel(applicatio
     init {
         viewModelScope.launch {
             ensureTodayLogExists()
+            Log.d("DashboardVM", "Initialized, today=${todayString()}")
             catchUpMissedFinalizations()
             watchForDateChange()
         }
@@ -150,6 +152,7 @@ class DashboardViewModel(application: Application) : AndroidViewModel(applicatio
                 streakMaintained  = minutes <= log.screenTimeGoal
                         && log.walkingMinutes >= log.walkingGoal
             ))
+            Log.d("DashboardVM", "Screen time updated: $minutes min, streak=${minutes <= log.screenTimeGoal && log.walkingMinutes >= log.walkingGoal}")
         }
     }
 
@@ -162,6 +165,7 @@ class DashboardViewModel(application: Application) : AndroidViewModel(applicatio
                 streakMaintained = log.screenTimeMinutes <= log.screenTimeGoal
                         && minutes >= log.walkingGoal
             ))
+            Log.d("DashboardVM", "Walking updated: $minutes min, streak=${log.screenTimeMinutes <= log.screenTimeGoal && minutes >= log.walkingGoal}")
         }
     }
 
@@ -175,6 +179,7 @@ class DashboardViewModel(application: Application) : AndroidViewModel(applicatio
                 streakMaintained = log.screenTimeMinutes <= screenTimeGoal
                         && log.walkingMinutes >= walkingGoal
             ))
+            Log.d("DashboardVM", "Goals updated: screenTimeGoal=$screenTimeGoal, walkingGoal=$walkingGoal")
         }
     }
 }
