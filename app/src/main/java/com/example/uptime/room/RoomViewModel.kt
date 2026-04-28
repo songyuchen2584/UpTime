@@ -145,6 +145,12 @@ class RoomViewModel(application: Application, val userId: String) : AndroidViewM
         }
     }
 
+    fun removeFriendById(userId: String){
+        viewModelScope.launch {
+            friendsRepository.removeFriend(userId)
+        }
+    }
+
     fun getRandomUserRoom(onResult: (String?) -> Unit) {
         viewModelScope.launch {
             val currentUserId = FirebaseAuth.getInstance().currentUser?.uid

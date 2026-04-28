@@ -1,5 +1,7 @@
 package com.example.uptime.room
 
+import android.R.attr.category
+import android.util.Log
 import androidx.compose.animation.AnimatedVisibility
 import androidx.compose.animation.core.CubicBezierEasing
 import androidx.compose.animation.core.EaseInOut
@@ -241,6 +243,7 @@ fun RoomScreen(viewModel: RoomViewModel = viewModel(), onVisitRandomRoom: () -> 
 
     LaunchedEffect(viewModel.userId) {
         roomMode = if (isOwner) RoomMode.View else RoomMode.Visit
+        Log.d("RoomScreen", "RoomMode is currently $roomMode")
     }
 
     var activePanel by rememberSaveable { mutableStateOf<RoomPanel?>(null) }
@@ -327,10 +330,19 @@ fun RoomScreen(viewModel: RoomViewModel = viewModel(), onVisitRandomRoom: () -> 
                     .padding(12.dp)
                     .padding(top = 36.dp), horizontalArrangement = Arrangement.End
             ) {
-                VisitPanel(onClick = {
-                    activePanel = if (activePanel == RoomPanel.Visit) null
-                    else RoomPanel.Visit
-                })
+                Column(verticalArrangement = Arrangement.spacedBy(12.dp)) {
+                    VisitPanel(onClick = {
+                        activePanel = if (activePanel == RoomPanel.Visit) null
+                        else RoomPanel.Visit
+                    })
+                    if (roomMode == RoomMode.Visit) {
+                        val visitingId = viewModel.userId
+                        val isFriend = friends.any { it.uid == visitingId }
+                        FriendPanel(isFriend = isFriend, onClick = { if(isFriend) viewModel.removeFriendById(visitingId) else viewModel.addFriendById(visitingId) })
+                        ProfilePanel(onClick = {})
+                        ReturnPanel(onClick = onReturn)
+                    }
+                }
             }
         }
 
@@ -426,16 +438,13 @@ fun RoomScreen(viewModel: RoomViewModel = viewModel(), onVisitRandomRoom: () -> 
                 )
             }
         } else {
-            Row(
-                modifier = Modifier
-                    .align(Alignment.BottomEnd)
-                    .padding(12.dp)
-                    .fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween
+            AnimatedVisibility(
+                visible = roomMode == RoomMode.Visit,
+                enter = fadeIn() + slideInVertically(initialOffsetY = { it / 2 }),
+                exit = fadeOut() + slideOutVertically(targetOffsetY = { it / 2 }),
+                modifier = Modifier.align(Alignment.BottomCenter)
             ) {
-                val visitingId = viewModel.userId
-                val isFriend = friends.any { it.uid == visitingId }
-                FriendPanel(isFriend = isFriend, onClick = { viewModel.addFriendById(visitingId) })
-                ReturnPanel(onClick = onReturn)
+                VisitTrophyDisplay(roomState.placedAchievements)
             }
         }
     }
@@ -465,7 +474,8 @@ fun RoomScreen(viewModel: RoomViewModel = viewModel(), onVisitRandomRoom: () -> 
             RoomPanel.Visit -> VisitDisplay(
                 friendsList = friends,
                 viewModel = viewModel,
-                onVisitRandomRoom = {onVisitRandomRoom(); activePanel = null},
+                onVisitRandomRoom = {onVisitRandomRoom(); activePanel = null;
+                    Log.d("RoomScreen", "Visiting a random user's room")},
                 onVisitUserRoom = onVisitUserRoom,
                 onClose = { activePanel = null }
             )
@@ -567,6 +577,7 @@ fun RoomLoadingScreen() {
         Spacer(modifier = Modifier.height(6.dp))
 
         Text("Loading the room...")
+        Log.d("RoomScreen", "Loading the room...")
     }
 }
 
@@ -1728,7 +1739,8 @@ fun VisitDisplay(
                         ) { friend ->
                             FriendCardCell(
                                 friendProfile = friend,
-                                onClick = { onVisitUserRoom(friend.uid) }
+                                onClick = { onVisitUserRoom(friend.uid)
+                                    Log.d("RoomScreen", "Visiting ${if (friend.name != "") friend.name else friend.email}'s room")}
                             )
                         }
                     }
@@ -1849,6 +1861,30 @@ fun FriendCardCell(
                 }
             }
         }
+    }
+}
+
+@Composable
+fun VisitTrophyDisplay(placedAchievements: Map<String, String>) {
+    LazyRow(
+        contentPadding = PaddingValues(16.dp),
+        horizontalArrangement = Arrangement.spacedBy(12.dp),
+        verticalAlignment = Alignment.Bottom,
+        modifier = Modifier.fillMaxWidth()
+    ) {
+        items(placedAchievements.values.toList()) { achievementId ->
+            val achievement = AchievementCatalog.all.find { it.id == achievementId }
+                    TrophyCell(
+                        achievement = achievement!!,
+                        isOnShelf = true,
+                        isUnlocked = true,
+                        canPlace = false,
+                        onPlace = {},
+                        onRemove = {},
+                        isVisiting = true,
+                        modifier = Modifier.width(120.dp)
+                    )
+                }
     }
 }
 
@@ -2419,6 +2455,7 @@ fun AchievementsDisplay(
                                         }
                                     },
                                     onRemove = { viewModel.removeAchievement(achievement.id) },
+                                    isVisiting = false,
                                     modifier = Modifier.weight(1f)
                                 )
                             }
@@ -2482,6 +2519,7 @@ fun TrophyCell(
     canPlace: Boolean = false,
     onPlace: () -> Unit = {},
     onRemove: () -> Unit = {},
+    isVisiting: Boolean,
     modifier: Modifier) {
     Box(modifier = modifier) {
         val isSecret = achievement.category == AchievementCategory.Secret
@@ -2549,35 +2587,39 @@ fun TrophyCell(
 
                 Spacer(modifier = Modifier.weight(0.5f))
 
-                if (isOnShelf) {
-                    FilledTonalButton(
-                        onClick = onRemove,
-                        modifier = Modifier.height(32.dp),
-                        colors = ButtonDefaults.filledTonalButtonColors(
-                            containerColor = MaterialTheme.colorScheme.errorContainer.copy(alpha = 0.45f),
-                            contentColor = MaterialTheme.colorScheme.onErrorContainer
-                        )
-                    ) {
-                        Text("Remove", style = MaterialTheme.typography.labelSmall)
-                    }
-                } else {
-                    FilledTonalButton(
-                        onClick = onPlace,
-                        modifier = Modifier.height(32.dp),
-                        colors = ButtonDefaults.filledTonalButtonColors(
-                            containerColor = if (isUnlocked)
-                                MaterialTheme.colorScheme.primaryContainer.copy(alpha = 0.45f)
-                            else
-                                MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.15f),
-                            contentColor = if (isUnlocked) MaterialTheme.colorScheme.onSurface else MaterialTheme.colorScheme.onSurface.copy(alpha = 0.3f)
-                        )
-                    ) {
-                        Text(
-                            if (!isUnlocked) "Locked"
-                            else if (canPlace) "Place"
-                            else "Full",
-                            style = MaterialTheme.typography.labelSmall
-                        )
+                if (!isVisiting) {
+                    if (isOnShelf) {
+                        FilledTonalButton(
+                            onClick = onRemove,
+                            modifier = Modifier.height(32.dp),
+                            colors = ButtonDefaults.filledTonalButtonColors(
+                                containerColor = MaterialTheme.colorScheme.errorContainer.copy(alpha = 0.45f),
+                                contentColor = MaterialTheme.colorScheme.onErrorContainer
+                            )
+                        ) {
+                            Text("Remove", style = MaterialTheme.typography.labelSmall)
+                        }
+                    } else {
+                        FilledTonalButton(
+                            onClick = onPlace,
+                            modifier = Modifier.height(32.dp),
+                            colors = ButtonDefaults.filledTonalButtonColors(
+                                containerColor = if (isUnlocked)
+                                    MaterialTheme.colorScheme.primaryContainer.copy(alpha = 0.45f)
+                                else
+                                    MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.15f),
+                                contentColor = if (isUnlocked) MaterialTheme.colorScheme.onSurface else MaterialTheme.colorScheme.onSurface.copy(
+                                    alpha = 0.3f
+                                )
+                            )
+                        ) {
+                            Text(
+                                if (!isUnlocked) "Locked"
+                                else if (canPlace) "Place"
+                                else "Full",
+                                style = MaterialTheme.typography.labelSmall
+                            )
+                        }
                     }
                 }
             }
@@ -2811,7 +2853,13 @@ fun ReturnPanel(onClick: () -> Unit = {}) {
 
 @Composable
 fun FriendPanel(isFriend: Boolean, onClick: () -> Unit = {}) {
-    FloatingPanel(icon = if (isFriend) R.drawable.view_profile_24px else R.drawable.add_friend_24px, label = if (isFriend) "Profile" else "Add Friend", onClick = onClick)
+    FloatingPanel(icon = if (isFriend) R.drawable.remove_friend_24px else R.drawable.add_friend_24px, label = if (isFriend) "Remove" else "Add Friend", onClick = onClick)
+}
+
+@Composable
+fun ProfilePanel(onClick: () -> Unit = {}) {
+    FloatingPanel(icon = R.drawable.view_profile_24px, label = "View Profile", onClick = onClick
+    )
 }
 
 @Composable
