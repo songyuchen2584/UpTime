@@ -17,14 +17,23 @@ import androidx.compose.runtime.Composable
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.unit.dp
+import androidx.compose.material3.AlertDialog
+import androidx.compose.material3.ExperimentalMaterial3Api
+import androidx.compose.material3.TextButton
+import androidx.compose.material3.TimePicker
+import androidx.compose.material3.rememberTimePickerState
+import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.remember
+import androidx.compose.runtime.setValue
 
+@OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun NotificationSettingsScreen(
     settings: NotificationSettings,
     onScreenWarningToggle: (Boolean) -> Unit,
     onWalkingReminderToggle: (Boolean) -> Unit,
-    onWalkingHourChange: (Int) -> Unit,
-    onWalkingMinuteChange: (Int) -> Unit,
+    onWalkingTimeChange: (Int, Int) -> Unit,
     onThresholdChange: (Int) -> Unit
 ) {
     Column(
@@ -61,9 +70,9 @@ fun NotificationSettingsScreen(
 
                 Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
                     Button(onClick = {
-                        onThresholdChange(settings.screenWarningThresholdMinutes - 5)
+                        onThresholdChange(settings.screenWarningThresholdMinutes - 1)
                     }) {
-                        Text("-5")
+                        Text("-1")
                     }
 
                     Text(
@@ -72,9 +81,9 @@ fun NotificationSettingsScreen(
                     )
 
                     Button(onClick = {
-                        onThresholdChange(settings.screenWarningThresholdMinutes + 5)
+                        onThresholdChange(settings.screenWarningThresholdMinutes + 1)
                     }) {
-                        Text("+5")
+                        Text("+1")
                     }
                 }
             }
@@ -104,32 +113,46 @@ fun NotificationSettingsScreen(
                     )
                 }
 
-                Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-                    Button(onClick = {
-                        onWalkingHourChange(settings.walkingReminderHour - 1)
-                    }) {
-                        Text("Hour -")
-                    }
+                var showTimePicker by remember { mutableStateOf(false) }
 
-                    Button(onClick = {
-                        onWalkingHourChange(settings.walkingReminderHour + 1)
-                    }) {
-                        Text("Hour +")
-                    }
+                Button(onClick = { showTimePicker = true }) {
+                    Text("Change reminder time")
                 }
 
-                Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-                    Button(onClick = {
-                        onWalkingMinuteChange(settings.walkingReminderMinute - 5)
-                    }) {
-                        Text("Min -")
-                    }
+                if (showTimePicker) {
+                    val timePickerState = rememberTimePickerState(
+                        initialHour = settings.walkingReminderHour,
+                        initialMinute = settings.walkingReminderMinute,
+                        is24Hour = false
+                    )
 
-                    Button(onClick = {
-                        onWalkingMinuteChange(settings.walkingReminderMinute + 5)
-                    }) {
-                        Text("Min +")
-                    }
+                    AlertDialog(
+                        onDismissRequest = { showTimePicker = false },
+                        confirmButton = {
+                            TextButton(
+                                onClick = {
+                                    onWalkingTimeChange(
+                                        timePickerState.hour,
+                                        timePickerState.minute
+                                    )
+                                    showTimePicker = false
+                                }
+                            ) {
+                                Text("Save")
+                            }
+                        },
+                        dismissButton = {
+                            TextButton(onClick = { showTimePicker = false }) {
+                                Text("Cancel")
+                            }
+                        },
+                        title = {
+                            Text("Choose walking reminder time")
+                        },
+                        text = {
+                            TimePicker(state = timePickerState)
+                        }
+                    )
                 }
             }
         }

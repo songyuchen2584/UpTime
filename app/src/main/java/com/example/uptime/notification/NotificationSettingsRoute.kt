@@ -40,17 +40,10 @@ fun NotificationSettingsRoute(
                 viewModel.setWalkingReminderEnabled(enabled)
             }
         },
-        onWalkingHourChange = { newHour ->
+        onWalkingTimeChange = { hour, minute ->
             viewModel.setWalkingReminderTime(
-                hour = ((newHour % 24) + 24) % 24,
-                minute = settings.walkingReminderMinute
-            )
-        },
-        onWalkingMinuteChange = { newMinute ->
-            val fixedMinute = ((newMinute % 60) + 60) % 60
-            viewModel.setWalkingReminderTime(
-                hour = settings.walkingReminderHour,
-                minute = fixedMinute
+                hour = hour,
+                minute = minute
             )
         },
         onThresholdChange = { minutes ->
