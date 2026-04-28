@@ -41,7 +41,8 @@ import com.example.uptime.auth.AuthViewModel
 fun SettingsScreen(
     authViewModel: AuthViewModel = viewModel(),
     onNavigateToWalking: () -> Unit = {},
-    onNavigateToScreenTime: () -> Unit = {}
+    onNavigateToScreenTime: () -> Unit = {},
+    onNavigateToNotifications: () -> Unit = {}
 ) {
     val authState by authViewModel.state.collectAsState()
 
@@ -96,6 +97,17 @@ fun SettingsScreen(
                     title = "Walking",
                     subtitle = "Set your daily walking goal",
                     onClick = onNavigateToWalking
+                )
+
+                HorizontalDivider(
+                    modifier = Modifier.padding(vertical = 12.dp),
+                    color = MaterialTheme.colorScheme.surfaceVariant
+                )
+
+                SettingsRow(
+                    title = "Notifications",
+                    subtitle = "Customize screen time warnings and walking reminders",
+                    onClick = onNavigateToNotifications
                 )
             }
         }
