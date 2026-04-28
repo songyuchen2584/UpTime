@@ -15,6 +15,16 @@ Built with Kotlin, Jetpack Compose, Room, Firebase, and Retrofit.
 - **Profile & Friends** — add/remove friends by email, view friends' streaks and trophies via Firestore
 - **Settings** — goal configuration, account management
 
+<table>
+  <tr>
+    <td><img width="301" height="601" alt="Dashboard" src="https://github.com/user-attachments/assets/59d72fa4-9c7c-4b03-ab8a-e880fa155be5" /></td>
+    <td><img width="300" alt="Room" src="https://github.com/user-attachments/assets/e6090d1e-eb06-481d-95ac-c6c494dd40e2" /></td>
+    <td><img width="300" alt="Friend's List" src="https://github.com/user-attachments/assets/d830117d-bacc-4fab-822a-7e7b1e97a3ca" /></td>
+  </tr>
+</table>
+
+
+
 ## Architecture
 
 MVVM pattern with reactive data flow:
@@ -90,7 +100,6 @@ Used Claude for Room/ViewModel scaffolding (Entity, DAO, Database, ViewModel fol
 
 **Rejected**: Hilt dependency injection (unfamiliar library, not necessary for our use case), DataStore for user preferences (stored goals directly in Room DailyLog entity instead — simpler, one source of truth).
 
-All AI code verified against CS501 lecture patterns and tested on physical devices.
 
 ## Stretch Goals
 
