@@ -1,6 +1,5 @@
 package com.example.uptime.room
 
-import android.R.attr.category
 import android.util.Log
 import androidx.compose.animation.AnimatedVisibility
 import androidx.compose.animation.core.CubicBezierEasing
@@ -27,6 +26,7 @@ import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
+import androidx.compose.foundation.layout.aspectRatio
 import androidx.compose.foundation.layout.fillMaxHeight
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
@@ -61,6 +61,8 @@ import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextField
 import androidx.compose.material3.TextFieldDefaults
+import androidx.compose.material3.adaptive.currentWindowAdaptiveInfo
+import androidx.compose.material3.windowsizeclass.ExperimentalMaterial3WindowSizeClassApi
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.collectAsState
@@ -89,6 +91,7 @@ import androidx.compose.ui.graphics.Shape
 import androidx.compose.ui.graphics.drawOutline
 import androidx.compose.ui.graphics.drawscope.DrawScope
 import androidx.compose.ui.graphics.drawscope.Stroke
+import androidx.compose.ui.graphics.drawscope.clipRect
 import androidx.compose.ui.graphics.drawscope.drawIntoCanvas
 import androidx.compose.ui.graphics.drawscope.rotate
 import androidx.compose.ui.graphics.drawscope.scale
@@ -102,6 +105,7 @@ import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.zIndex
 import androidx.lifecycle.viewmodel.compose.viewModel
+import androidx.window.core.layout.WindowSizeClass
 import com.example.uptime.profile.FriendProfile
 import com.example.uptime.R
 import com.example.uptime.profile.UserProfileOverlay
@@ -221,8 +225,12 @@ data class WoodThemeOption(
 
 enum class AchievementSize { Small, Medium, Large }
 
+@OptIn(ExperimentalMaterial3WindowSizeClassApi::class)
 @Composable
 fun RoomScreen(viewModel: RoomViewModel = viewModel(), onVisitRandomRoom: () -> Unit, onVisitUserRoom: (String) -> Unit, onReturn: () -> Unit) {
+    val windowSizeClass = currentWindowAdaptiveInfo().windowSizeClass
+    val isShortLandscape = windowSizeClass.isWidthAtLeastBreakpoint(WindowSizeClass.WIDTH_DP_MEDIUM_LOWER_BOUND)
+            && !windowSizeClass.isHeightAtLeastBreakpoint(WindowSizeClass.HEIGHT_DP_MEDIUM_LOWER_BOUND)
     val state by viewModel.roomState.collectAsState()
 
     if (state == null) {
@@ -326,8 +334,54 @@ fun RoomScreen(viewModel: RoomViewModel = viewModel(), onVisitRandomRoom: () -> 
     )
 
     Box(modifier = Modifier.fillMaxSize()) {
-        RoomScaffold(roomState, activeRoomTheme, activeWoodTheme, activeTrophyCaseSlots, roomMode, viewModel)
+        RoomScaffold(
+            roomState,
+            activeRoomTheme,
+            activeWoodTheme,
+            activeTrophyCaseSlots,
+            roomMode,
+            viewModel
+        )
 
+        if (isShortLandscape) {
+            // Side panel layout for short landscape
+            if (roomMode != RoomMode.Edit && roomMode != RoomMode.Visit) {
+                Column(
+                    modifier = Modifier
+                        .align(Alignment.CenterEnd)
+                        .padding(end = 8.dp),
+                    verticalArrangement = Arrangement.spacedBy(8.dp)
+                ) {
+                    AchievementsPanel(onClick = { activePanel = if (activePanel == RoomPanel.Achievements) null else RoomPanel.Achievements })
+                    CustomizePanel(
+                        isActive = roomMode == RoomMode.Edit,
+                        onClick = { roomMode = if (roomMode == RoomMode.Edit) RoomMode.View else RoomMode.Edit }
+                    )
+                    ExchangePanel(
+                        onClick = { activePanel = if (activePanel == RoomPanel.Exchange) null else RoomPanel.Exchange },
+                        points = roomState.currentPoints,
+                        roomMode = roomMode
+                    )
+                }
+            }
+            if (roomMode != RoomMode.Edit) {
+                Column(
+                    modifier = Modifier
+                        .align(Alignment.CenterStart)
+                        .padding(start = 8.dp),
+                    verticalArrangement = Arrangement.spacedBy(8.dp)
+                ) {
+                    VisitPanel(onClick = { activePanel = if (activePanel == RoomPanel.Visit) null else RoomPanel.Visit })
+                    if (roomMode == RoomMode.Visit) {
+                        val visitingId = viewModel.userId
+                        val isFriend = friends.any { it.uid == visitingId }
+                        FriendPanel(isFriend = isFriend, onClick = { if(isFriend) viewModel.removeFriendById(visitingId) else viewModel.addFriendById(visitingId) })
+                        ProfilePanel(onClick = { showVisitorProfile = true })
+                        ReturnPanel(onClick = onReturn)
+                    }
+                }
+            }
+        } else {
         if (roomMode != RoomMode.Edit) {
             Row(
                 modifier = Modifier
@@ -343,14 +397,19 @@ fun RoomScreen(viewModel: RoomViewModel = viewModel(), onVisitRandomRoom: () -> 
                     if (roomMode == RoomMode.Visit) {
                         val visitingId = viewModel.userId
                         val isFriend = friends.any { it.uid == visitingId }
-                        FriendPanel(isFriend = isFriend, onClick = { if(isFriend) viewModel.removeFriendById(visitingId) else viewModel.addFriendById(visitingId) })
+                        FriendPanel(
+                            isFriend = isFriend,
+                            onClick = {
+                                if (isFriend) viewModel.removeFriendById(visitingId) else viewModel.addFriendById(
+                                    visitingId
+                                )
+                            })
                         ProfilePanel(onClick = { showVisitorProfile = true })
                         ReturnPanel(onClick = onReturn)
                     }
                 }
             }
         }
-
         if (roomMode != RoomMode.Visit) {
             Row(
                 modifier = Modifier
@@ -452,7 +511,8 @@ fun RoomScreen(viewModel: RoomViewModel = viewModel(), onVisitRandomRoom: () -> 
                 VisitTrophyDisplay(roomState.placedAchievements)
             }
         }
-        if (showVisitorProfile && !viewModel.isOwner) {
+    }
+    if (showVisitorProfile && !viewModel.isOwner) {
             UserProfileOverlay(
                 profile = viewModel.getFriendProfileById(userId = viewModel.userId),
                 isFriend = friends.any { it.uid == viewModel.userId },
@@ -505,9 +565,23 @@ fun RoomScaffold(state: RoomState, activeRoomTheme: RoomTheme, activeWoodTheme: 
     Box(
         modifier = Modifier
             .fillMaxSize()
-            .background(MaterialTheme.colorScheme.surfaceVariant)
-    ){
-        RoomCanvas(activeRoomTheme = activeRoomTheme, state.placedAchievements, layoutId = state.selectedRoomLayoutId, activeTrophyCaseSlots = activeTrophyCaseSlots, woodTheme = activeWoodTheme)
+            .background(MaterialTheme.colorScheme.surface),
+        contentAlignment = Alignment.Center
+    ) {
+        Box(
+            modifier = Modifier
+                .fillMaxHeight()
+                .aspectRatio(9f / 16f)
+                .background(MaterialTheme.colorScheme.surfaceVariant)
+        ) {
+            RoomCanvas(
+                activeRoomTheme = activeRoomTheme,
+                state.placedAchievements,
+                layoutId = state.selectedRoomLayoutId,
+                activeTrophyCaseSlots = activeTrophyCaseSlots,
+                woodTheme = activeWoodTheme
+            )
+        }
     }
 
     if (mode == RoomMode.Edit) {
@@ -798,7 +872,6 @@ fun RoomCanvas(activeRoomTheme: RoomTheme, placedAchievements: Map<String, Strin
 fun DefaultRoomCanvas(theme: RoomTheme, placedAchievements: Map<String, String>, shelfSlots: List<TrophyCaseCatalog.ShelfSlot>, modifier: Modifier = Modifier, woodTheme: WoodTheme) {
     val transition = rememberInfiniteTransition(label = "medalShimmer")
 
-    // 2. Animate the float from 0f to 1f
     val shimmerProgress by transition.animateFloat(
         initialValue = 0f,
         targetValue = 1f,
@@ -813,285 +886,317 @@ fun DefaultRoomCanvas(theme: RoomTheme, placedAchievements: Map<String, String>,
         val w = size.width
         val h = size.height
 
-        // Back wall
-        drawRect(color = theme.wallColor, size = Size(w, h * 0.55f))
+        clipRect(
+            left   = 0f,
+            top    = 0f,
+            right  = w,
+            bottom = h
+        ) {
+            // Back wall
+            drawRect(color = theme.wallColor, size = Size(w, h * 0.55f))
 
-        // Floor
-        val floorY = h * 0.55f
-        drawRect(
-            color = theme.floorColor,
-            topLeft = Offset(0f, floorY),
-            size = Size(w, h * 0.45f)
-        )
-
-        // Wall Accent
-        drawRect(
-            color = theme.accentColor,
-            topLeft = Offset(0f, h * 0.53f),
-            size = Size(w, h * 0.03f)
-        )
-
-        translate(left = w*0.06f, top = h*-0.05f) {
-            val windowWidth = w * 0.275f
-            val windowHeight = h * 0.25f
-            val windowDepth = windowWidth * 0.05f
-            val frameWidth = windowDepth * 1.5f
-
-            val windowFront = Color(0xFFD9EAE9)
-            val windowTop = Color(0xFFF7FFFE)
-            val windowSide = Color(0xFFB8D0CF)
-
-            var windowX = w * 0.6f
-            val windowY = h * 0.08f
-
-            // Shadow under sill
+            // Floor
+            val floorY = h * 0.55f
             drawRect(
-                color = Color.Black.copy(alpha = 0.15f),
-                topLeft = Offset(windowX, windowY + windowHeight),
-                size = Size(windowWidth - windowDepth/2f, frameWidth * 1.55f)
+                color = theme.floorColor,
+                topLeft = Offset(0f, floorY),
+                size = Size(w, h * 0.45f)
             )
 
-            // Window Pane
+            // Wall Accent
             drawRect(
-                color = Color(0xFFC1E3F3),
-                topLeft = Offset(windowX, windowY),
-                size = Size(windowWidth-windowDepth, windowHeight)
+                color = theme.accentColor,
+                topLeft = Offset(0f, h * 0.53f),
+                size = Size(w, h * 0.03f)
             )
 
-            // Pane details
-            val reflectionPath = Path().apply {
-                moveTo(windowX, windowY + windowHeight)
-                lineTo(windowX + windowWidth - frameWidth * 1.1f, windowY * 1.6f)
-                close()
-            }
-            drawPath(reflectionPath, color = windowTop.copy(alpha = 0.3f), style = Stroke(width = 40f))
+            translate(left = w * 0.06f, top = h * -0.05f) {
+                val windowWidth = w * 0.275f
+                val windowHeight = h * 0.25f
+                val windowDepth = windowWidth * 0.05f
+                val frameWidth = windowDepth * 1.5f
 
-            val reflectionPath2 = Path().apply {
-                moveTo(windowX * 1.2f, windowY + windowHeight)
-                lineTo(windowX + windowWidth - frameWidth, windowY * 2.7f)
-                close()
-            }
-            drawPath(reflectionPath2, color = windowTop.copy(alpha = 0.3f), style = Stroke(width = 25f))
+                val windowFront = Color(0xFFD9EAE9)
+                val windowTop = Color(0xFFF7FFFE)
+                val windowSide = Color(0xFFB8D0CF)
 
-            windowX = w * 0.6f - windowDepth
+                var windowX = w * 0.6f
+                val windowY = h * 0.08f
 
-            // Left Side
-            // Front Frame
-            drawRect(
-                color = windowFront,
-                topLeft = Offset(windowX - windowDepth * 0.5f, windowY + windowDepth),
-                size = Size(frameWidth, windowHeight)
-            )
+                // Shadow under sill
+                drawRect(
+                    color = Color.Black.copy(alpha = 0.15f),
+                    topLeft = Offset(windowX, windowY + windowHeight),
+                    size = Size(windowWidth - windowDepth / 2f, frameWidth * 1.55f)
+                )
 
-            val leftSidePath = Path().apply {
-                moveTo(windowX + windowDepth, windowY + windowDepth)
-                lineTo(windowX + 2 * windowDepth, windowY)
-                lineTo(windowX + 2 * windowDepth, windowY + windowHeight)
-                lineTo(windowX + windowDepth, windowY +windowHeight + windowDepth)
-                close()
-            }
-            drawPath(leftSidePath, color = windowSide)
+                // Window Pane
+                drawRect(
+                    color = Color(0xFFC1E3F3),
+                    topLeft = Offset(windowX, windowY),
+                    size = Size(windowWidth - windowDepth, windowHeight)
+                )
 
-            // Top & Bottom
-            for (i in 0..1) {
-                val y = when (i) {
-                    0 -> 0f
-                    1 -> windowHeight - frameWidth
-                    else -> {0f}
+                // Pane details
+                val reflectionPath = Path().apply {
+                    moveTo(windowX, windowY + windowHeight)
+                    lineTo(windowX + windowWidth - frameWidth * 1.1f, windowY * 1.6f)
+                    close()
                 }
+                drawPath(
+                    reflectionPath,
+                    color = windowTop.copy(alpha = 0.3f),
+                    style = Stroke(width = 40f)
+                )
 
-                // Frame Front
+                val reflectionPath2 = Path().apply {
+                    moveTo(windowX * 1.2f, windowY + windowHeight)
+                    lineTo(windowX + windowWidth - frameWidth, windowY * 2.7f)
+                    close()
+                }
+                drawPath(
+                    reflectionPath2,
+                    color = windowTop.copy(alpha = 0.3f),
+                    style = Stroke(width = 25f)
+                )
+
+                windowX = w * 0.6f - windowDepth
+
+                // Left Side
+                // Front Frame
                 drawRect(
                     color = windowFront,
-                    topLeft = Offset(windowX + windowDepth, windowY + y + windowDepth),
-                    size = Size(windowWidth - windowDepth * 2, frameWidth)
+                    topLeft = Offset(windowX - windowDepth * 0.5f, windowY + windowDepth),
+                    size = Size(frameWidth, windowHeight)
                 )
-                // Top
+
+                val leftSidePath = Path().apply {
+                    moveTo(windowX + windowDepth, windowY + windowDepth)
+                    lineTo(windowX + 2 * windowDepth, windowY)
+                    lineTo(windowX + 2 * windowDepth, windowY + windowHeight)
+                    lineTo(windowX + windowDepth, windowY + windowHeight + windowDepth)
+                    close()
+                }
+                drawPath(leftSidePath, color = windowSide)
+
+                // Top & Bottom
+                for (i in 0..1) {
+                    val y = when (i) {
+                        0 -> 0f
+                        1 -> windowHeight - frameWidth
+                        else -> {
+                            0f
+                        }
+                    }
+
+                    // Frame Front
+                    drawRect(
+                        color = windowFront,
+                        topLeft = Offset(windowX + windowDepth, windowY + y + windowDepth),
+                        size = Size(windowWidth - windowDepth * 2, frameWidth)
+                    )
+                    // Top
+                    val topFacePath = Path().apply {
+                        moveTo(windowX + windowDepth, windowY + y + windowDepth)
+                        lineTo(windowX + 2 * windowDepth, windowY + y)
+                        lineTo(windowX + windowWidth, windowY + y)
+                        lineTo(windowX + windowWidth - windowDepth, windowY + y + windowDepth)
+                        close()
+                    }
+                    drawPath(topFacePath, color = windowTop)
+
+                    // Shadow
+                    if (i < 1) {
+                        drawRect(
+                            color = Color.Black.copy(alpha = 0.15f),
+                            topLeft = Offset(
+                                windowX + windowDepth,
+                                windowY + y + frameWidth + windowDepth
+                            ),
+                            size = Size(windowWidth - windowDepth * 2, frameWidth * 0.4f)
+                        )
+                    }
+                }
+
+                // Fill in Top
                 val topFacePath = Path().apply {
-                    moveTo(windowX + windowDepth, windowY + y + windowDepth)
-                    lineTo(windowX + 2 * windowDepth, windowY + y)
-                    lineTo(windowX + windowWidth, windowY + y)
-                    lineTo(windowX + windowWidth - windowDepth, windowY + y + windowDepth)
+                    moveTo(windowX - windowDepth * 0.5f, windowY + windowDepth)
+                    lineTo(windowX + windowDepth - windowDepth * 0.5f, windowY)
+                    lineTo(windowX + windowWidth - windowDepth + frameWidth, windowY)
+                    lineTo(windowX + windowWidth - windowDepth * 0.5f, windowY + windowDepth)
                     close()
                 }
                 drawPath(topFacePath, color = windowTop)
 
-                // Shadow
-                if (i < 1) {
-                    drawRect(
-                        color = Color.Black.copy(alpha = 0.15f),
-                        topLeft = Offset(windowX + windowDepth, windowY + y + frameWidth + windowDepth),
-                        size = Size(windowWidth - windowDepth * 2, frameWidth * 0.4f)
+                // Right Side
+                // Front face
+                drawRect(
+                    color = windowFront,
+                    topLeft = Offset(
+                        windowX + windowWidth - windowDepth * 2,
+                        windowY + windowDepth
+                    ),
+                    size = Size(frameWidth, windowHeight)
+                )
+                // Side face
+                val rightSidePath = Path().apply {
+                    moveTo(windowX + windowWidth - windowDepth / 2f, windowY + windowDepth)
+                    lineTo(windowX + windowWidth + windowDepth / 2f, windowY)
+                    lineTo(windowX + windowWidth + windowDepth / 2f, windowY + windowHeight)
+                    lineTo(
+                        windowX + windowWidth - windowDepth / 2f,
+                        windowY + windowHeight + windowDepth
                     )
+                    close()
                 }
+                drawPath(rightSidePath, color = windowSide)
             }
 
-            // Fill in Top
-            val topFacePath = Path().apply {
-                moveTo(windowX - windowDepth * 0.5f, windowY + windowDepth)
-                lineTo(windowX + windowDepth  - windowDepth * 0.5f, windowY)
-                lineTo(windowX + windowWidth - windowDepth + frameWidth, windowY)
-                lineTo(windowX + windowWidth - windowDepth * 0.5f, windowY + windowDepth)
-                close()
-            }
-            drawPath(topFacePath, color = windowTop)
+            // Shelf setup
+            val shelfWidth = w / 2.2f
+            val shelfHeight = h / 3
+            val shelfDepth = shelfWidth * 0.06f
+            val shelfOffsetX = w * 0.035f
+            val shelfOffsetY = floorY - shelfHeight + shelfDepth
+            val shelfThickness = shelfHeight * 0.04f
+            val numShelves = 3
+            val shelfSpacing = shelfHeight / (numShelves + 1)
 
-            // Right Side
-            // Front face
-            drawRect(
-                color = windowFront,
-                topLeft = Offset(windowX + windowWidth - windowDepth * 2, windowY + windowDepth),
-                size = Size(frameWidth, windowHeight)
-            )
-            // Side face
-            val rightSidePath = Path().apply {
-                moveTo(windowX + windowWidth - windowDepth/2f, windowY + windowDepth)
-                lineTo(windowX + windowWidth + windowDepth/2f, windowY)
-                lineTo(windowX + windowWidth + windowDepth/2f, windowY + windowHeight)
-                lineTo(windowX + windowWidth - windowDepth/2f, windowY + windowHeight + windowDepth)
-                close()
-            }
-            drawPath(rightSidePath, color = windowSide)
-        }
+            translate(left = shelfOffsetX, top = shelfOffsetY) {
 
-        // Shelf setup
-        val shelfWidth = w / 2.2f
-        val shelfHeight = h / 3
-        val shelfDepth = shelfWidth * 0.06f
-        val shelfOffsetX = w * 0.035f
-        val shelfOffsetY = floorY - shelfHeight + shelfDepth
-        val shelfThickness = shelfHeight * 0.04f
-        val numShelves = 3
-        val shelfSpacing = shelfHeight / (numShelves + 1)
+                val woodFront = woodTheme.woodFront
+                val woodTop = woodTheme.woodTop
+                val woodSide = woodTheme.woodSide
+                val woodDark = woodTheme.woodDark
 
-        translate(left = shelfOffsetX, top = shelfOffsetY) {
+                // Shelf Back
+                drawRect(
+                    color = woodDark,
+                    topLeft = Offset(shelfDepth, 0f),
+                    size = Size(shelfWidth - shelfDepth * 2, shelfHeight)
+                )
 
-            val woodFront = woodTheme.woodFront
-            val woodTop = woodTheme.woodTop
-            val woodSide = woodTheme.woodSide
-            val woodDark = woodTheme.woodDark
-
-            // Shelf Back
-            drawRect(
-                color = woodDark,
-                topLeft = Offset(shelfDepth, 0f),
-                size = Size(shelfWidth - shelfDepth * 2, shelfHeight)
-            )
-
-            // Left Side
-            // Front face
-            drawRect(
-                color = woodFront,
-                topLeft = Offset(0f, shelfDepth),
-                size = Size(shelfDepth, shelfHeight)
-            )
-            // Side face
-            val leftSidePath = Path().apply {
-                moveTo(shelfDepth, shelfDepth)
-                lineTo(2 * shelfDepth, 0f)
-                lineTo(2 * shelfDepth, shelfHeight)
-                lineTo(shelfDepth, shelfHeight+shelfDepth)
-                close()
-            }
-            drawPath(leftSidePath, color = woodSide)
-
-            // Shelves
-            for (i in 0..numShelves) {
-                val y = when (i) {
-                    0 -> 0f
-                    numShelves -> shelfHeight - shelfThickness
-                    else -> shelfSpacing * i
-                }
-
-                // Shelf Front
+                // Left Side
+                // Front face
                 drawRect(
                     color = woodFront,
-                    topLeft = Offset(shelfDepth, y + shelfDepth),
-                    size = Size(shelfWidth - shelfDepth * 2, shelfThickness)
+                    topLeft = Offset(0f, shelfDepth),
+                    size = Size(shelfDepth, shelfHeight)
                 )
-                // Top
+                // Side face
+                val leftSidePath = Path().apply {
+                    moveTo(shelfDepth, shelfDepth)
+                    lineTo(2 * shelfDepth, 0f)
+                    lineTo(2 * shelfDepth, shelfHeight)
+                    lineTo(shelfDepth, shelfHeight + shelfDepth)
+                    close()
+                }
+                drawPath(leftSidePath, color = woodSide)
+
+                // Shelves
+                for (i in 0..numShelves) {
+                    val y = when (i) {
+                        0 -> 0f
+                        numShelves -> shelfHeight - shelfThickness
+                        else -> shelfSpacing * i
+                    }
+
+                    // Shelf Front
+                    drawRect(
+                        color = woodFront,
+                        topLeft = Offset(shelfDepth, y + shelfDepth),
+                        size = Size(shelfWidth - shelfDepth * 2, shelfThickness)
+                    )
+                    // Top
+                    val topFacePath = Path().apply {
+                        moveTo(shelfDepth, y + shelfDepth)
+                        lineTo(2 * shelfDepth, y)
+                        lineTo(shelfWidth, y)
+                        lineTo(shelfWidth - shelfDepth, y + shelfDepth)
+                        close()
+                    }
+                    drawPath(topFacePath, color = woodTop)
+
+                    // Shadow
+                    if (i < 3) {
+                        drawRect(
+                            color = Color.Black.copy(alpha = 0.15f),
+                            topLeft = Offset(shelfDepth, y + shelfThickness + shelfDepth),
+                            size = Size(shelfWidth - shelfDepth * 2, shelfThickness * 0.4f)
+                        )
+                    }
+                }
+
+                // Fill in Top
                 val topFacePath = Path().apply {
-                    moveTo(shelfDepth, y + shelfDepth)
-                    lineTo(2 * shelfDepth, y)
-                    lineTo(shelfWidth, y)
-                    lineTo(shelfWidth - shelfDepth, y + shelfDepth)
+                    moveTo(0f, shelfDepth)
+                    lineTo(shelfDepth, 0f)
+                    lineTo(shelfWidth, 0f)
+                    lineTo(shelfWidth - shelfDepth, shelfDepth)
                     close()
                 }
                 drawPath(topFacePath, color = woodTop)
 
-                // Shadow
-                if (i < 3) {
-                    drawRect(
-                        color = Color.Black.copy(alpha = 0.15f),
-                        topLeft = Offset(shelfDepth, y + shelfThickness + shelfDepth),
-                        size = Size(shelfWidth - shelfDepth * 2, shelfThickness * 0.4f)
-                    )
+                // Right Side
+                // Front face
+                drawRect(
+                    color = woodFront,
+                    topLeft = Offset(shelfWidth - shelfDepth * 2, shelfDepth),
+                    size = Size(shelfDepth, shelfHeight)
+                )
+                // Side face
+                val rightSidePath = Path().apply {
+                    moveTo(shelfWidth - shelfDepth, shelfDepth)
+                    lineTo(shelfWidth, 0f)
+                    lineTo(shelfWidth, shelfHeight)
+                    lineTo(shelfWidth - shelfDepth, shelfHeight + shelfDepth)
+                    close()
                 }
+                drawPath(rightSidePath, color = woodSide)
             }
 
-            // Fill in Top
-            val topFacePath = Path().apply {
-                moveTo(0f, shelfDepth)
-                lineTo(shelfDepth, 0f)
-                lineTo(shelfWidth, 0f)
-                lineTo(shelfWidth - shelfDepth, shelfDepth)
-                close()
-            }
-            drawPath(topFacePath, color = woodTop)
-
-            // Right Side
-            // Front face
-            drawRect(
-                color = woodFront,
-                topLeft = Offset(shelfWidth - shelfDepth * 2, shelfDepth),
-                size = Size(shelfDepth, shelfHeight)
+            drawShelfTrophies(
+                shelfSlots,
+                placedAchievements,
+                shelfWidth,
+                shelfHeight,
+                shelfDepth,
+                shelfThickness,
+                shelfSpacing,
+                shimmerProgress,
+                shelfOffsetX,
+                shelfOffsetY
             )
-            // Side face
-            val rightSidePath = Path().apply {
-                moveTo(shelfWidth - shelfDepth, shelfDepth)
-                lineTo(shelfWidth, 0f)
-                lineTo(shelfWidth, shelfHeight)
-                lineTo(shelfWidth - shelfDepth, shelfHeight + shelfDepth)
-                close()
-            }
-            drawPath(rightSidePath, color = woodSide)
-        }
 
-        drawShelfTrophies(
-            shelfSlots,
-            placedAchievements,
-            shelfWidth,
-            shelfHeight,
-            shelfDepth,
-            shelfThickness,
-            shelfSpacing,
-            shimmerProgress,
-            shelfOffsetX,
-            shelfOffsetY
-        )
+            // Accent Rug
+            scale(scaleX = 1.2f, scaleY = 0.8f) {
 
-        // Accent Rug
-        scale(scaleX = 1.2f, scaleY = 0.8f) {
+                val rugLeft = 1.1f * w
+                val rugTop = h * 0.65f
+                val rugWidth = w * 0.4f
+                val rugHeight = h * 0.38f
+                val detailInset = 0.1f
 
-            val rugLeft = 1.1f * w
-            val rugTop = h * 0.65f
-            val rugWidth = w * 0.4f
-            val rugHeight = h * 0.38f
-            val detailInset = 0.1f
+                translate(rugLeft, top = rugTop) {
+                    rotate(degrees = 90f, pivot = Offset(0f, 0f)) {
+                        drawOval(
+                            color = theme.accentColor.copy(alpha = 0.8f),
+                            topLeft = Offset(0f, 0f),
+                            size = Size(rugWidth, rugHeight)
+                        )
 
-            translate(rugLeft, top = rugTop) {
-                rotate(degrees = 90f, pivot = Offset(0f, 0f)) {
-                    drawOval(
-                        color = theme.accentColor.copy(alpha = 0.8f),
-                        topLeft = Offset(0f, 0f),
-                        size = Size(rugWidth, rugHeight)
-                    )
-
-                    drawOval(
-                        color = Color(0x66FFFFFF),
-                        topLeft = Offset(rugWidth * detailInset - 4f, rugHeight * detailInset + 15f),
-                        size = Size(rugWidth * (1f - detailInset * 2.2f), rugHeight * (1f - detailInset * 2)),
-                    )
+                        drawOval(
+                            color = Color(0x66FFFFFF),
+                            topLeft = Offset(
+                                rugWidth * detailInset - 4f,
+                                rugHeight * detailInset + 15f
+                            ),
+                            size = Size(
+                                rugWidth * (1f - detailInset * 2.2f),
+                                rugHeight * (1f - detailInset * 2)
+                            ),
+                        )
+                    }
                 }
             }
         }

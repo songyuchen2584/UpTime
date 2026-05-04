@@ -87,11 +87,7 @@ class MainActivity : ComponentActivity() {
                 }
             }
 
-        val currentUserId = FirebaseAuth.getInstance().currentUser?.uid
-        if (currentUserId == null) {
-            // TODO: handle null Ids
-            return
-        }
+        val currentUserId = FirebaseAuth.getInstance().currentUser?.uid!!
 
         val roomViewModel: RoomViewModel by viewModels {
             RoomViewModelFactory(application, currentUserId)
