@@ -1,5 +1,6 @@
 package com.example.uptime.room
 
+import android.R.attr.category
 import android.app.Application
 import android.util.Log
 import androidx.compose.runtime.Composable
@@ -13,6 +14,7 @@ import com.example.uptime.room.catalogs.TrophyCaseCatalog
 import com.example.uptime.data.UpTimeDatabase
 import com.example.uptime.data.UserStatsRepository
 import com.example.uptime.profile.FriendProfile
+import com.example.uptime.room.catalogs.RoomAnchorCatalog
 import com.example.uptime.room.catalogs.RoomItemCatalog
 import com.google.firebase.auth.FirebaseAuth
 import kotlinx.coroutines.flow.MutableSharedFlow
@@ -26,6 +28,7 @@ import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.flow.map
 import kotlinx.coroutines.flow.stateIn
 import kotlinx.coroutines.launch
+import kotlin.text.contains
 
 class RoomViewModel(application: Application, val userId: String) : AndroidViewModel(application) {
     private val db = UpTimeDatabase.Companion.getDatabase(application)
@@ -166,6 +169,51 @@ class RoomViewModel(application: Application, val userId: String) : AndroidViewM
             onResult(randomUserId)
             Log.d("RandomRoom", "CurrentUserId: $currentUserId")
             Log.d("RandomRoom", "RandomUserId: $randomUserId")
+        }
+    }
+
+    fun placeRoomItem(itemId: String, anchorId: String) {
+        viewModelScope.launch {
+            val settings = rsDao.getSettings(userId) ?: RoomSettings(userId)
+            val anchor = RoomAnchorCatalog.all.find { it.id == anchorId }?: return@launch
+            val item = RoomItemCatalog.all.find { it.id == itemId }?: return@launch
+            if (item.category != anchor.category) return@launch
+
+            val updated = settings.placedRoomItems
+                .filterValues { it != itemId }
+                .plus(anchorId to itemId)
+
+            rsDao.upsertRoomSettings(settings.copy(placedRoomItems = updated))
+        }
+    }
+
+    fun placeRoomItem(itemId: String, category: RoomItemCategory) {
+        viewModelScope.launch {
+            val settings = rsDao.getSettings(userId) ?: RoomSettings(userId)
+            val usedAnchors = settings.placedRoomItems.keys
+            val anchor =
+                RoomAnchorCatalog.all.firstOrNull { it.category == category && it.id !in usedAnchors }
+                    ?: return@launch
+            val item = RoomItemCatalog.all.find { it.id == itemId }?: return@launch
+            if (item.category != anchor.category) return@launch
+
+
+            val updated = settings.placedRoomItems
+                .filterValues { it != itemId }
+                .plus(anchor.id to itemId)
+
+            rsDao.upsertRoomSettings(settings.copy(placedRoomItems = updated))
+        }
+    }
+
+    fun removeRoomItem(itemId: String) {
+        viewModelScope.launch {
+            val settings = rsDao.getSettings(userId)?: return@launch
+            rsDao.upsertRoomSettings(
+                settings.copy(
+                    placedRoomItems = settings.placedRoomItems.filterValues { it != itemId }
+                )
+            )
         }
     }
 

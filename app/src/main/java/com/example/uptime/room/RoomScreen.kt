@@ -96,7 +96,9 @@ import androidx.compose.ui.graphics.drawscope.drawIntoCanvas
 import androidx.compose.ui.graphics.drawscope.rotate
 import androidx.compose.ui.graphics.drawscope.scale
 import androidx.compose.ui.graphics.drawscope.translate
+import androidx.compose.ui.graphics.drawscope.withTransform
 import androidx.compose.ui.graphics.graphicsLayer
+import androidx.compose.ui.graphics.vector.PathParser
 import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextAlign
@@ -111,6 +113,7 @@ import com.example.uptime.R
 import com.example.uptime.profile.UserProfileOverlay
 import com.example.uptime.room.catalogs.AchievementCatalog
 import com.example.uptime.room.catalogs.MetalThemeCatalog
+import com.example.uptime.room.catalogs.RoomAnchorCatalog
 import com.example.uptime.room.catalogs.RoomItemCatalog
 import com.example.uptime.room.catalogs.RoomLayoutCatalog
 import com.example.uptime.room.catalogs.RoomThemeCatalog
@@ -130,12 +133,21 @@ data class RoomItem(
     val name: String,
     val icon: Int,
     val category: RoomItemCategory,
-    val pointCost: Int
+    val pointCost: Int,
+    val widthFraction: Float = 0.15f,
+    val heightFraction: Float = 0.20f
 )
 
 enum class RoomMode { View, Edit, Visit }
 
 enum class RoomItemCategory { Floor, Wall, Floating }
+
+data class RoomItemAnchor(
+    val id: String,
+    val category: RoomItemCategory,
+    val xFraction: Float,
+    val yFraction: Float
+)
 
 data class RoomTheme(
     val wallColor: Color = Color(0xFF606791),
@@ -256,6 +268,7 @@ fun RoomScreen(viewModel: RoomViewModel = viewModel(), onVisitRandomRoom: () -> 
     var activePanel by rememberSaveable { mutableStateOf<RoomPanel?>(null) }
     var showRoomThemePicker by rememberSaveable { mutableStateOf(false) }
     var showWoodThemePicker by rememberSaveable { mutableStateOf(false) }
+    var showRoomItemPicker by rememberSaveable { mutableStateOf(false) }
 
     LaunchedEffect(viewModel.userId) {
         if (isOwner) {roomMode = RoomMode.View; showVisitorProfile = false} else {roomMode = RoomMode.Visit;}
@@ -353,10 +366,6 @@ fun RoomScreen(viewModel: RoomViewModel = viewModel(), onVisitRandomRoom: () -> 
                     verticalArrangement = Arrangement.spacedBy(8.dp)
                 ) {
                     AchievementsPanel(onClick = { activePanel = if (activePanel == RoomPanel.Achievements) null else RoomPanel.Achievements })
-                    CustomizePanel(
-                        isActive = roomMode == RoomMode.Edit,
-                        onClick = { roomMode = if (roomMode == RoomMode.Edit) RoomMode.View else RoomMode.Edit }
-                    )
                     ExchangePanel(
                         onClick = { activePanel = if (activePanel == RoomPanel.Exchange) null else RoomPanel.Exchange },
                         points = roomState.currentPoints,
@@ -426,6 +435,7 @@ fun RoomScreen(viewModel: RoomViewModel = viewModel(), onVisitRandomRoom: () -> 
                         roomMode = if (roomMode == RoomMode.Edit) RoomMode.View else RoomMode.Edit
                         showRoomThemePicker = false
                         showWoodThemePicker = false
+                        showRoomItemPicker = false
                     })
                 ExchangePanel(onClick = {
                     activePanel = if (activePanel == RoomPanel.Exchange) null
@@ -445,24 +455,38 @@ fun RoomScreen(viewModel: RoomViewModel = viewModel(), onVisitRandomRoom: () -> 
                     EditToolButton(
                         icon = R.drawable.responsive_layout_24px,
                         label = "Layout",
-                        onClick = {})
+                        onClick = {
+                            showWoodThemePicker = false
+                            showRoomItemPicker = false
+                            showRoomThemePicker = false
+                        })
                     EditToolButton(
                         icon = R.drawable.room_theme_24px,
                         label = "Theme",
                         isActive = showRoomThemePicker,
                         onClick = {
                             showWoodThemePicker = false
+                            showRoomItemPicker = false
                             showRoomThemePicker = !showRoomThemePicker
                         })
                     EditToolButton(
                         icon = R.drawable.shelves_24px,
-                        label = "Case",
+                        label = "Wood",
                         isActive = showWoodThemePicker,
                         onClick = {
                             showRoomThemePicker = false
+                            showRoomItemPicker = false
                             showWoodThemePicker = !showWoodThemePicker
                         })
-                    EditToolButton(icon = R.drawable.package_2_24px, label = "Items", onClick = {})
+                    EditToolButton(
+                        icon = R.drawable.package_2_24px,
+                        label = "Items",
+                        isActive = showRoomItemPicker,
+                        onClick = {
+                        showRoomThemePicker = false
+                        showWoodThemePicker = false
+                        showRoomItemPicker = !showRoomItemPicker
+                    })
                 }
             }
 
@@ -499,6 +523,22 @@ fun RoomScreen(viewModel: RoomViewModel = viewModel(), onVisitRandomRoom: () -> 
                     onThemeSelected = { themeId ->
                         viewModel.selectWoodTheme(themeId)
                     }
+                )
+            }
+
+            AnimatedVisibility(
+                visible = showRoomItemPicker && roomMode == RoomMode.Edit,
+                enter = fadeIn() + slideInVertically(initialOffsetY = { it / 2 }),
+                exit = fadeOut() + slideOutVertically(targetOffsetY = { it / 2 }),
+                modifier = Modifier.align(Alignment.BottomCenter)
+            ) {
+                RoomItemPickerRow(
+                    viewModel = viewModel,
+                    allRoomItems = RoomItemCatalog.all,
+                    unlockedRoomItemIds = roomState.unlockedRoomItemIds,
+                    modifier = Modifier
+                        .padding(bottom = 96.dp),
+                    placedRoomItems = roomState.placedRoomItems
                 )
             }
         } else {
@@ -561,7 +601,6 @@ fun RoomScreen(viewModel: RoomViewModel = viewModel(), onVisitRandomRoom: () -> 
 
 @Composable
 fun RoomScaffold(state: RoomState, activeRoomTheme: RoomTheme, activeWoodTheme: WoodTheme, activeTrophyCaseSlots: List<TrophyCaseCatalog.ShelfSlot>, mode: RoomMode, viewModel: RoomViewModel) {
-
     Box(
         modifier = Modifier
             .fillMaxSize()
@@ -576,7 +615,8 @@ fun RoomScaffold(state: RoomState, activeRoomTheme: RoomTheme, activeWoodTheme: 
         ) {
             RoomCanvas(
                 activeRoomTheme = activeRoomTheme,
-                state.placedAchievements,
+                placedAchievements = state.placedAchievements,
+                placedRoomItems = state.placedRoomItems,
                 layoutId = state.selectedRoomLayoutId,
                 activeTrophyCaseSlots = activeTrophyCaseSlots,
                 woodTheme = activeWoodTheme
@@ -724,6 +764,33 @@ fun WoodThemePickerRow(
 }
 
 @Composable
+fun RoomItemPickerRow(
+    viewModel: RoomViewModel,
+    allRoomItems: List<RoomItem>,
+    unlockedRoomItemIds: Set<String>,
+    modifier: Modifier,
+    placedRoomItems: Map<String, String>
+) {
+    LazyRow(
+        modifier = modifier,
+        contentPadding = PaddingValues(horizontal = 16.dp),
+        horizontalArrangement = Arrangement.spacedBy(10.dp),
+        verticalAlignment = Alignment.Bottom
+    ) {
+        items(allRoomItems) { item ->
+            val isUnlocked = item.id in unlockedRoomItemIds
+            val isPlaced = item.id in placedRoomItems.values
+            RoomItemCard(
+                item = item,
+                isUnlocked = isUnlocked,
+                isPlaced = isPlaced,
+                onSelect = {if (isPlaced) viewModel.removeRoomItem(item.id) else viewModel.placeRoomItem(item.id, item.category)}
+            )
+        }
+    }
+}
+
+@Composable
 fun RoomThemeCard(
     option: RoomThemeOption,
     isUnlocked: Boolean,
@@ -861,16 +928,81 @@ fun WoodThemeCard(
 }
 
 @Composable
-fun RoomCanvas(activeRoomTheme: RoomTheme, placedAchievements: Map<String, String>, layoutId: String, activeTrophyCaseSlots: List<TrophyCaseCatalog.ShelfSlot>, modifier: Modifier = Modifier, woodTheme: WoodTheme) {
+fun RoomItemCard(
+    item: RoomItem,
+    isUnlocked: Boolean,
+    isPlaced: Boolean,
+    onSelect: () -> Unit
+) {
+    Card(
+        onClick = onSelect,
+        shape = RoundedCornerShape(12.dp),
+        border = if (isPlaced) BorderStroke(2.dp, MaterialTheme.colorScheme.primary) else null,
+        colors = CardDefaults.cardColors(
+            containerColor = MaterialTheme.colorScheme.surface.copy(alpha = 0.92f)
+        ),
+        elevation = CardDefaults.cardElevation(defaultElevation = 4.dp),
+        modifier = Modifier.width(80.dp)
+    ) {
+        Column(
+            modifier = Modifier.padding(8.dp),
+            horizontalAlignment = Alignment.CenterHorizontally,
+            verticalArrangement = Arrangement.spacedBy(6.dp)
+        ) {
+            // Show item icon
+            Row(horizontalArrangement = Arrangement.spacedBy(4.dp)) {
+                Icon(
+                    painterResource(item.icon),
+                    contentDescription = null,
+                    modifier = Modifier.size(16.dp)
+                )
+            }
 
-    when (layoutId) {
-        "default" -> DefaultRoomCanvas(activeRoomTheme, placedAchievements, activeTrophyCaseSlots, modifier, woodTheme)
+            Text(
+                item.name,
+                style = MaterialTheme.typography.labelSmall,
+                textAlign = TextAlign.Center,
+                color = if (isUnlocked) MaterialTheme.colorScheme.onSurface
+                else MaterialTheme.colorScheme.onSurface.copy(alpha = 0.4f)
+            )
+
+            if (!isUnlocked) {
+                Icon(
+                    painterResource(R.drawable.lock_24px),
+                    contentDescription = "Locked",
+                    modifier = Modifier.size(12.dp),
+                    tint = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.4f)
+                )
+            }
+        }
     }
 }
 
 @Composable
-fun DefaultRoomCanvas(theme: RoomTheme, placedAchievements: Map<String, String>, shelfSlots: List<TrophyCaseCatalog.ShelfSlot>, modifier: Modifier = Modifier, woodTheme: WoodTheme) {
+fun RoomCanvas(
+    activeRoomTheme: RoomTheme,
+    placedAchievements: Map<String, String>,
+    placedRoomItems: Map<String, String>,
+    layoutId: String,
+    activeTrophyCaseSlots: List<TrophyCaseCatalog.ShelfSlot>,
+    modifier: Modifier = Modifier,
+    woodTheme: WoodTheme) {
+    when (layoutId) {
+        "default" -> DefaultRoomCanvas(activeRoomTheme, placedAchievements, placedRoomItems, activeTrophyCaseSlots, modifier, woodTheme)
+    }
+}
+
+@Composable
+fun DefaultRoomCanvas(
+    theme: RoomTheme,
+    placedAchievements: Map<String, String>,
+    placedRoomItems: Map<String, String>,
+    shelfSlots: List<TrophyCaseCatalog.ShelfSlot>,
+    modifier: Modifier = Modifier,
+    woodTheme: WoodTheme) {
     val transition = rememberInfiniteTransition(label = "medalShimmer")
+    val pathData = "M422,728L629,480L469,480L498,253L313,520L452,520L422,728ZM343.08,857.69L383.08,580L198.08,580L527.69,104.23L576.92,104.23L537.31,420L757.3,420L392.31,857.69L343.08,857.69ZM471,490L471,490L471,490L471,490L471,490L471,490Z"
+    val lightningPath = PathParser().parsePathString(pathData).toPath()
 
     val shimmerProgress by transition.animateFloat(
         initialValue = 0f,
@@ -887,9 +1019,9 @@ fun DefaultRoomCanvas(theme: RoomTheme, placedAchievements: Map<String, String>,
         val h = size.height
 
         clipRect(
-            left   = 0f,
-            top    = 0f,
-            right  = w,
+            left = 0f,
+            top = 0f,
+            right = w,
             bottom = h
         ) {
             // Back wall
@@ -1199,8 +1331,404 @@ fun DefaultRoomCanvas(theme: RoomTheme, placedAchievements: Map<String, String>,
                     }
                 }
             }
+
+            drawPlacedItems(
+                placedRoomItems = placedRoomItems,
+                woodTheme = woodTheme,
+                canvasWidth = w,
+                canvasHeight = h,
+                iconPath = lightningPath
+            )
         }
     }
+}
+
+private fun DrawScope.drawPlacedItems(
+    placedRoomItems: Map<String, String>,
+    woodTheme: WoodTheme,
+    canvasWidth: Float,
+    canvasHeight: Float,
+    iconPath: Path
+) {
+    placedRoomItems.forEach { (anchorId, itemId) ->
+        val anchor = RoomAnchorCatalog.all.find { it.id == anchorId }?: return@forEach
+        val item = RoomItemCatalog.all.find { it.id == itemId }?: return@forEach
+
+        val cx = canvasWidth * anchor.xFraction
+        val cy = canvasHeight * anchor.yFraction
+        val iw = canvasWidth * item.widthFraction
+        val ih = canvasHeight * item.heightFraction
+
+        when (itemId) {
+            "poster_uptime" -> drawUptimePoster(cx, cy, iw, ih, woodTheme, iconPath)
+            "poster_band" -> drawBandPoster(cx, cy, iw, ih, woodTheme)
+            "poster_movie" -> drawMoviePoster(cx, cy, iw, ih, woodTheme)
+            else -> drawGenericItem(cx, cy, iw, ih)
+        }
+    }
+}
+
+private fun DrawScope.drawUptimePoster(
+    cx: Float, cy: Float,
+    width: Float, height: Float,
+    woodTheme: WoodTheme,
+    iconPath: Path
+) {
+    val lightningPath = iconPath
+    val bounds = lightningPath.getBounds()
+
+    val left = cx - width / 2f
+    val top = cy - height / 2f
+    val right = cx + width / 2f
+    val bottom = cy + height / 2f
+
+    val primary = Color(0xFF359B60)
+
+    // Frame Shadow
+    drawRoundRect(
+        color = Color.Black.copy(alpha = 0.18f),
+        topLeft = Offset(left + 3f, top + 3f),
+        size = Size(width, height),
+        cornerRadius = CornerRadius(4f)
+    )
+
+    // Frame
+    val frameThickness = width * 0.06f
+    drawRoundRect(
+        color = woodTheme.woodFront,
+        topLeft = Offset(left, top),
+        size = Size(width, height),
+        cornerRadius = CornerRadius(4f)
+    )
+    // Frame top
+    drawRoundRect(
+        color = woodTheme.woodTop,
+        topLeft = Offset(left, top),
+        size = Size(width, frameThickness * 0.5f),
+        cornerRadius = CornerRadius(2f)
+    )
+
+    // Poster background
+    drawRoundRect(
+        color = primary,
+        topLeft = Offset(left + frameThickness, top + frameThickness),
+        size = Size(width - frameThickness * 2, height - frameThickness * 2),
+        cornerRadius = CornerRadius(2f)
+    )
+
+    val logoR = width * 0.22f
+    val logoX = cx
+    val logoY = cy - height * 0.08f
+
+    // Circle background
+    drawCircle(
+        color = Color.White.copy(alpha = 0.15f),
+        radius = logoR * 1.15f,
+        center = Offset(logoX, logoY)
+    )
+    drawCircle(
+        color = Color.White,
+        radius = logoR,
+        center = Offset(logoX, logoY)
+    )
+
+    val iconScale = (logoR * 1.4f) / bounds.height
+    withTransform({
+        translate(logoX, logoY)
+        scale(iconScale, iconScale, pivot = Offset.Zero)
+        translate(-bounds.center.x, -bounds.center.y)
+    }) {
+        drawPath(
+            path = lightningPath,
+            color = Color(0xFF9BD2A9)
+        )
+    }
+
+    val textY = logoY + logoR + height * 0.1f
+    val textW = width * 0.55f
+    val barH = height * 0.055f
+
+    // Title bar
+    drawRoundRect(
+        color = Color.White,
+        topLeft = Offset(cx - textW / 2f, textY),
+        size = Size(textW, barH),
+        cornerRadius = CornerRadius(barH / 2f)
+    )
+    // Subtitle bar
+    drawRoundRect(
+        color = Color.White.copy(alpha = 0.55f),
+        topLeft = Offset(cx - textW * 0.35f, textY + barH + height * 0.03f),
+        size = Size(textW * 0.7f, barH * 0.55f),
+        cornerRadius = CornerRadius(barH / 2f)
+    )
+
+    // Hanging wire at top
+    val wireY = top - height * 0.035f
+    drawLine(
+        color = woodTheme.woodDark,
+        start = Offset(left + width * 0.3f, top),
+        end = Offset(cx - width * 0.05f, wireY),
+        strokeWidth = 2.5f
+    )
+    drawLine(
+        color = woodTheme.woodDark,
+        start = Offset(right - width * 0.3f, top),
+        end = Offset(cx + width * 0.05f, wireY),
+        strokeWidth = 2.5f
+    )
+    // Nail
+    drawCircle(
+        color = woodTheme.woodDark,
+        radius = 3.5f,
+        center = Offset(cx, wireY)
+    )
+}
+
+private fun DrawScope.drawBandPoster(
+    cx: Float, cy: Float,
+    width: Float, height: Float,
+    woodTheme: WoodTheme
+) {
+    val left = cx - width / 2f
+    val top = cy - height / 2f
+    val right = cx + width / 2f
+    val bottom = cy + height / 2f
+
+    val bg = Color(0xFF28283F)
+    val accent1 = Color(0xFF009688)
+    val accent2 = Color(0xFF8BC34A)
+
+    val frameThickness = width * 0.06f
+
+    // Shadow
+    drawRoundRect(
+        color = Color.Black.copy(alpha = 0.18f),
+        topLeft = Offset(left + 3f, top + 3f),
+        size = Size(width, height),
+        cornerRadius = CornerRadius(4f)
+    )
+
+    clipRect(
+        top = top,
+        left = left,
+        bottom = bottom,
+        right = right) {
+        // Frame
+        drawRoundRect(
+            color = woodTheme.woodFront,
+            topLeft = Offset(left, top),
+            size = Size(width, height),
+            cornerRadius = CornerRadius(4f)
+        )
+        // Frame top
+        drawRoundRect(
+            color = woodTheme.woodTop,
+            topLeft = Offset(left, top),
+            size = Size(width, frameThickness * 0.5f),
+            cornerRadius = CornerRadius(2f)
+        )
+
+        // Poster background
+        drawRoundRect(
+            color = bg,
+            topLeft = Offset(left + frameThickness, top + frameThickness),
+            size = Size(width - frameThickness * 2, height - frameThickness * 2),
+            cornerRadius = CornerRadius(2f)
+        )
+
+        val innerLeft = left + frameThickness
+        val innerTop = top + frameThickness
+        val innerWidth = width - frameThickness * 2
+        val innerHeight = height - frameThickness * 2
+
+        val stripeWidth = innerWidth * 0.25f
+        for (i in 0..3) {
+            if (i == 0 || i == 3) {
+                drawRect(
+                    color = if (i % 2 == 0) accent1 else accent2,
+                    topLeft = Offset(
+                        innerLeft + i * stripeWidth,
+                        innerTop
+                    ),
+                    size = Size(stripeWidth, innerHeight),
+                    alpha = 0.3f
+                )
+            }
+        }
+
+        // Central abstract "band logo" shape (circle + cut)
+        val center = Offset(cx, cy - innerHeight * 0.1f)
+        val r = innerWidth * 0.18f
+
+        drawCircle(
+            color = Color.White,
+            radius = r,
+            center = center
+        )
+
+        drawRect(
+            color = bg,
+            topLeft = Offset(center.x - r, center.y * 1.01f),
+            size = Size(r * 2, r)
+        )
+
+        // Bottom text bars
+        val barW = innerWidth * 0.6f
+        val barH = innerHeight * 0.05f
+        val baseY = innerTop + innerHeight * 0.7f
+
+        drawRoundRect(
+            color = Color.White,
+            topLeft = Offset(cx - barW / 2, baseY),
+            size = Size(barW, barH),
+            cornerRadius = CornerRadius(barH / 2)
+        )
+
+        drawRoundRect(
+            color = Color.White.copy(alpha = 0.5f),
+            topLeft = Offset(cx - barW * 0.35f, baseY + barH + 10f),
+            size = Size(barW * 0.7f, barH * 0.6f),
+            cornerRadius = CornerRadius(barH / 2)
+        )
+    }
+}
+
+private fun DrawScope.drawMoviePoster(
+    cx: Float, cy: Float,
+    width: Float, height: Float,
+    woodTheme: WoodTheme
+) {
+    val left = cx - width / 2f
+    val top = cy - height / 2f
+    val right = cx + width / 2f
+    val bottom = cy + height / 2f
+
+    val frameThickness = width * 0.06f
+
+    val sky = Color(0xFFF6FAFA)
+    val water = Color(0xFF0078A7)
+
+    // Shadow
+    drawRoundRect(
+        color = Color.Black.copy(alpha = 0.18f),
+        topLeft = Offset(left + 3f, top + 3f),
+        size = Size(width, height),
+        cornerRadius = CornerRadius(4f)
+    )
+
+    // Frame
+    drawRoundRect(
+        color = woodTheme.woodFront,
+        topLeft = Offset(left, top),
+        size = Size(width, height),
+        cornerRadius = CornerRadius(4f)
+    )
+    // Frame top
+    drawRoundRect(
+        color = woodTheme.woodTop,
+        topLeft = Offset(left, top),
+        size = Size(width, frameThickness * 0.5f),
+        cornerRadius = CornerRadius(2f)
+    )
+
+    val innerLeft = left + frameThickness
+    val innerRight = right - frameThickness
+    val innerTop = top + frameThickness
+    val innerWidth = width - frameThickness * 2
+    val innerHeight = height - frameThickness * 2
+    val innerBottom = bottom - frameThickness
+
+    clipRect(
+        top = innerTop,
+        left = innerLeft,
+        right = innerRight,
+        bottom = innerBottom
+    )
+    {
+        // Sky background
+        drawRoundRect(
+            color = sky,
+            topLeft = Offset(innerLeft, innerTop),
+            size = Size(innerWidth, innerHeight),
+            cornerRadius = CornerRadius(2f)
+        )
+
+        // Horizon
+        val horizonY = innerTop + innerHeight * 0.275f
+
+        drawRect(
+            color = water.copy(alpha = 0.4f),
+            topLeft = Offset(innerLeft, horizonY),
+            size = Size(innerWidth, innerHeight - (horizonY - innerTop))
+        )
+
+
+        // Shark
+        val peakHeight = innerHeight * 0.56f
+        drawCircle(
+            color = Color.Black,
+            center = Offset(cx - innerWidth * 0.2f, (innerBottom - peakHeight*0.4f)),
+            radius = innerWidth * 0.1f
+        )
+        drawCircle(
+            color = Color.Black,
+            center = Offset(cx + innerWidth * 0.2f, (innerBottom - peakHeight*0.4f)),
+            radius = innerWidth * 0.1f
+        )
+
+        drawPath(
+            path = Path().apply {
+                moveTo(cx - innerWidth * 0.35f, innerBottom)
+                lineTo(cx - innerWidth * 0.25f, innerBottom - peakHeight*0.52f)
+                lineTo(cx, innerBottom - peakHeight)
+                lineTo(cx + innerWidth * 0.25f, innerBottom - peakHeight*0.52f)
+                lineTo(cx + innerWidth * 0.35f, innerBottom)
+                close()
+            },
+            color = Color(0xFF9BA1A4)
+        )
+
+        drawOval(
+            color = Color.Black,
+            size = Size(innerWidth * 0.4f, innerHeight * 0.44f),
+            topLeft = Offset(cx - innerWidth * 0.2f, innerBottom - innerHeight * 0.25f),
+        )
+
+        drawOval(
+            color = Color(0xFF9BA1A4),
+            size = Size(innerWidth * 0.44f, innerHeight * 0.37f),
+            topLeft = Offset(cx - innerWidth * 0.22f, innerBottom - innerHeight * 0.17f),
+        )
+
+        // Title bar
+        val barW = innerWidth * 0.7f
+        val barH = innerHeight * 0.125f
+
+        val textY = innerTop + innerHeight * 0.075f
+
+        drawRoundRect(
+            color = Color.Red,
+            topLeft = Offset(cx - barW / 2, textY),
+            size = Size(barW, barH),
+            cornerRadius = CornerRadius(barH / 2)
+        )
+
+        drawRect(
+            color = water.copy(alpha = 0.2f),
+            topLeft = Offset(innerLeft, horizonY),
+            size = Size(innerWidth, innerHeight - (horizonY - innerTop))
+        )
+    }
+}
+
+private fun DrawScope.drawGenericItem(cx: Float, cy: Float, width: Float, height: Float) {
+    drawRoundRect(
+        color = Color.Gray.copy(alpha = 0.4f),
+        topLeft = Offset(cx - width / 2f, cy - height / 2f),
+        size = Size(width, height),
+        cornerRadius = CornerRadius(4f)
+    )
 }
 
 private fun DrawScope.drawShelfTrophies(
@@ -1246,7 +1774,7 @@ private fun DrawScope.drawSectionTrophies(
     if (filledSlots.isEmpty()) return
     if (isLargeSection) {
         val largeSlot = filledSlots.find { it.acceptedSizes.contains(AchievementSize.Large) }
-        val medSlots  = filledSlots.filter { it.acceptedSizes.contains(AchievementSize.Medium) }
+        val medSlots = filledSlots.filter { it.acceptedSizes.contains(AchievementSize.Medium) }
 
         if (largeSlot != null && placedAchievements[largeSlot.id] != null) {
             // find trophy theme by extracting its id and finding in all trophies
@@ -1867,9 +2395,6 @@ fun VisitDisplay(
                     }
                 }
             }
-
-            Spacer(modifier = Modifier.height(12.dp))
-
 
             Row(
                 modifier = Modifier
