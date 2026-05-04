@@ -1,6 +1,7 @@
 package com.example.uptime.screentime
 
 import android.app.Application
+import android.util.Log
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.DisposableEffect
 import androidx.compose.runtime.collectAsState
@@ -12,6 +13,8 @@ import androidx.lifecycle.LifecycleEventObserver
 import androidx.lifecycle.compose.LocalLifecycleOwner
 import androidx.lifecycle.viewmodel.compose.viewModel
 import com.example.uptime.screentime.viewmodel.ScreenTimeViewModel
+
+private const val TAG = "ScreenTimeRoute"
 
 @Composable
 fun ScreenTimeRoute(
@@ -25,6 +28,7 @@ fun ScreenTimeRoute(
             application = application,
             updateScreenTime = { snapshot ->
                 val totalMinutes = (snapshot.totalTrackedTimeMs / 60_000L).toInt()
+                Log.d(TAG, "Dashboard screen time update requested: totalMinutes=$totalMinutes, trackedApps=${snapshot.trackedApps.size}")
                 updateScreenTime(totalMinutes)
             }
         )
@@ -37,6 +41,7 @@ fun ScreenTimeRoute(
     DisposableEffect(lifecycleOwner, viewModel) {
         val observer = LifecycleEventObserver { _, event ->
             if (event == Lifecycle.Event.ON_RESUME) {
+                Log.d(TAG, "Lifecycle ON_RESUME observed; refreshing screen time")
                 viewModel.onReturnedFromSettings()
             }
         }
@@ -51,12 +56,15 @@ fun ScreenTimeRoute(
     ScreenTimeScreen(
         uiState = uiState,
         onOpenUsageAccessSettings = {
+            Log.d(TAG, "Opening Usage Access settings")
             ScreenTimePermission.openUsageAccessSettings(context)
         },
         onTogglePackage = { packageName, isSelected ->
+            Log.d(TAG, "Package selection changed: packageName=$packageName, isSelected=$isSelected")
             viewModel.togglePackage(packageName, isSelected)
         },
         onRefresh = {
+            Log.d(TAG, "Manual screen time refresh requested")
             viewModel.refresh()
         }
     )

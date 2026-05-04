@@ -1,10 +1,12 @@
 package com.example.uptime.walking
 
+import android.util.Log
 import com.example.uptime.walking.datasource.DeviceSensorStepsDataSource
 import com.example.uptime.walking.datasource.HealthConnectStepsDataSource
 import com.example.uptime.walking.merge.WalkingMergeEngine
 import com.example.uptime.walking.model.WalkingStats
 
+private const val TAG = "WalkingRepo"
 
 class WalkingRepository(
     private val healthConnectSource: HealthConnectStepsDataSource,
@@ -19,21 +21,26 @@ class WalkingRepository(
     fun isMethodEnabled(method: TrackingMethod): Boolean = method in enabledMethods
 
     fun setMethodEnabled(method: TrackingMethod, enabled: Boolean) {
+        Log.d(TAG, "setMethodEnabled called: method=$method, enabled=$enabled")
         if (enabled) enabledMethods += method else enabledMethods -= method
 
         when (method) {
             TrackingMethod.HEALTH_CONNECT -> prefs.setHealthConnectEnabled(enabled)
             TrackingMethod.DEVICE_SENSOR -> prefs.setDeviceSensorEnabled(enabled)
         }
+        Log.d(TAG, "Enabled methods updated: healthConnect=${TrackingMethod.HEALTH_CONNECT in enabledMethods}, deviceSensor=${TrackingMethod.DEVICE_SENSOR in enabledMethods}")
     }
     suspend fun getWalkingStats(
         startMillis: Long,
         endMillis: Long
     ): WalkingStats {
+        Log.d(TAG, "getWalkingStats called: startMillis=$startMillis, endMillis=$endMillis")
         val useHealthConnect = TrackingMethod.HEALTH_CONNECT in enabledMethods
         val useSensor = TrackingMethod.DEVICE_SENSOR in enabledMethods
+        Log.d(TAG, "Walking sources: useHealthConnect=$useHealthConnect, useSensor=$useSensor")
 
         if (!useHealthConnect && !useSensor) {
+            Log.d(TAG, "No walking sources enabled; returning empty stats")
             return WalkingStats()
         }
 
@@ -50,6 +57,7 @@ class WalkingRepository(
         }
 
         val totalSteps = maxOf(healthConnectSteps, sensorSteps)
+        Log.d(TAG, "Raw step totals: healthConnectSteps=$healthConnectSteps, sensorSteps=$sensorSteps, chosenTotalSteps=$totalSteps")
 
         val sessionCandidates = buildList {
             if (useHealthConnect) {
@@ -60,8 +68,10 @@ class WalkingRepository(
             }
         }
 
+        Log.d(TAG, "Walking session candidates loaded: candidateCount=${sessionCandidates.size}")
         val mergedSessions = WalkingMergeEngine.mergeSessions(sessionCandidates)
         val measuredMinutes = WalkingMergeEngine.totalMinutes(mergedSessions)
+        Log.d(TAG, "Walking sessions merged: mergedCount=${mergedSessions.size}, measuredMinutes=$measuredMinutes")
 
         val estimatedMinutes = totalSteps / 100L
 
@@ -79,6 +89,7 @@ class WalkingRepository(
         } else {
             measuredMinutes
         }
+        Log.d(TAG, "Walking minutes decision: estimatedMinutes=$estimatedMinutes, usedFallback=$usedFallback, finalMinutes=$finalMinutes")
 
         return WalkingStats(
             totalSteps = totalSteps,

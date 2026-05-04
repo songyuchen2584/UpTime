@@ -26,6 +26,9 @@ import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
+import android.util.Log
+
+private const val TAG = "NotificationScreen"
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
@@ -64,13 +67,18 @@ fun NotificationSettingsScreen(
 
                     Switch(
                         checked = settings.screenWarningEnabled,
-                        onCheckedChange = onScreenWarningToggle
+                        onCheckedChange = { enabled ->
+                            Log.d(TAG, "Screen warning switch clicked: enabled=$enabled")
+                            onScreenWarningToggle(enabled)
+                        }
                     )
                 }
 
                 Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
                     Button(onClick = {
-                        onThresholdChange(settings.screenWarningThresholdMinutes - 1)
+                        val newThreshold = settings.screenWarningThresholdMinutes - 1
+                        Log.d(TAG, "Decrease threshold clicked: newThreshold=$newThreshold")
+                        onThresholdChange(newThreshold)
                     }) {
                         Text("-1")
                     }
@@ -81,7 +89,9 @@ fun NotificationSettingsScreen(
                     )
 
                     Button(onClick = {
-                        onThresholdChange(settings.screenWarningThresholdMinutes + 1)
+                        val newThreshold = settings.screenWarningThresholdMinutes + 1
+                        Log.d(TAG, "Increase threshold clicked: newThreshold=$newThreshold")
+                        onThresholdChange(newThreshold)
                     }) {
                         Text("+1")
                     }
@@ -109,13 +119,19 @@ fun NotificationSettingsScreen(
 
                     Switch(
                         checked = settings.walkingReminderEnabled,
-                        onCheckedChange = onWalkingReminderToggle
+                        onCheckedChange = { enabled ->
+                            Log.d(TAG, "Walking reminder switch clicked: enabled=$enabled")
+                            onWalkingReminderToggle(enabled)
+                        }
                     )
                 }
 
                 var showTimePicker by remember { mutableStateOf(false) }
 
-                Button(onClick = { showTimePicker = true }) {
+                Button(onClick = {
+                    Log.d(TAG, "Open walking reminder time picker clicked")
+                    showTimePicker = true
+                }) {
                     Text("Change reminder time")
                 }
 
@@ -131,6 +147,7 @@ fun NotificationSettingsScreen(
                         confirmButton = {
                             TextButton(
                                 onClick = {
+                                    Log.d(TAG, "Saving walking reminder time: hour=${timePickerState.hour}, minute=${timePickerState.minute}")
                                     onWalkingTimeChange(
                                         timePickerState.hour,
                                         timePickerState.minute
@@ -142,7 +159,10 @@ fun NotificationSettingsScreen(
                             }
                         },
                         dismissButton = {
-                            TextButton(onClick = { showTimePicker = false }) {
+                            TextButton(onClick = {
+                                Log.d(TAG, "Walking reminder time picker canceled")
+                                showTimePicker = false
+                            }) {
                                 Text("Cancel")
                             }
                         },

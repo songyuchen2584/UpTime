@@ -14,6 +14,8 @@ import com.example.uptime.screentime.models.ScreenTimeSnapshot
 import java.util.Calendar
 import java.util.Date
 
+private const val TAG = "ScreenTimeRepo"
+
 class ScreenTimeRepository(
     private val context: Context
 ) {
@@ -32,10 +34,13 @@ class ScreenTimeRepository(
     }
 
     fun hasUsageAccess(): Boolean {
-        return ScreenTimePermission.hasUsageAccess(context)
+        val hasAccess = ScreenTimePermission.hasUsageAccess(context)
+        Log.d(TAG, "Usage access check result: hasAccess=$hasAccess")
+        return hasAccess
     }
 
     fun getInstalledApps(): List<InstalledAppInfo> {
+        Log.d(TAG, "Loading installed apps")
         val pm = context.packageManager
 
         val installedApps = if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU) {
@@ -45,7 +50,7 @@ class ScreenTimeRepository(
             pm.getInstalledApplications(0)
         }
 
-        return installedApps
+        val result = installedApps
             .asSequence()
             .filter { appInfo -> shouldIncludeApp(appInfo, pm) }
             .map { appInfo ->
@@ -67,6 +72,9 @@ class ScreenTimeRepository(
             .distinctBy { it.packageName }
             .sortedBy { it.appLabel.lowercase() }
             .toList()
+
+        Log.d(TAG, "Installed apps loaded: rawCount=${installedApps.size}, filteredCount=${result.size}")
+        return result
     }
 
     private fun shouldIncludeApp(
@@ -89,6 +97,7 @@ class ScreenTimeRepository(
         end: Long,
         selectedPackages: Set<String>
     ): Map<String, Long> {
+        Log.d(TAG, "Computing usage: start=$start, end=$end, selectedCount=${selectedPackages.size}")
         val usageEvents = usageStatsManager.queryEvents(start, end)
         val event = UsageEvents.Event()
 
@@ -111,7 +120,12 @@ class ScreenTimeRepository(
             foregroundStartTime = 0L
         }
 
+        var eventCount = 0
+        var resumedCount = 0
+        var pausedCount = 0
+
         while (usageEvents.hasNextEvent()) {
+            eventCount++
             usageEvents.getNextEvent(event)
 
             val pkg = event.packageName ?: continue
@@ -119,6 +133,7 @@ class ScreenTimeRepository(
 
             when (event.eventType) {
                 UsageEvents.Event.ACTIVITY_RESUMED -> {
+                    resumedCount++
                     // If another app was already marked foreground, close it first.
                     closeForegroundSession(time)
 
@@ -129,6 +144,7 @@ class ScreenTimeRepository(
                 }
 
                 UsageEvents.Event.ACTIVITY_PAUSED -> {
+                    pausedCount++
                     // Only close if this pause belongs to the currently active app.
                     if (foregroundPackage == pkg) {
                         closeForegroundSession(time)
@@ -140,6 +156,7 @@ class ScreenTimeRepository(
         // If selected app is still open at query end, count until now/end.
         closeForegroundSession(end)
 
+        Log.d(TAG, "Usage computed: eventCount=$eventCount, resumedCount=$resumedCount, pausedCount=$pausedCount, resultCount=${totalTime.size}, totalMs=${totalTime.values.sum()}")
         return totalTime
     }
 
@@ -160,7 +177,11 @@ class ScreenTimeRepository(
     }
 
     fun getTodayUsageForSelectedApps(selectedPackages: Set<String>): List<AppScreenTime> {
-        if (!hasUsageAccess() || selectedPackages.isEmpty()) return emptyList()
+        Log.d(TAG, "getTodayUsageForSelectedApps called: selectedCount=${selectedPackages.size}")
+        if (!hasUsageAccess() || selectedPackages.isEmpty()) {
+            Log.d(TAG, "Returning empty today usage: hasAccess=${hasUsageAccess()}, selectedEmpty=${selectedPackages.isEmpty()}")
+            return emptyList()
+        }
 
         val now = System.currentTimeMillis()
 
@@ -176,11 +197,15 @@ class ScreenTimeRepository(
 
         val usageMap = computeUsageBetween(startOfDay, now, selectedPackages)
 
-        return mapToAppScreenTime(usageMap, appLabels)
+        val result = mapToAppScreenTime(usageMap, appLabels)
+        Log.d(TAG, "Today usage result: appCount=${result.size}, totalMs=${result.sumOf { it.totalTimeMs }}")
+        return result
     }
 
     fun buildTodaySnapshot(selectedPackages: Set<String>): ScreenTimeSnapshot {
+        Log.d(TAG, "Building today snapshot: selectedCount=${selectedPackages.size}")
         val usage = getTodayUsageForSelectedApps(selectedPackages)
+        Log.d(TAG, "Today snapshot built: trackedApps=${usage.size}, totalMs=${usage.sumOf { it.totalTimeMs }}")
         return ScreenTimeSnapshot(
             trackedApps = usage,
             totalTrackedTimeMs = usage.sumOf { it.totalTimeMs },
@@ -189,7 +214,9 @@ class ScreenTimeRepository(
     }
 
     fun buildYesterdaySnapshot(selectedPackages: Set<String>): ScreenTimeSnapshot {
+        Log.d(TAG, "Building yesterday snapshot: selectedCount=${selectedPackages.size}")
         if (!hasUsageAccess() || selectedPackages.isEmpty()) {
+            Log.d(TAG, "Returning empty yesterday snapshot: hasAccess=${hasUsageAccess()}, selectedEmpty=${selectedPackages.isEmpty()}")
             return ScreenTimeSnapshot(emptyList(), 0L, System.currentTimeMillis())
         }
 
@@ -214,6 +241,8 @@ class ScreenTimeRepository(
 
         val usageMap = computeUsageBetween(yesterdayStart, yesterdayEnd, selectedPackages)
         val usageList = mapToAppScreenTime(usageMap, appLabels)
+
+        Log.d(TAG, "Yesterday snapshot built: trackedApps=${usageList.size}, totalMs=${usageList.sumOf { it.totalTimeMs }}")
 
         return ScreenTimeSnapshot(
             trackedApps = usageList,

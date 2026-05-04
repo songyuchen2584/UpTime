@@ -4,6 +4,7 @@ import android.Manifest
 import android.content.Context
 import android.content.Intent
 import android.content.pm.PackageManager
+import android.util.Log
 import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.activity.result.contract.ActivityResultContracts
 import androidx.compose.runtime.Composable
@@ -17,6 +18,8 @@ import com.example.uptime.dashboard.DashboardViewModel
 import com.example.uptime.walking.datasource.StepTrackingService
 import com.example.uptime.walking.viewmodel.WalkingViewModel
 
+private const val TAG = "WalkingRoute"
+
 @Composable
 fun WalkingRoute(
     walkingViewModel: WalkingViewModel = viewModel(),
@@ -28,7 +31,8 @@ fun WalkingRoute(
 
     val hcPermissionLauncher = rememberLauncherForActivityResult(
         contract = walkingViewModel.healthConnectPermissionContract()
-    ) {
+    ) { permissions ->
+        Log.d(TAG, "Health Connect permission result: grantedCount=${permissions.size}")
         walkingViewModel.setMethodEnabled(TrackingMethod.HEALTH_CONNECT, true)
         walkingViewModel.refreshToday()
     }
@@ -36,15 +40,19 @@ fun WalkingRoute(
     val sensorPermissionLauncher = rememberLauncherForActivityResult(
         contract = ActivityResultContracts.RequestPermission()
     ) { granted ->
+        Log.d(TAG, "Activity recognition permission result: granted=$granted")
         if (granted) {
             prefs.setDeviceSensorEnabled(true)
             startStepTrackingService(context)
             walkingViewModel.setMethodEnabled(TrackingMethod.DEVICE_SENSOR, true)
             walkingViewModel.refreshToday()
+        } else {
+            Log.d(TAG, "Activity recognition permission denied; device sensor remains disabled")
         }
     }
 
     LaunchedEffect(Unit) {
+        Log.d(TAG, "WalkingRoute launched: prefHealthConnect=${prefs.isHealthConnectEnabled()}, prefDeviceSensor=${prefs.isDeviceSensorEnabled()}")
         if (prefs.isHealthConnectEnabled()) {
             walkingViewModel.setMethodEnabled(TrackingMethod.HEALTH_CONNECT, true)
         }
@@ -58,6 +66,7 @@ fun WalkingRoute(
     }
 
     LaunchedEffect(state.statsToday.totalWalkingMinutes) {
+        Log.d(TAG, "Dashboard walking update requested: minutes=${state.statsToday.totalWalkingMinutes}")
         dashboardViewModel.updateWalking(state.statsToday.totalWalkingMinutes.toInt())
     }
 
@@ -67,6 +76,7 @@ fun WalkingRoute(
         sensorAvailable = walkingViewModel.isSensorAvailable(),
         sensorTracking = walkingViewModel.isSensorTracking(),
         onToggleHealthConnect = { enabled ->
+            Log.d(TAG, "Health Connect toggle changed: enabled=$enabled")
             if (enabled) {
                 prefs.setHealthConnectEnabled(true)
                 hcPermissionLauncher.launch(walkingViewModel.healthConnectPermissions)
@@ -77,11 +87,14 @@ fun WalkingRoute(
             }
         },
         onToggleSensor = { enabled ->
+            Log.d(TAG, "Device sensor toggle changed: enabled=$enabled")
             if (enabled) {
                 val granted = ContextCompat.checkSelfPermission(
                     context,
                     Manifest.permission.ACTIVITY_RECOGNITION
                 ) == PackageManager.PERMISSION_GRANTED
+
+                Log.d(TAG, "Device sensor permission already granted=$granted")
 
                 if (granted) {
                     prefs.setDeviceSensorEnabled(true)
@@ -103,18 +116,24 @@ fun WalkingRoute(
             }
         },
         onInstallHealthConnect = {
+            Log.d(TAG, "Opening Health Connect install/update intent")
             context.startActivity(walkingViewModel.healthConnectInstallIntent())
         },
-        onRefresh = { walkingViewModel.refreshToday() }
+        onRefresh = {
+            Log.d(TAG, "Manual walking refresh requested")
+            walkingViewModel.refreshToday()
+        }
     )
 }
 
 private fun startStepTrackingService(context: Context) {
+    Log.d(TAG, "Starting StepTrackingService")
     val intent = Intent(context, StepTrackingService::class.java)
     ContextCompat.startForegroundService(context, intent)
 }
 
 private fun stopStepTrackingService(context: Context) {
+    Log.d(TAG, "Stopping StepTrackingService")
     val intent = Intent(context, StepTrackingService::class.java)
     context.stopService(intent)
 }

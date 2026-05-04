@@ -1,5 +1,6 @@
 package com.example.uptime.walking
 
+import android.util.Log
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
@@ -18,6 +19,8 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.unit.dp
 import androidx.health.connect.client.HealthConnectClient
 import com.example.uptime.walking.viewmodel.WalkingUiState
+
+private const val TAG = "WalkingScreen"
 
 @Composable
 fun WalkingScreen(
@@ -64,12 +67,18 @@ fun WalkingScreen(
                     }
                     Switch(
                         checked = state.useHealthConnect,
-                        onCheckedChange = onToggleHealthConnect
+                        onCheckedChange = { enabled ->
+                            Log.d(TAG, "Health Connect switch clicked: enabled=$enabled")
+                            onToggleHealthConnect(enabled)
+                        }
                     )
                 }
 
                 if (sdkStatus == HealthConnectClient.SDK_UNAVAILABLE_PROVIDER_UPDATE_REQUIRED) {
-                    OutlinedButton(onClick = onInstallHealthConnect) {
+                    OutlinedButton(onClick = {
+                        Log.d(TAG, "Install/Update Health Connect clicked")
+                        onInstallHealthConnect()
+                    }) {
                         Text("Install / Update Health Connect")
                     }
                 }
@@ -91,7 +100,12 @@ fun WalkingScreen(
                     }
                     Switch(
                         checked = state.useDeviceSensor,
-                        onCheckedChange = if (sensorAvailable) onToggleSensor else { {} }
+                        onCheckedChange = if (sensorAvailable) { enabled ->
+                            Log.d(TAG, "Device sensor switch clicked: enabled=$enabled")
+                            onToggleSensor(enabled)
+                        } else {
+                            { _: Boolean -> Log.d(TAG, "Device sensor switch ignored because sensor is unavailable") }
+                        }
                     )
                 }
 
@@ -123,7 +137,13 @@ fun WalkingScreen(
                     )
                 }
 
-                Button(onClick = onRefresh, enabled = !state.loading) {
+                Button(
+                    onClick = {
+                        Log.d(TAG, "Walking refresh clicked")
+                        onRefresh()
+                    },
+                    enabled = !state.loading
+                ) {
                     Text("Refresh")
                 }
             }

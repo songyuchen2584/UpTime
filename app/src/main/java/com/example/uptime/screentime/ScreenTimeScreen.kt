@@ -1,6 +1,7 @@
 package com.example.uptime.screentime
 
 import android.graphics.drawable.Drawable
+import android.util.Log
 import androidx.compose.foundation.Image
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
@@ -38,6 +39,8 @@ import androidx.compose.ui.graphics.asImageBitmap
 import androidx.compose.ui.unit.dp
 import androidx.core.graphics.drawable.toBitmap
 import com.example.uptime.screentime.models.ScreenTimeUiState
+
+private const val TAG = "ScreenTimeScreen"
 
 @Composable
 fun ScreenTimeScreen(
@@ -89,7 +92,10 @@ fun ScreenTimeScreen(
 
                     Spacer(modifier = Modifier.height(12.dp))
 
-                    Button(onClick = onOpenUsageAccessSettings) {
+                    Button(onClick = {
+                        Log.d(TAG, "Open Usage Access Settings clicked")
+                        onOpenUsageAccessSettings()
+                    }) {
                         Text("Open Settings")
                     }
                 }
@@ -153,7 +159,10 @@ fun ScreenTimeScreen(
         Spacer(modifier = Modifier.height(12.dp))
 
         Button(
-            onClick = onRefresh,
+            onClick = {
+                Log.d(TAG, "Refresh Screen Time clicked")
+                onRefresh()
+            },
             modifier = Modifier.fillMaxWidth()
         ) {
             Text("Refresh Screen Time")
@@ -175,7 +184,10 @@ fun ScreenTimeScreen(
 
         OutlinedTextField(
             value = searchQuery,
-            onValueChange = { searchQuery = it },
+            onValueChange = { query ->
+                Log.d(TAG, "Search query changed: length=${query.length}")
+                searchQuery = query
+            },
             modifier = Modifier.fillMaxWidth(),
             singleLine = true,
             placeholder = { Text("Search apps...") }
@@ -195,7 +207,10 @@ fun ScreenTimeScreen(
 
             Switch(
                 checked = showRecommendedOnly,
-                onCheckedChange = { showRecommendedOnly = it }
+                onCheckedChange = { enabled ->
+                    Log.d(TAG, "Recommended-only filter changed: enabled=$enabled")
+                    showRecommendedOnly = enabled
+                }
             )
         }
 
@@ -217,6 +232,7 @@ fun ScreenTimeScreen(
                     modifier = Modifier
                         .fillMaxWidth()
                         .clickable {
+                            Log.d(TAG, "App row clicked: packageName=${app.packageName}, newSelected=${!checked}")
                             onTogglePackage(app.packageName, !checked)
                         }
                         .padding(vertical = 8.dp)
@@ -262,6 +278,7 @@ fun ScreenTimeScreen(
                         Checkbox(
                             checked = checked,
                             onCheckedChange = { isChecked ->
+                                Log.d(TAG, "App checkbox changed: packageName=${app.packageName}, selected=$isChecked")
                                 onTogglePackage(app.packageName, isChecked)
                             }
                         )

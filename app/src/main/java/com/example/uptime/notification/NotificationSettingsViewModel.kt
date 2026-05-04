@@ -2,12 +2,15 @@ package com.example.uptime.notification
 
 import android.app.Application
 import android.content.Intent
+import android.util.Log
 import androidx.core.content.ContextCompat
 import androidx.lifecycle.AndroidViewModel
 import androidx.lifecycle.viewModelScope
 import kotlinx.coroutines.flow.SharingStarted
 import kotlinx.coroutines.flow.stateIn
 import kotlinx.coroutines.launch
+
+private const val TAG = "NotificationVM"
 
 class NotificationSettingsViewModel(
     application: Application
@@ -22,28 +25,52 @@ class NotificationSettingsViewModel(
     )
 
     fun setScreenWarningEnabled(enabled: Boolean) {
+        Log.d(TAG, "setScreenWarningEnabled called: enabled=$enabled")
         viewModelScope.launch {
-            prefs.setScreenWarningEnabled(enabled)
-            syncService()
+            try {
+                prefs.setScreenWarningEnabled(enabled)
+                Log.d(TAG, "Screen warning preference saved: enabled=$enabled")
+                syncService()
+            } catch (e: Exception) {
+                Log.e(TAG, "Failed to update screen warning preference", e)
+            }
         }
     }
 
     fun setWalkingReminderEnabled(enabled: Boolean) {
+        Log.d(TAG, "setWalkingReminderEnabled called: enabled=$enabled")
         viewModelScope.launch {
-            prefs.setWalkingReminderEnabled(enabled)
-            syncService()
+            try {
+                prefs.setWalkingReminderEnabled(enabled)
+                Log.d(TAG, "Walking reminder preference saved: enabled=$enabled")
+                syncService()
+            } catch (e: Exception) {
+                Log.e(TAG, "Failed to update walking reminder preference", e)
+            }
         }
     }
 
     fun setWalkingReminderTime(hour: Int, minute: Int) {
+        Log.d(TAG, "setWalkingReminderTime called: hour=$hour, minute=$minute")
         viewModelScope.launch {
-            prefs.setWalkingReminderTime(hour, minute)
+            try {
+                prefs.setWalkingReminderTime(hour, minute)
+                Log.d(TAG, "Walking reminder time saved")
+            } catch (e: Exception) {
+                Log.e(TAG, "Failed to update walking reminder time", e)
+            }
         }
     }
 
     fun setScreenWarningThreshold(minutes: Int) {
+        Log.d(TAG, "setScreenWarningThreshold called: minutes=$minutes")
         viewModelScope.launch {
-            prefs.setScreenWarningThreshold(minutes)
+            try {
+                prefs.setScreenWarningThreshold(minutes)
+                Log.d(TAG, "Screen warning threshold saved: minutes=$minutes")
+            } catch (e: Exception) {
+                Log.e(TAG, "Failed to update screen warning threshold", e)
+            }
         }
     }
 
@@ -54,10 +81,18 @@ class NotificationSettingsViewModel(
 
         val intent = Intent(context, NotificationMonitorService::class.java)
 
-        if (enabled) {
-            ContextCompat.startForegroundService(context, intent)
-        } else {
-            context.stopService(intent)
+        Log.d(TAG, "syncService: screenWarning=${settings.value.screenWarningEnabled}, walkingReminder=${settings.value.walkingReminderEnabled}, serviceEnabled=$enabled")
+
+        try {
+            if (enabled) {
+                Log.d(TAG, "Starting NotificationMonitorService")
+                ContextCompat.startForegroundService(context, intent)
+            } else {
+                Log.d(TAG, "Stopping NotificationMonitorService")
+                context.stopService(intent)
+            }
+        } catch (e: Exception) {
+            Log.e(TAG, "Failed to sync NotificationMonitorService", e)
         }
     }
 }
