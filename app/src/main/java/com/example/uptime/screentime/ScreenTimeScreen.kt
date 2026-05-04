@@ -39,6 +39,7 @@ import androidx.compose.ui.graphics.asImageBitmap
 import androidx.compose.ui.unit.dp
 import androidx.core.graphics.drawable.toBitmap
 import com.example.uptime.screentime.models.ScreenTimeUiState
+import androidx.compose.ui.platform.testTag
 
 private const val TAG = "ScreenTimeScreen"
 
@@ -216,7 +217,7 @@ fun ScreenTimeScreen(
 
         Spacer(modifier = Modifier.height(12.dp))
 
-        // 🔥 INNER SCROLLABLE LIST (fixed height)
+        //  INNER SCROLLABLE LIST (fixed height)
         LazyColumn(
             modifier = Modifier
                 .fillMaxWidth()
@@ -280,7 +281,8 @@ fun ScreenTimeScreen(
                             onCheckedChange = { isChecked ->
                                 Log.d(TAG, "App checkbox changed: packageName=${app.packageName}, selected=$isChecked")
                                 onTogglePackage(app.packageName, isChecked)
-                            }
+                            } ,
+                            modifier = Modifier.testTag("app_checkbox_${app.packageName}")
                         )
                     }
 

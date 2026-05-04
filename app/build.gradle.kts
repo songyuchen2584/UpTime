@@ -68,6 +68,7 @@ dependencies {
     implementation(libs.androidx.ui)
     implementation(libs.androidx.material3)
     implementation(libs.androidx.work.runtime.ktx)
+    implementation(libs.androidx.ui.test.junit4)
     ksp(libs.androidx.room.compiler)
     implementation(libs.gson)
 
