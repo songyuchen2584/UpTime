@@ -263,7 +263,7 @@ fun RoomScreen(viewModel: RoomViewModel = viewModel(), onVisitRandomRoom: () -> 
 
     var roomMode by rememberSaveable { mutableStateOf(RoomMode.View) }
     val currentUserId = FirebaseAuth.getInstance().currentUser?.uid
-    val isOwner = viewModel.userId == currentUserId
+    val isOwner = viewModel.userId == "me"
     var showVisitorProfile by remember { mutableStateOf(false) }
     var activePanel by rememberSaveable { mutableStateOf<RoomPanel?>(null) }
     var showRoomThemePicker by rememberSaveable { mutableStateOf(false) }
@@ -1042,6 +1042,14 @@ fun DefaultRoomCanvas(
                 size = Size(w, h * 0.03f)
             )
 
+            drawPlacedWallItems(
+                placedRoomItems = placedRoomItems,
+                woodTheme = woodTheme,
+                canvasWidth = w,
+                canvasHeight = h,
+                iconPath = lightningPath
+            )
+
             translate(left = w * 0.06f, top = h * -0.05f) {
                 val windowWidth = w * 0.275f
                 val windowHeight = h * 0.25f
@@ -1352,7 +1360,31 @@ private fun DrawScope.drawPlacedItems(
 ) {
     placedRoomItems.forEach { (anchorId, itemId) ->
         val anchor = RoomAnchorCatalog.all.find { it.id == anchorId }?: return@forEach
-        val item = RoomItemCatalog.all.find { it.id == itemId }?: return@forEach
+        val item = RoomItemCatalog.all.find { it.id == itemId && it.category != RoomItemCategory.Wall }?: return@forEach
+
+        val cx = canvasWidth * anchor.xFraction
+        val cy = canvasHeight * anchor.yFraction
+        val iw = canvasWidth * item.widthFraction
+        val ih = canvasHeight * item.heightFraction
+
+        when (itemId) {
+            "plant_pot" -> drawPottedPlant(cx, cy, iw, ih)
+            "lamp" -> drawFloorLamp(cx, cy, iw, ih, woodTheme)
+            else -> drawGenericItem(cx, cy, iw, ih)
+        }
+    }
+}
+
+private fun DrawScope.drawPlacedWallItems(
+    placedRoomItems: Map<String, String>,
+    woodTheme: WoodTheme,
+    canvasWidth: Float,
+    canvasHeight: Float,
+    iconPath: Path
+) {
+    placedRoomItems.forEach { (anchorId, itemId) ->
+        val anchor = RoomAnchorCatalog.all.find { it.id == anchorId }?: return@forEach
+        val item = RoomItemCatalog.all.find { it.id == itemId && it.category == RoomItemCategory.Wall }?: return@forEach
 
         val cx = canvasWidth * anchor.xFraction
         val cy = canvasHeight * anchor.yFraction
@@ -1366,6 +1398,204 @@ private fun DrawScope.drawPlacedItems(
             else -> drawGenericItem(cx, cy, iw, ih)
         }
     }
+}
+
+private fun DrawScope.drawPottedPlant(
+    cx: Float, baseY: Float,
+    width: Float, height: Float
+) {
+    val potColor = Color(0xFFC1440E)
+    val potDark = Color(0xFF8B3010)
+    val soilColor = Color(0xFF4A3728)
+    val stemColor = Color(0xFF4A7C59)
+    val leafColor = Color(0xFF5A9A6A)
+    val leafDark = Color(0xFF3D7A50)
+
+    val potBottom = baseY
+    val potTop = baseY - height * 0.3f
+    val potW = width * 0.7f
+
+    // Shadow
+    drawOval(
+        color = Color.Black.copy(alpha = 0.12f),
+        topLeft = Offset(cx - potW * 0.575f, potBottom - height * 0.03f),
+        size = Size(potW * 1.15f, height * 0.125f)
+    )
+
+    drawOval(
+        color = potColor,
+        topLeft = Offset(cx - potW * 0.5f, potBottom - height * 0.05f),
+        size = Size(potW, height * 0.1f)
+    )
+    // Pot
+    val potPath = Path().apply {
+        moveTo(cx - potW * 0.35f, potTop)
+        lineTo(cx + potW * 0.35f, potTop)
+        lineTo(cx + potW * 0.5f,  potBottom)
+        lineTo(cx - potW * 0.5f,  potBottom)
+        close()
+    }
+    drawPath(potPath, color = potColor)
+
+    // Pot side shading
+    val potShadePath = Path().apply {
+        moveTo(cx + potW * 0.35f, potTop)
+        lineTo(cx + potW * 0.5f,  potBottom)
+        lineTo(cx + potW * 0.3f,  potBottom  + height * 0.025f)
+        lineTo(cx + potW * 0.2f,  potTop)
+        close()
+    }
+    drawPath(potShadePath, color = potDark.copy(alpha = 0.5f))
+
+    // Pot rim
+    drawRoundRect(
+        color = potDark,
+        topLeft = Offset(cx - potW * 0.4f, potTop - height * 0.04f),
+        size = Size(potW * 0.8f, height * 0.07f),
+        cornerRadius = CornerRadius(3f)
+    )
+    drawOval(
+        color = potDark,
+        topLeft = Offset(cx - potW * 0.4f, potTop - height * 0.02f),
+        size = Size(potW * 0.8f, height * 0.07f)
+    )
+    drawOval(
+        color = potColor,
+        topLeft = Offset(cx - potW * 0.4f, potTop - height * 0.08f),
+        size = Size(potW * 0.8f, height * 0.1f)
+    )
+    // Rim top highlight
+    drawRoundRect(
+        color = potColor.copy(alpha = 0.6f),
+        topLeft = Offset(cx - potW * 0.4f, potTop - height * 0.04f),
+        size = Size(potW * 0.8f, height * 0.025f),
+        cornerRadius = CornerRadius(3f)
+    )
+
+    // Soil
+    drawOval(
+        color = soilColor,
+        topLeft = Offset(cx - potW * 0.32f, potTop - height * 0.07f),
+        size = Size(potW * 0.64f, height * 0.05f)
+    )
+
+    // Stem
+    drawLine(
+        color = stemColor,
+        start = Offset(cx, potTop - height * 0.04f),
+        end = Offset(cx, potTop - height * 0.35f),
+        strokeWidth = width * 0.06f
+    )
+
+    // Leaves
+    listOf(
+        Triple(cx - width * 0.23f, potTop - height * 0.2f,  -30f),
+        Triple(cx + width * 0.18f, potTop - height * 0.28f,  25f),
+    ).forEach { (lx, ly, angle) ->
+        rotate(degrees = angle, pivot = Offset(lx, ly)) {
+            drawOval(
+                color = leafColor,
+                topLeft = Offset(lx - width * 0.18f, ly - height * 0.1f),
+                size = Size(width * 0.46f, height * 0.17f)
+            )
+            drawLine(
+                color = leafDark,
+                start = Offset(lx - width * 0.1f, ly * 0.995f),
+                end = Offset(lx + width * 0.22f, ly * 0.995f),
+                strokeWidth = 1.5f
+            )
+        }
+    }
+}
+
+private fun DrawScope.drawFloorLamp(
+    cx: Float, baseY: Float,
+    width: Float, height: Float,
+    woodTheme: WoodTheme
+) {
+    val metalColor = Color(0xFFB0BEC5)
+    val metalDark = Color(0xFF78909C)
+    val shadeColor = Color(0xFFFFF9C4)
+    val shadeDark = Color(0xFFE6CC6A)
+
+    val shadeTop = baseY - height
+    val shadeH = height * 0.2f
+    val poleTopY = shadeTop + shadeH
+    val poleW = width * 0.1f
+    val shadeW = width * 0.85f
+
+    // Shadow
+    drawOval(
+        color = Color.Black.copy(alpha = 0.12f),
+        topLeft = Offset(cx - width * 0.4f, baseY - 3f),
+        size = Size(width * 0.8f, 10f)
+    )
+
+    // Pole
+    drawRoundRect(
+        color = metalColor,
+        topLeft = Offset(cx - poleW / 2f, poleTopY),
+        size = Size(poleW, baseY - height * 0.05f - poleTopY),
+        cornerRadius = CornerRadius(poleW / 2f)
+    )
+    // Pole highlight
+    drawRoundRect(
+        color = Color.White.copy(alpha = 0.3f),
+        topLeft = Offset(cx - poleW / 2f, poleTopY),
+        size = Size(poleW * 0.3f, baseY - height * 0.06f - poleTopY),
+        cornerRadius = CornerRadius(poleW / 2f)
+    )
+
+    // Base
+    val basePath = Path().apply {
+        moveTo(cx - width * 0.35f, baseY)
+        lineTo(cx + width * 0.35f, baseY)
+        lineTo(cx + width * 0.25f, baseY - height * 0.06f)
+        lineTo(cx - width * 0.25f, baseY - height * 0.06f)
+        close()
+    }
+    drawPath(basePath, color = metalDark)
+    // Base top highlight
+    drawLine(
+        color = metalColor,
+        start = Offset(cx - width * 0.25f, baseY - height * 0.06f),
+        end = Offset(cx + width * 0.25f, baseY - height * 0.06f),
+        strokeWidth = 2f
+    )
+
+    //  Shade
+    val shadePath = Path().apply {
+        moveTo(cx - shadeW * 0.3f, shadeTop)
+        lineTo(cx + shadeW * 0.3f, shadeTop)
+        lineTo(cx + shadeW * 0.5f, shadeTop + shadeH)
+        lineTo(cx - shadeW * 0.5f, shadeTop + shadeH)
+        close()
+    }
+    drawPath(shadePath, color = shadeColor)
+
+    // Shade side face
+    val shadeSidePath = Path().apply {
+        moveTo(cx + shadeW * 0.3f, shadeTop)
+        lineTo(cx + shadeW * 0.5f, shadeTop + shadeH)
+        lineTo(cx + shadeW * 0.38f, shadeTop + shadeH)
+        lineTo(cx + shadeW * 0.22f, shadeTop)
+        close()
+    }
+    drawPath(shadeSidePath, color = shadeDark.copy(alpha = 0.5f))
+
+    //  Shade top and bottom
+    drawRoundRect(
+        color = metalDark,
+        topLeft = Offset(cx - shadeW * 0.32f, shadeTop - 3f),
+        size = Size(shadeW * 0.64f, 5f),
+        cornerRadius = CornerRadius(2f)
+    )
+    drawRoundRect(
+        color = metalDark,
+        topLeft = Offset(cx - shadeW * 0.52f, shadeTop + shadeH - 2f),
+        size = Size(shadeW * 1.04f, 5f),
+        cornerRadius = CornerRadius(2f)
+    )
 }
 
 private fun DrawScope.drawUptimePoster(

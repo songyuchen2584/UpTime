@@ -54,13 +54,14 @@ class FriendsRepository {
 
     suspend fun updateName(name: String) {
         val uid = currentUid() ?: return
-        db.collection("users").document(uid).update("name", name).await()
+        val data = mapOf("name" to name)
+        db.collection("users").document(uid).set(data, SetOptions.merge()).await()
     }
 
     suspend fun syncStats(streak: Int, trophies: Int) {
         val uid = currentUid() ?: return
-        db.collection("users").document(uid).update(
-            mapOf("streak" to streak, "trophies" to trophies)
+        db.collection("users").document(uid).set(
+            mapOf("streak" to streak, "trophies" to trophies), SetOptions.merge()
         ).await()
     }
 
@@ -82,12 +83,16 @@ class FriendsRepository {
         val myFriends = getFriendIds()?.toMutableList() ?: mutableListOf()
         if (friendUid in myFriends) return Result.failure(Exception("Already friends"))
         myFriends.add(friendUid)
-        db.collection("users").document(uid).update("friends", myFriends).await()
+        db.collection("users").document(uid)
+            .set(mapOf("friends" to myFriends), SetOptions.merge())
+            .await()
 
         val theirFriends = getFriendIdsFor(friendUid)?.toMutableList() ?: mutableListOf()
         if (uid !in theirFriends) {
             theirFriends.add(uid)
-            db.collection("users").document(friendUid).update("friends", theirFriends).await()
+            db.collection("users").document(friendUid)
+                .set(mapOf("friends" to theirFriends), SetOptions.merge())
+                .await()
         }
 
         return Result.success(friendUid)
@@ -114,14 +119,14 @@ class FriendsRepository {
 
         myFriends.add(userId)
         db.collection("users").document(uid)
-            .update("friends", myFriends)
+            .set(mapOf("friends" to myFriends), SetOptions.merge())
             .await()
 
         val theirFriends = getFriendIdsFor(userId)?.toMutableList() ?: mutableListOf()
         if (uid !in theirFriends) {
             theirFriends.add(uid)
             db.collection("users").document(userId)
-                .update("friends", theirFriends)
+                .set(mapOf("friends" to theirFriends), SetOptions.merge())
                 .await()
         }
 
@@ -133,11 +138,15 @@ class FriendsRepository {
 
         val myFriends = getFriendIds()?.toMutableList() ?: return
         myFriends.remove(friendUid)
-        db.collection("users").document(uid).update("friends", myFriends).await()
+        db.collection("users").document(uid)
+            .set(mapOf("friends" to myFriends), SetOptions.merge())
+            .await()
 
         val theirFriends = getFriendIdsFor(friendUid)?.toMutableList() ?: return
         theirFriends.remove(uid)
-        db.collection("users").document(friendUid).update("friends", theirFriends).await()
+        db.collection("users").document(friendUid)
+            .set(mapOf("friends" to theirFriends), SetOptions.merge())
+            .await()
     }
 
     fun observeFriends(): Flow<List<FriendProfile>> = callbackFlow {
