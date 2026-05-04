@@ -11,5 +11,5 @@ data class RoomSettings (
     val selectedRoomThemeId: String = "default",
     val selectedWoodThemeId: String = "oak",
     val placedAchievements: Map<String, String> = emptyMap(), // Slot id, achievementID
-    val placedRoomItems: Map<String, String> = emptyMap()
+    val placedRoomItems: Map<String, String> = emptyMap() // anchorId, itemId
 )

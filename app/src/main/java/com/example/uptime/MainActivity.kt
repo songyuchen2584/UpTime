@@ -2,6 +2,7 @@ package com.example.uptime
 
 import android.app.Application
 import android.os.Bundle
+import android.util.Log
 import androidx.activity.ComponentActivity
 import androidx.activity.compose.BackHandler
 import androidx.activity.compose.setContent
@@ -87,10 +88,8 @@ class MainActivity : ComponentActivity() {
                 }
             }
 
-        val currentUserId = FirebaseAuth.getInstance().currentUser?.uid!!
-
         val roomViewModel: RoomViewModel by viewModels {
-            RoomViewModelFactory(application, currentUserId)
+            RoomViewModelFactory(application, "me")
         }
         val dashboardViewModel: DashboardViewModel by viewModels()
 
@@ -99,8 +98,7 @@ class MainActivity : ComponentActivity() {
                 AppScaffold(
                     roomViewModel = roomViewModel,
                     dashboardViewModel = dashboardViewModel,
-                    application = application,
-                    currentUserId
+                    application = application
                 )
             }
         }
@@ -109,7 +107,7 @@ class MainActivity : ComponentActivity() {
 
 @OptIn(ExperimentalMaterial3WindowSizeClassApi::class)
 @Composable
-fun AppScaffold(roomViewModel: RoomViewModel, dashboardViewModel: DashboardViewModel, application: Application, currentUserId: String) {
+fun AppScaffold(roomViewModel: RoomViewModel, dashboardViewModel: DashboardViewModel, application: Application) {
     val windowSizeClass = currentWindowAdaptiveInfo().windowSizeClass
     val isLandscape = windowSizeClass.isWidthAtLeastBreakpoint(WindowSizeClass.WIDTH_DP_MEDIUM_LOWER_BOUND)
 
@@ -202,7 +200,15 @@ fun AppScaffold(roomViewModel: RoomViewModel, dashboardViewModel: DashboardViewM
                                 onVisitUserRoom = {userId ->
                                     backStack.add(VisitRoom(userId))
                                 },
-                                onReturn = {backStack.add(VisitRoom(currentUserId))})
+                                onReturn = {
+                                    while (backStack.lastOrNull() != NavDestination.Room && backStack.size > 1) {
+                                        backStack.removeLastOrNull()
+                                    }
+                                    // If the user wasn't at Room before, switch to it
+                                    if (backStack.lastOrNull() != NavDestination.Room) {
+                                        backStack.add(NavDestination.Room)
+                                    }
+                                })
                             NavDestination.Walking -> WalkingRoute()
                             NavDestination.ScreenTime -> ScreenTimeRoute(
                                 updateScreenTime = dashboardViewModel::updateScreenTime
@@ -237,7 +243,14 @@ fun AppScaffold(roomViewModel: RoomViewModel, dashboardViewModel: DashboardViewM
                             onVisitUserRoom = {userId ->
                                 backStack.add(VisitRoom(userId))
                             },
-                            onReturn = {backStack.add(VisitRoom(currentUserId))})
+                            onReturn = {
+                                while (backStack.lastOrNull() != NavDestination.Room && backStack.size > 1) {
+                                    backStack.removeLastOrNull()
+                                }
+                                if (backStack.lastOrNull() != NavDestination.Room) {
+                                    backStack.add(NavDestination.Room)
+                                }
+                            })
                     }
                 }
             )

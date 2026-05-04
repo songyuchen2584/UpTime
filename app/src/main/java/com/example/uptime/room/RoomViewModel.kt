@@ -1,5 +1,6 @@
 package com.example.uptime.room
 
+import android.R.attr.category
 import android.app.Application
 import android.util.Log
 import androidx.compose.runtime.Composable
@@ -13,6 +14,7 @@ import com.example.uptime.room.catalogs.TrophyCaseCatalog
 import com.example.uptime.data.UpTimeDatabase
 import com.example.uptime.data.UserStatsRepository
 import com.example.uptime.profile.FriendProfile
+import com.example.uptime.room.catalogs.RoomAnchorCatalog
 import com.example.uptime.room.catalogs.RoomItemCatalog
 import com.google.firebase.auth.FirebaseAuth
 import kotlinx.coroutines.flow.MutableSharedFlow
@@ -26,6 +28,7 @@ import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.flow.map
 import kotlinx.coroutines.flow.stateIn
 import kotlinx.coroutines.launch
+import kotlin.text.contains
 
 class RoomViewModel(application: Application, val userId: String) : AndroidViewModel(application) {
     private val db = UpTimeDatabase.Companion.getDatabase(application)
@@ -34,22 +37,25 @@ class RoomViewModel(application: Application, val userId: String) : AndroidViewM
     private val statsRepository = UserStatsRepository(db.dailyLogDao())
     private val roomRepository = FirebaseRoomRepository()
     val friendsRepository = FriendsRepository()
-    val currentUserId = FirebaseAuth.getInstance().currentUser?.uid
-    val isOwner = userId == currentUserId
-
-    private val _newlyUnlocked = MutableSharedFlow<List<Achievement>>()
-    val newlyUnlocked = _newlyUnlocked.asSharedFlow()
+    private val auth = FirebaseAuth.getInstance()
+    private val _currentUserId = MutableStateFlow<String?>(auth.currentUser?.uid)
+    val currentUserId: StateFlow<String?> = _currentUserId
+    val isOwner = userId == "me"
+    private val LOCAL_ID = "me"
 
     val currentSettings: StateFlow<RoomSettings?> = if (isOwner) {
-        rsDao.observeRoomSettings(userId)
+        rsDao.observeRoomSettings(LOCAL_ID)
             .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5000), null)
     } else {
         roomRepository.observeRoomSettings(userId)
             .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5000), null)
     }
 
+    private val _newlyUnlocked = MutableSharedFlow<List<Achievement>>()
+    val newlyUnlocked = _newlyUnlocked.asSharedFlow()
+
     val currentInventory: StateFlow<UserInventory?> = if (isOwner) {
-        invDao.observeUserInventory(userId)
+        invDao.observeUserInventory(LOCAL_ID)
             .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5000), null)
     } else {
         roomRepository.observeUserInventory(userId)
@@ -64,17 +70,36 @@ class RoomViewModel(application: Application, val userId: String) : AndroidViewM
     val roomState: StateFlow<RoomState?> = _roomState
 
     init {
-        viewModelScope.launch {
-            // Initial records
-            if (rsDao.getSettings(userId) == null) {
-                rsDao.upsertRoomSettings(RoomSettings(userId))
-                roomRepository.syncRoomSettings(userId, RoomSettings(userId))
-            }
-            if (invDao.getInventory(userId) == null) {
-                invDao.upsertInventory(UserInventory(userId))
-                roomRepository.syncInventory(userId, UserInventory(userId))
+        auth.addAuthStateListener { firebaseAuth ->
+            val newUid = firebaseAuth.currentUser?.uid
+            if (_currentUserId.value != newUid) {
+                _currentUserId.value = newUid
+                Log.d("RoomVM", "Auth identity shifted to: $newUid")
             }
         }
+
+        viewModelScope.launch {
+            if (isOwner) {
+                if (rsDao.getSettings( LOCAL_ID) == null) {
+                    rsDao.upsertRoomSettings(RoomSettings( LOCAL_ID))
+                }
+                if (invDao.getInventory( LOCAL_ID) == null) {
+                    invDao.upsertInventory(UserInventory( LOCAL_ID))
+                }
+            }
+        }
+
+        viewModelScope.launch {
+            combine(currentSettings, currentInventory, currentUserId) { settings, inventory, uid ->
+                Triple(settings, inventory, uid)
+            }.collect { (settings, inventory, uid) ->
+                if (isOwner && settings != null && inventory != null && uid != null) {
+                    roomRepository.syncRoomSettings(uid, settings.copy(userId = uid))
+                    roomRepository.syncInventory(uid, inventory.copy(userId = uid))
+                }
+            }
+        }
+
         // Automatically update when repository changes
         viewModelScope.launch {
             statsRepository.userStats.collect { stats ->
@@ -124,14 +149,29 @@ class RoomViewModel(application: Application, val userId: String) : AndroidViewM
             }
         }
         viewModelScope.launch {
-            combine(currentSettings, currentInventory) { settings, inventory ->
-                settings to inventory
-            }.collect { (settings, inventory) ->
-                if (isOwner && settings != null && inventory != null) {
-                    // Sync to Firestore
-                    viewModelScope.launch {
-                        roomRepository.syncRoomSettings(userId, settings)
-                        roomRepository.syncInventory(userId, inventory)
+            combine(currentSettings, currentInventory, currentUserId) { settings, inventory, uid ->
+                Triple(settings, inventory, uid)
+            }.collect { (settings, inventory, uid) ->
+                if (isOwner && settings != null && inventory != null && uid != null) {
+
+                    val settingsToSync = settings.copy(userId = uid)
+                    val inventoryToSync = inventory.copy(userId = uid)
+
+                    roomRepository.syncRoomSettings(uid, settingsToSync)
+                    roomRepository.syncInventory(uid, inventoryToSync)
+                }
+            }
+        }
+        viewModelScope.launch {
+            val uid = auth.currentUser?.uid
+            if (isOwner && uid != null) {
+                val localSettings = rsDao.getSettings("me")
+
+                // If local is empty, try to fetch
+                if (localSettings == null) {
+                    val remoteSettings = roomRepository.getRoomSettings(uid)
+                    if (remoteSettings != null) {
+                        rsDao.upsertRoomSettings(remoteSettings.copy(userId = "me"))
                     }
                 }
             }
@@ -166,6 +206,51 @@ class RoomViewModel(application: Application, val userId: String) : AndroidViewM
             onResult(randomUserId)
             Log.d("RandomRoom", "CurrentUserId: $currentUserId")
             Log.d("RandomRoom", "RandomUserId: $randomUserId")
+        }
+    }
+
+    fun placeRoomItem(itemId: String, anchorId: String) {
+        viewModelScope.launch {
+            val settings = rsDao.getSettings(userId) ?: RoomSettings(userId)
+            val anchor = RoomAnchorCatalog.all.find { it.id == anchorId }?: return@launch
+            val item = RoomItemCatalog.all.find { it.id == itemId }?: return@launch
+            if (item.category != anchor.category) return@launch
+
+            val updated = settings.placedRoomItems
+                .filterValues { it != itemId }
+                .plus(anchorId to itemId)
+
+            rsDao.upsertRoomSettings(settings.copy(placedRoomItems = updated))
+        }
+    }
+
+    fun placeRoomItem(itemId: String, category: RoomItemCategory) {
+        viewModelScope.launch {
+            val settings = rsDao.getSettings(userId) ?: RoomSettings(userId)
+            val usedAnchors = settings.placedRoomItems.keys
+            val anchor =
+                RoomAnchorCatalog.all.firstOrNull { it.category == category && it.id !in usedAnchors }
+                    ?: return@launch
+            val item = RoomItemCatalog.all.find { it.id == itemId }?: return@launch
+            if (item.category != anchor.category) return@launch
+
+
+            val updated = settings.placedRoomItems
+                .filterValues { it != itemId }
+                .plus(anchor.id to itemId)
+
+            rsDao.upsertRoomSettings(settings.copy(placedRoomItems = updated))
+        }
+    }
+
+    fun removeRoomItem(itemId: String) {
+        viewModelScope.launch {
+            val settings = rsDao.getSettings(userId)?: return@launch
+            rsDao.upsertRoomSettings(
+                settings.copy(
+                    placedRoomItems = settings.placedRoomItems.filterValues { it != itemId }
+                )
+            )
         }
     }
 
