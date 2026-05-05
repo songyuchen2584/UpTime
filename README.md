@@ -83,7 +83,7 @@ Kotlin, Jetpack Compose, Room, DataStore, Retrofit + Gson, Firebase Auth, Cloud 
 
 ## Team Workflow
 
-Each team member worked on feature branches, merging into `dev` for integration testing before pushing to `main`. Branches included `feature/room-viewmodel`, `feature/streak-screen`, `feature/api-quote`, `NavSetup`, `healthconnect-demo`, and sensor/screen time branches. Code was reviewed by checking for conflicts before each merge, and features were built to avoid touching other members' files when possible.
+Each team member worked on feature branches, merging into `dev` for integration testing before pushing to `main`. Branches included `feature/room-viewmodel`, `feature/streak-screen`, `feature/api-quote`, `NavSetup`, `healthconnect-demo`, and sensor/screen time branches. Code was reviewed for conflicts before each merge, and features were built to avoid modifying other members' files when possible.
 
 ## Team
 
@@ -96,18 +96,18 @@ Each team member worked on feature branches, merging into `dev` for integration 
 ## Setup
 
 1. Clone the repo
-2. Place `google-services.json` in `app/` (obtain from team or Firebase Console)
+2. Place `google-services.json` in `app/`
 3. Open in Android Studio, sync Gradle, run on device (API 26+)
 
 ## AI Usage
 
 ### Tool
-Claude (Anthropic)
+Claude
 ChatGPT
 <br>
 
 ### How AI was used
-Used Claude for Room/ViewModel scaffolding (Entity, DAO, Database, ViewModel), Retrofit setup (QuoteService interface + Gson for ZenQuotes API) which we dropped eventually, Firebase Auth and Firestore integration (anonymous auth, email/password sign-up, friends list repository), UI iteration, debugging, and organizing parts of README.md.
+Used Claude for Room/ViewModel scaffolding (Entity, DAO, Database, ViewModel), Retrofit setup (QuoteService interface + Gson for ZenQuotes API), which we dropped because we didn't need it anymore, Firebase Auth and Firestore integration (anonymous auth, email/password sign-up, friends list repository), UI iteration, debugging, and organizing parts of README.md.
 <br>
 
 ChatGPT was used to debug Android-specific issues, such as permission handling (e.g., understanding why permission dialogs stop appearing after repeated denials and implementing proper fallback behavior), but all suggestions were tested and adjusted to match the app’s architecture and ensure correct behavior.
@@ -116,8 +116,8 @@ All AI-generated code was verified and tested on physical devices.
 <br>
 
 ### Where it influenced the project
-- **Architecture**: Set up Room for local data and Firestore for cloud/social features.
-- **Code**: Generated auth flow and friends system. 
+- **Architecture**: Help set up Room for local data and Firestore for cloud/social features.
+- **Code**: Help generate the auth flow and friends system. 
 - **UX**: Iterated on dashboard layout, streak calendar, and profile screen.
 - **Debugging**: Identified Room/KSP version mismatch, API level fix, Firestore lookup failure on login, and Firestore room sync race condition (anonymous defaults overwriting cloud data on sign-in).
 
