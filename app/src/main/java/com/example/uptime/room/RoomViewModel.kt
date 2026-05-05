@@ -69,11 +69,14 @@ class RoomViewModel(application: Application, val userId: String) : AndroidViewM
     private val _roomState = MutableStateFlow<RoomState?>(null)
     val roomState: StateFlow<RoomState?> = _roomState
 
+    private var restoreCompleted = false
+
     init {
         auth.addAuthStateListener { firebaseAuth ->
             val newUid = firebaseAuth.currentUser?.uid
             if (_currentUserId.value != newUid) {
                 _currentUserId.value = newUid
+                restoreCompleted = false
                 Log.d("RoomVM", "Auth identity shifted to: $newUid")
             }
         }
@@ -81,35 +84,46 @@ class RoomViewModel(application: Application, val userId: String) : AndroidViewM
         viewModelScope.launch {
             _currentUserId.collect { uid ->
                 if (isOwner && uid != null) {
+                    restoreCompleted = false
                     var localSettings = rsDao.getSettings("me")
                     var localInv = invDao.getInventory("me")
 
-                    // If local is empty, try to fetch from cloud
-                    if (localSettings == null) {
-                        val remoteSettings = roomRepository.getRoomSettings(uid)
-                        if (remoteSettings != null) {
+                    val remoteSettings = roomRepository.getRoomSettings(uid)
+                    val remoteInv = roomRepository.getUserInventory(uid)
+
+                    when {
+                        // Prefer real remote data
+                        remoteSettings != null -> {
+                            Log.d("RoomVM", "Restoring settings from remote for $uid")
                             rsDao.upsertRoomSettings(remoteSettings.copy(userId = "me"))
-                            localSettings = remoteSettings
+                        }
+                        // No remote data = new user, keep or create local defaults
+                        localSettings == null -> {
+                            Log.d("RoomVM", "Creating default settings for new user")
+                            rsDao.upsertRoomSettings(RoomSettings(userId = "me"))
+                        }
+                        // Local exists, no remote = first time syncing, don't overwrite
+                        else -> {
+                            Log.d("RoomVM", "No remote settings found, keeping local for $uid")
                         }
                     }
 
-                    if (localInv == null) {
-                        val remoteInv = roomRepository.getUserInventory(uid)
-                        if (remoteInv != null) {
+                    when {
+                        remoteInv != null -> {
+                            Log.d("RoomVM", "Restoring inventory from remote for $uid")
                             invDao.upsertInventory(remoteInv.copy(userId = "me"))
-                            localInv = remoteInv
+                        }
+                        localInv == null -> {
+                            Log.d("RoomVM", "Creating default inventory for new user")
+                            invDao.upsertInventory(UserInventory(userId = "me"))
+                        }
+                        else -> {
+                            Log.d("RoomVM", "No remote inventory found, keeping local for $uid")
                         }
                     }
 
-                    // If BOTH are still null, it's a new user
-                    if (localSettings == null) {
-                        Log.d("RoomVM", "Creating default settings for new user")
-                        rsDao.upsertRoomSettings(RoomSettings(userId = "me"))
-                    }
-                    if (localInv == null) {
-                        Log.d("RoomVM", "Creating default inventory for new user")
-                        invDao.upsertInventory(UserInventory(userId = "me"))
-                    }
+                    restoreCompleted = true  // safe to sync
+                    Log.d("RoomVM", "Restore complete for $uid")
                 }
             }
         }
@@ -162,32 +176,19 @@ class RoomViewModel(application: Application, val userId: String) : AndroidViewM
                 }
             }
         }
+
         viewModelScope.launch {
             combine(currentSettings, currentInventory, currentUserId) { settings, inventory, uid ->
                 Triple(settings, inventory, uid)
             }.collect { (settings, inventory, uid) ->
-                if (isOwner && settings != null && inventory != null && uid != null) {
-
-                    val settingsToSync = settings.copy(userId = uid)
+                if (isOwner && settings != null && inventory != null && uid != null
+                    && restoreCompleted  // gate on this
+                ) {
+                    val settingsToSync  = settings.copy(userId = uid)
                     val inventoryToSync = inventory.copy(userId = uid)
 
                     roomRepository.syncRoomSettings(uid, settingsToSync)
                     roomRepository.syncInventory(uid, inventoryToSync)
-                }
-            }
-        }
-
-        viewModelScope.launch {
-            val uid = auth.currentUser?.uid
-            if (isOwner && uid != null) {
-                val localSettings = rsDao.getSettings("me")
-
-                // If local is empty, try to fetch
-                if (localSettings == null) {
-                    val remoteSettings = roomRepository.getRoomSettings(uid)
-                    if (remoteSettings != null) {
-                        rsDao.upsertRoomSettings(remoteSettings.copy(userId = "me"))
-                    }
                 }
             }
         }
