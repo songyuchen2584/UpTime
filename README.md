@@ -98,6 +98,8 @@ Each team member worked on feature branches, merging into `dev` for integration 
 
 Used Claude for Room/ViewModel scaffolding (Entity, DAO, Database, ViewModel following class lecture patterns), Retrofit setup (QuoteService interface + Gson for ZenQuotes API), Firebase Auth and Firestore integration (anonymous auth, email/password sign-up, friends list repository), debugging, and organizing some parts of README.md.
 
+ChatGPT was used to debug Android-specific issues, such as permission handling (e.g., understanding why permission dialogs stop appearing after repeated denials and implementing proper fallback behavior), but all suggestions were tested and adjusted to match the app’s architecture and ensure correct behavior.
+
 **Rejected**: Hilt dependency injection (unfamiliar library, not necessary for our use case), DataStore for user preferences (stored goals directly in Room DailyLog entity instead — simpler, one source of truth).
 
 
