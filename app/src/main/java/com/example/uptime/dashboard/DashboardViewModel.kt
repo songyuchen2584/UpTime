@@ -3,8 +3,6 @@ package com.example.uptime.dashboard
 import android.app.Application
 import androidx.lifecycle.AndroidViewModel
 import androidx.lifecycle.viewModelScope
-import com.example.uptime.api.Quote
-import com.example.uptime.api.QuoteApi
 import com.example.uptime.data.DailyLog
 import com.example.uptime.data.UpTimeDatabase
 import com.example.uptime.data.UserStatsRepository
@@ -49,10 +47,6 @@ class DashboardViewModel(application: Application) : AndroidViewModel(applicatio
             UserStatsRepository.UserStats()
         )
 
-    // daily motivational quote from API
-    private val _quote = MutableStateFlow<Quote?>(null)
-    val quote: StateFlow<Quote?> = _quote
-
     init {
         viewModelScope.launch {
             ensureTodayLogExists()
@@ -60,7 +54,6 @@ class DashboardViewModel(application: Application) : AndroidViewModel(applicatio
             catchUpMissedFinalizations()
             watchForDateChange()
         }
-        fetchQuote()
     }
 
     private suspend fun watchForDateChange() {
@@ -128,17 +121,6 @@ class DashboardViewModel(application: Application) : AndroidViewModel(applicatio
 
             if (log.streakMaintained != shouldHaveMaintained) {
                 dao.upsertLog(log.copy(streakMaintained = shouldHaveMaintained))
-            }
-        }
-    }
-
-    private fun fetchQuote() {
-        viewModelScope.launch {
-            try {
-                val result = QuoteApi.service.getRandomQuote()
-                _quote.value = result.firstOrNull()
-            } catch (_: Exception) {
-                // no quote if offline
             }
         }
     }

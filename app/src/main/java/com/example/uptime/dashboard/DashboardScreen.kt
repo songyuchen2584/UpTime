@@ -55,7 +55,6 @@ import androidx.lifecycle.Lifecycle
 import androidx.lifecycle.LifecycleEventObserver
 import androidx.lifecycle.compose.LocalLifecycleOwner
 import androidx.lifecycle.viewmodel.compose.viewModel
-import com.example.uptime.api.Quote
 import com.example.uptime.R
 import com.example.uptime.room.RoomViewModel
 import com.example.uptime.ui.theme.Coral40
@@ -168,7 +167,6 @@ fun DashboardScreen(
 
     val streak = stats.currentStreak
     val best = stats.bestStreak
-    val quote by dashboardViewModel.quote.collectAsState()
 
     // build UI state from database
     val state = DashboardState(
@@ -253,18 +251,6 @@ fun DashboardScreen(
 
         // daily status
         DailyStatusCard(state, onNavigateToWalkingProgress, onNavigateToScreenTime)
-
-        Spacer(modifier = Modifier.Companion.height(16.dp))
-
-        //Today's goals checklist
-        GoalsCard(state)
-
-        Spacer(modifier = Modifier.Companion.height(16.dp))
-
-        // daily motivational quote from API
-        quote?.let {
-            QuoteCard(it)
-        }
 
         Spacer(modifier = Modifier.Companion.height(24.dp))
     }
@@ -448,7 +434,7 @@ fun StreakCard(currentStreak: Int, bothGoalsMet: Boolean, onClick: () -> Unit = 
                 Spacer(modifier = Modifier.Companion.height(4.dp))
                 Text(
                     text = if (bothGoalsMet) "Both goals met today, keep it up until midnight!"
-                    else "Complete both goals by midnight to get your today's streak!",
+                    else "Complete Both Goals!",
                     style = MaterialTheme.typography.bodyMedium,
                     color = MaterialTheme.colorScheme.onSurfaceVariant
                 )
@@ -579,7 +565,7 @@ fun DailyStatusCard(state: DashboardState, onClickWalking: () -> Unit, onClickSc
     ) {
         Column(modifier = Modifier.Companion.padding(20.dp)) {
             Text(
-                text = "Today's Progress",
+                text = "Today's Goals",
                 style = MaterialTheme.typography.titleMedium,
                 fontWeight = FontWeight.Companion.SemiBold
             )
@@ -607,6 +593,16 @@ fun DailyStatusCard(state: DashboardState, onClickWalking: () -> Unit, onClickSc
                 onClick = onClickWalking,
                 isInverted = false  // higher is better
             )
+
+            Spacer(modifier = Modifier.Companion.height(14.dp))
+
+            Text(
+                text = "Complete both to earn ${RoomViewModel.Companion.DAILY_COMPLETION_POINTS} pts!",
+                style = MaterialTheme.typography.labelSmall,
+                color = MaterialTheme.colorScheme.primary,
+                modifier = Modifier.Companion.fillMaxWidth(),
+                textAlign = TextAlign.Companion.Center
+            )
         }
     }
 }
@@ -617,152 +613,55 @@ fun ProgressRow(
     current: Int,
     goal: Int,
     unit: String,
-    onClick: () -> Unit,
+    onClick: () -> Unit = {},
     isInverted: Boolean
 ) {
     val fraction = (current.toFloat() / goal).coerceIn(0f, 1f)
-    val isOver = if (isInverted) current > goal else current < goal
+    val goalMet = if (isInverted) current <= goal else current >= goal
     val barColor = when {
         isInverted && current > goal -> Coral40
         !isInverted && current >= goal -> MaterialTheme.colorScheme.primary
         else -> MaterialTheme.colorScheme.secondary
     }
 
-    Column(modifier = Modifier.Companion.clickable(onClick = onClick)) {
+    Column {
         Row(
-            modifier = Modifier.Companion.fillMaxWidth(),
-            horizontalArrangement = Arrangement.SpaceBetween
+            modifier = Modifier.fillMaxWidth(),
+            horizontalArrangement = Arrangement.SpaceBetween,
+            verticalAlignment = Alignment.CenterVertically
         ) {
-            Text(
-                text = label,
-                style = MaterialTheme.typography.bodyMedium,
-                color = MaterialTheme.colorScheme.onSurface
-            )
+            Row(verticalAlignment = Alignment.CenterVertically) {
+                Icon(
+                    painterResource(if (goalMet) R.drawable.check_box_checked_24px else R.drawable.check_box_blank_24px),
+                    contentDescription = null,
+                    modifier = Modifier.size(20.dp),
+                    tint = MaterialTheme.colorScheme.primary
+                )
+                Spacer(modifier = Modifier.width(8.dp))
+                Text(
+                    text = label,
+                    style = MaterialTheme.typography.bodyMedium,
+                    color = MaterialTheme.colorScheme.onSurface
+                )
+            }
             Text(
                 text = "$current / $goal $unit",
                 style = MaterialTheme.typography.bodyMedium,
-                fontWeight = FontWeight.Companion.Medium,
+                fontWeight = FontWeight.Medium,
                 color = MaterialTheme.colorScheme.onSurfaceVariant
             )
         }
 
-        Spacer(modifier = Modifier.Companion.height(6.dp))
+        Spacer(modifier = Modifier.height(6.dp))
 
         LinearProgressIndicator(
             progress = { fraction },
-            modifier = Modifier.Companion
+            modifier = Modifier
                 .fillMaxWidth()
-                .height(8.dp),
+                .height(10.dp),
             color = barColor,
-            trackColor = MaterialTheme.colorScheme.surface,
-            strokeCap = StrokeCap.Companion.Round
+            trackColor = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.15f),
+            strokeCap = StrokeCap.Round
         )
-    }
-}
-
-@Composable
-fun GoalsCard(state: DashboardState) {
-    val screenTimeMet = state.screenTimeUsed <= state.screenTimeGoal
-    val walkingMet = state.walkingDone >= state.walkingGoal
-
-    Card(
-        modifier = Modifier.Companion.fillMaxWidth(),
-        shape = androidx.compose.foundation.shape.RoundedCornerShape(16.dp),
-        colors = CardDefaults.cardColors(
-            containerColor = MaterialTheme.colorScheme.surfaceVariant
-        )
-    ) {
-        Column(modifier = Modifier.Companion.padding(20.dp)) {
-            Text(
-                text = "Daily Goals",
-                style = MaterialTheme.typography.titleMedium,
-                fontWeight = FontWeight.Companion.SemiBold
-            )
-
-            Text(
-                text = "Complete both to earn ${RoomViewModel.Companion.DAILY_COMPLETION_POINTS} pts",
-                style = MaterialTheme.typography.labelSmall,
-                color = MaterialTheme.colorScheme.primary
-            )
-
-            Spacer(modifier = Modifier.Companion.height(12.dp))
-
-            GoalRow(
-                icon = if (screenTimeMet) R.drawable.check_box_checked_24px else R.drawable.check_box_blank_24px,
-                text = "Stay under ${state.screenTimeGoal} min of screen time",
-                isDone = screenTimeMet
-            )
-
-            Spacer(modifier = Modifier.Companion.height(8.dp))
-
-            GoalRow(
-                icon = if (walkingMet) R.drawable.check_box_checked_24px else R.drawable.check_box_blank_24px,
-                text = "Walk at least ${state.walkingGoal} min",
-                isDone = walkingMet
-            )
-
-            if (screenTimeMet && walkingMet) {
-                Spacer(modifier = Modifier.Companion.height(12.dp))
-                Text(
-                    text = "Make it to midnight to increase your streak!",
-                    style = MaterialTheme.typography.bodyMedium,
-                    fontWeight = FontWeight.Companion.Medium,
-                    color = MaterialTheme.colorScheme.primary,
-                    modifier = Modifier.Companion.fillMaxWidth(),
-                    textAlign = TextAlign.Companion.Center
-                )
-            }
-        }
-    }
-}
-
-@Composable
-fun GoalRow(icon: Int, text: String, isDone: Boolean) {
-    Row(
-        verticalAlignment = Alignment.Companion.CenterVertically,
-        modifier = Modifier.Companion.fillMaxWidth()
-    ) {
-        Icon(
-            painterResource(icon),
-            contentDescription = null,
-            modifier = Modifier.Companion.size(20.dp),
-            tint = MaterialTheme.colorScheme.primary
-        )
-        Spacer(modifier = Modifier.Companion.width(12.dp))
-        Text(
-            text = text,
-            style = MaterialTheme.typography.bodyMedium,
-            color = if (isDone) MaterialTheme.colorScheme.onSurface
-            else MaterialTheme.colorScheme.onSurfaceVariant
-        )
-    }
-}
-
-@Composable
-fun QuoteCard(quote: Quote) {
-    Card(
-        modifier = Modifier.Companion.fillMaxWidth(),
-        shape = androidx.compose.foundation.shape.RoundedCornerShape(16.dp),
-        colors = CardDefaults.cardColors(
-            containerColor = MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.5f)
-        )
-    ) {
-        Column(modifier = Modifier.Companion.padding(20.dp)) {
-            Text(
-                text = "\"${quote.text}\"",
-                style = MaterialTheme.typography.bodyMedium,
-                fontStyle = FontStyle.Italic,
-                color = MaterialTheme.colorScheme.onSurface
-            )
-            Spacer(modifier = Modifier.Companion.height(8.dp))
-            Text(
-                text = "— ${quote.author}",
-                style = MaterialTheme.typography.bodySmall,
-                fontWeight = FontWeight.Companion.Medium,
-                color = MaterialTheme.colorScheme.onSurfaceVariant,
-                modifier = Modifier.Companion.fillMaxWidth(),
-                textAlign = TextAlign.Companion.End
-            )
-        }
     }
 }
