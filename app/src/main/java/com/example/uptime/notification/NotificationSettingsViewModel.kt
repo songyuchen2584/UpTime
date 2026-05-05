@@ -13,6 +13,7 @@ import kotlinx.coroutines.flow.SharingStarted
 import kotlinx.coroutines.flow.stateIn
 import kotlinx.coroutines.launch
 
+
 private const val TAG = "NotificationVM"
 
 class NotificationSettingsViewModel(
@@ -35,6 +36,19 @@ class NotificationSettingsViewModel(
                     context,
                     Manifest.permission.POST_NOTIFICATIONS
                 ) == PackageManager.PERMISSION_GRANTED
+    }
+
+    fun syncNotificationPermissionState() {
+        viewModelScope.launch {
+            if (!hasNotificationPermission()) {
+                Log.d("NotificationVM", "Notification permission missing; disabling notification toggles")
+
+                prefs.setScreenWarningEnabled(false)
+                prefs.setWalkingReminderEnabled(false)
+
+                syncService()
+            }
+        }
     }
 
     fun setScreenWarningEnabled(enabled: Boolean) {
@@ -119,4 +133,6 @@ class NotificationSettingsViewModel(
             Log.e(TAG, "Failed to sync NotificationMonitorService", e)
         }
     }
+
+
 }

@@ -1,14 +1,19 @@
 package com.example.uptime.walking.datasource
 
+import android.Manifest
 import android.app.Notification
 import android.app.NotificationChannel
 import android.app.NotificationManager
 import android.app.Service
 import android.content.Context
 import android.content.Intent
+import android.content.pm.PackageManager
 import android.os.Build
 import android.os.IBinder
+import android.util.Log
 import androidx.core.app.NotificationCompat
+import androidx.core.content.ContextCompat
+import com.example.uptime.walking.TrackingPreferences
 
 class StepTrackingService : Service() {
 
@@ -19,9 +24,28 @@ class StepTrackingService : Service() {
     }
 
     private lateinit var sensorDataSource: DeviceSensorStepsDataSource
+    private fun hasActivityRecognitionPermission(): Boolean {
+        return if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.Q) {
+            ContextCompat.checkSelfPermission(
+                this,
+                Manifest.permission.ACTIVITY_RECOGNITION
+            ) == PackageManager.PERMISSION_GRANTED
+        } else {
+            true
+        }
+    }
 
     override fun onCreate() {
         super.onCreate()
+        if (!hasActivityRecognitionPermission()) {
+            Log.d("StepTrackingService", "Physical activity permission missing; stopping service")
+
+            TrackingPreferences(applicationContext)
+                .setDeviceSensorEnabled(false)
+
+            stopSelf()
+            return
+        }
         sensorDataSource = DeviceSensorStepsDataSource.getInstance(applicationContext)
         createNotificationChannel()
         startForeground(NOTIFICATION_ID, buildNotification())
@@ -29,12 +53,32 @@ class StepTrackingService : Service() {
     }
 
     override fun onStartCommand(intent: Intent?, flags: Int, startId: Int): Int {
+        if (!hasActivityRecognitionPermission()) {
+            Log.d("StepTrackingService", "Physical activity permission missing in onStartCommand; stopping service")
+
+            TrackingPreferences(applicationContext)
+                .setDeviceSensorEnabled(false)
+
+            if (::sensorDataSource.isInitialized) {
+                sensorDataSource.stopTracking()
+            }
+
+            stopSelf()
+            return START_NOT_STICKY
+        }
+
+        if (!::sensorDataSource.isInitialized) {
+            sensorDataSource = DeviceSensorStepsDataSource.getInstance(applicationContext)
+        }
+
         sensorDataSource.startTracking()
         return START_STICKY
     }
 
     override fun onDestroy() {
-        sensorDataSource.stopTracking()
+        if (::sensorDataSource.isInitialized) {
+            sensorDataSource.stopTracking()
+        }
         super.onDestroy()
     }
 
