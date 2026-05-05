@@ -109,8 +109,15 @@ class RoomViewModel(application: Application, val userId: String) : AndroidViewM
                         }
                         // No remote data = new user, keep or create local defaults
                         localSettings == null -> {
-                            Log.d("RoomVM", "Creating default settings for new user")
-                            rsDao.upsertRoomSettings(RoomSettings(userId = "me"))
+                            val userName = if (!auth.currentUser?.isAnonymous!!) {
+                                friendsRepository.getCurrentUserName()
+                                    ?: auth.currentUser?.displayName
+                            } else null
+
+                            val displayName = if (userName != null) "$userName's Room" else "My Room"
+
+                            Log.d("RoomVM", "Creating default settings for new user, displayName=$displayName")
+                            rsDao.upsertRoomSettings(RoomSettings(userId = "me", displayName = displayName))
                         }
                         // Local exists, no remote = first time syncing, don't overwrite
                         else -> {
@@ -134,6 +141,21 @@ class RoomViewModel(application: Application, val userId: String) : AndroidViewM
 
                     restoreCompleted = true  // safe to sync
                     Log.d("RoomVM", "Restore complete for $uid")
+
+                    if (!auth.currentUser?.isAnonymous!! ) {
+                        val currentSettings = rsDao.getSettings("me")
+                        if (currentSettings?.displayName == "My Room") {
+                            val userName = friendsRepository.getCurrentUserName()
+                                ?: auth.currentUser?.displayName
+                            if (!userName.isNullOrBlank()) {
+                                val updatedName = "$userName's Room"
+                                rsDao.upsertRoomSettings(
+                                    currentSettings.copy(displayName = updatedName)
+                                )
+                                Log.d("RoomVM", "Updated room name to $updatedName after account link")
+                            }
+                        }
+                    }
                 }
             }
         }
@@ -353,7 +375,7 @@ class RoomViewModel(application: Application, val userId: String) : AndroidViewM
             "walk_50000" -> stats.totalWalkingMins >= 50000
 
             // Total spending
-            "spend_50" -> stats.totalPointsSpent >= 50
+            "spend_50" -> stats.totalPointsSpent >= 1
             "spend_250" -> stats.totalPointsSpent >= 250
             "spend_500" -> stats.totalPointsSpent >= 500
             "spend_1000" -> stats.totalPointsSpent >= 1000

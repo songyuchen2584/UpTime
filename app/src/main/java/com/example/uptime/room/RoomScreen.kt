@@ -20,6 +20,8 @@ import androidx.compose.animation.slideOutVertically
 import androidx.compose.foundation.BorderStroke
 import androidx.compose.foundation.Canvas
 import androidx.compose.foundation.background
+import androidx.compose.foundation.clickable
+import androidx.compose.foundation.interaction.MutableInteractionSource
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
@@ -280,6 +282,7 @@ fun RoomScreen(
     var showRoomThemePicker by rememberSaveable { mutableStateOf(false) }
     var showWoodThemePicker by rememberSaveable { mutableStateOf(false) }
     var showRoomItemPicker by rememberSaveable { mutableStateOf(false) }
+    var showMenu by remember { mutableStateOf(true) }
 
     LaunchedEffect(roomViewModel.userId) {
         if (isOwner) {roomMode = RoomMode.View; showVisitorProfile = false} else {roomMode = RoomMode.Visit;}
@@ -357,17 +360,24 @@ fun RoomScreen(
         ),
     )
 
-    Box(modifier = Modifier.fillMaxSize()) {
+    Box(modifier = Modifier.fillMaxSize().clickable(
+        enabled = roomMode != RoomMode.Edit,
+        onClick = { showMenu = !showMenu },
+        indication = null,
+        interactionSource = remember { MutableInteractionSource() },
+        onClickLabel = "Hide menu buttons"
+    )) {
         RoomScaffold(
             roomState,
             activeRoomTheme,
             activeWoodTheme,
             activeTrophyCaseSlots,
+            showMenu,
             roomMode,
             roomViewModel
         )
 
-        if (isShortLandscape) {
+        if (isShortLandscape && showMenu) {
             // Side panel layout for short landscape
             if (roomMode != RoomMode.Edit && roomMode != RoomMode.Visit) {
                 Column(
@@ -401,7 +411,7 @@ fun RoomScreen(
                     }
                 }
             }
-        } else {
+        } else if (showMenu) {
         if (roomMode != RoomMode.Edit) {
             Row(
                 modifier = Modifier
@@ -614,11 +624,18 @@ fun RoomScreen(
 }
 
 @Composable
-fun RoomScaffold(state: RoomState, activeRoomTheme: RoomTheme, activeWoodTheme: WoodTheme, activeTrophyCaseSlots: List<TrophyCaseCatalog.ShelfSlot>, mode: RoomMode, viewModel: RoomViewModel) {
+fun RoomScaffold(
+    state: RoomState,
+    activeRoomTheme: RoomTheme,
+    activeWoodTheme: WoodTheme,
+    activeTrophyCaseSlots: List<TrophyCaseCatalog.ShelfSlot>,
+    showMenu: Boolean,
+    mode: RoomMode,
+    viewModel: RoomViewModel) {
     Box(
         modifier = Modifier
             .fillMaxSize()
-            .background(MaterialTheme.colorScheme.surface),
+            .background(Color(0xFF3E4146)),
         contentAlignment = Alignment.Center
     ) {
         Box(
@@ -684,7 +701,7 @@ fun RoomScaffold(state: RoomState, activeRoomTheme: RoomTheme, activeWoodTheme: 
         }
     }
 
-    NameHeader(mode, state, viewModel)
+    if (showMenu) NameHeader(state)
 
     ForDemo(viewModel, mode)
 }
@@ -4000,9 +4017,7 @@ fun ExchangePanel(onClick: () -> Unit = {}, points: Int, roomMode: RoomMode) {
 }
 
 @Composable
-fun NameHeader(mode: RoomMode, state: RoomState, viewModel: RoomViewModel) {
-    var textValue by remember(state.displayName) { mutableStateOf(state.displayName) }
-
+fun NameHeader(state: RoomState) {
     Card(
         modifier = Modifier.padding(6.dp),
         elevation = CardDefaults.cardElevation(defaultElevation = 6.dp),
@@ -4012,41 +4027,12 @@ fun NameHeader(mode: RoomMode, state: RoomState, viewModel: RoomViewModel) {
             modifier = Modifier.fillMaxWidth(),
             contentAlignment = Alignment.Center
         ) {
-            if (mode == RoomMode.Edit) {
-                TextField(
-                    value = textValue,
-                    onValueChange = {textValue = it
-                        viewModel.updateDisplayName(it)},
-                    singleLine = true,
-                    textStyle = MaterialTheme.typography.titleMedium.copy(
-                        fontWeight = FontWeight.SemiBold
-                    ),
-                    colors = TextFieldDefaults.colors(
-                        focusedContainerColor = Color.Transparent,
-                        unfocusedContainerColor = Color.Transparent
-                    ),
-                    modifier = Modifier.align(Alignment.Center)
-                )
-            } else {
-                Text(
-                    state.displayName,
-                    style = MaterialTheme.typography.bodyLarge,
-                    modifier = Modifier.padding(6.dp),
-                    textAlign = TextAlign.Center
-                )
-            }
-            androidx.compose.animation.AnimatedVisibility(
-                visible = mode == RoomMode.Edit,
-                enter = fadeIn() + slideInHorizontally(initialOffsetX = { it }),
-                exit = fadeOut() + slideOutHorizontally(targetOffsetX = { it }),
-                modifier = Modifier.align(Alignment.CenterEnd)
-            ) {
-                Icon(
-                    painterResource(R.drawable.edit_20px),
-                    "Change Name",
-                    modifier = Modifier.padding(end = 6.dp)
-                )
-            }
+            Text(
+                state.displayName,
+                style = MaterialTheme.typography.bodyLarge,
+                modifier = Modifier.padding(6.dp),
+                textAlign = TextAlign.Center
+            )
         }
     }
 }
