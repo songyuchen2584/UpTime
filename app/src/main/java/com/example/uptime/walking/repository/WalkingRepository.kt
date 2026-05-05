@@ -1,6 +1,8 @@
-package com.example.uptime.walking
+package com.example.uptime.walking.repository
 
 import android.util.Log
+import com.example.uptime.walking.TrackingMethod
+import com.example.uptime.walking.TrackingPreferences
 import com.example.uptime.walking.datasource.DeviceSensorStepsDataSource
 import com.example.uptime.walking.datasource.HealthConnectStepsDataSource
 import com.example.uptime.walking.merge.WalkingMergeEngine
@@ -30,6 +32,14 @@ class WalkingRepository(
         }
         Log.d(TAG, "Enabled methods updated: healthConnect=${TrackingMethod.HEALTH_CONNECT in enabledMethods}, deviceSensor=${TrackingMethod.DEVICE_SENSOR in enabledMethods}")
     }
+
+    private fun isPermissionError(e: Throwable): Boolean {
+        return e is SecurityException ||
+                e.message?.contains("permission", ignoreCase = true) == true ||
+                e.message?.contains("SecurityException", ignoreCase = true) == true ||
+                e.cause is SecurityException ||
+                e.cause?.message?.contains("permission", ignoreCase = true) == true
+    }
     suspend fun getWalkingStats(
         startMillis: Long,
         endMillis: Long
@@ -45,7 +55,17 @@ class WalkingRepository(
         }
 
         val healthConnectSteps = if (useHealthConnect) {
-            healthConnectSource.getTotalSteps(startMillis, endMillis)
+            try {
+                healthConnectSource.getTotalSteps(startMillis, endMillis)
+            } catch (e: Throwable) {
+                if (isPermissionError(e)) {
+                    Log.e("WalkingRepo", "Health Connect permission revoked during steps read. Disabling HC.", e)
+                    setMethodEnabled(TrackingMethod.HEALTH_CONNECT, false)
+                    0L
+                } else {
+                    throw e
+                }
+            }
         } else {
             0L
         }
@@ -60,8 +80,17 @@ class WalkingRepository(
         Log.d(TAG, "Raw step totals: healthConnectSteps=$healthConnectSteps, sensorSteps=$sensorSteps, chosenTotalSteps=$totalSteps")
 
         val sessionCandidates = buildList {
-            if (useHealthConnect) {
-                addAll(healthConnectSource.getWalkingSessions(startMillis, endMillis))
+            if (TrackingMethod.HEALTH_CONNECT in enabledMethods) {
+                try {
+                    addAll(healthConnectSource.getWalkingSessions(startMillis, endMillis))
+                } catch (e: Throwable) {
+                    if (isPermissionError(e)) {
+                        Log.e("WalkingRepo", "Health Connect permission revoked during session read. Disabling HC.", e)
+                        setMethodEnabled(TrackingMethod.HEALTH_CONNECT, false)
+                    } else {
+                        throw e
+                    }
+                }
             }
             if (useSensor) {
                 addAll(deviceSensorSource.getWalkingSessions(startMillis, endMillis))

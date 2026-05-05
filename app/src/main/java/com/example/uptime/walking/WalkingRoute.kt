@@ -25,6 +25,7 @@ fun WalkingRoute(
     walkingViewModel: WalkingViewModel = viewModel(),
     dashboardViewModel: DashboardViewModel = viewModel()
 ) {
+
     val context = LocalContext.current
     val prefs = TrackingPreferences(context.applicationContext)
     val state by walkingViewModel.state.collectAsState()
@@ -47,19 +48,66 @@ fun WalkingRoute(
             walkingViewModel.setMethodEnabled(TrackingMethod.DEVICE_SENSOR, true)
             walkingViewModel.refreshToday()
         } else {
-            Log.d(TAG, "Activity recognition permission denied; device sensor remains disabled")
+            Log.d(TAG, "Permission denied")
+
+            val activity = context as? android.app.Activity
+
+            val shouldShowRationale = activity?.let {
+                androidx.core.app.ActivityCompat.shouldShowRequestPermissionRationale(
+                    it,
+                    Manifest.permission.ACTIVITY_RECOGNITION
+                )
+            } ?: false
+
+            if (!shouldShowRationale) {
+                Log.d(TAG, "Permission permanently denied OR popup not shown → opening settings")
+
+                val intent = Intent(
+                    android.provider.Settings.ACTION_APPLICATION_DETAILS_SETTINGS,
+                    android.net.Uri.fromParts("package", context.packageName, null)
+                )
+                context.startActivity(intent)
+            }
         }
     }
 
     LaunchedEffect(Unit) {
         Log.d(TAG, "WalkingRoute launched: prefHealthConnect=${prefs.isHealthConnectEnabled()}, prefDeviceSensor=${prefs.isDeviceSensorEnabled()}")
+        // guarantee that permission is checked on launch
         if (prefs.isHealthConnectEnabled()) {
-            walkingViewModel.setMethodEnabled(TrackingMethod.HEALTH_CONNECT, true)
+            val grantedPermissions = walkingViewModel.grantedHealthConnectPermissions()
+            val hasPermission =
+                grantedPermissions.containsAll(walkingViewModel.healthConnectPermissions)
+
+            Log.d(TAG, "Re-check HC permission on launch: granted=$hasPermission")
+
+            if (hasPermission) {
+                walkingViewModel.setMethodEnabled(TrackingMethod.HEALTH_CONNECT, true)
+            } else {
+                Log.d(TAG, "Health Connect permission revoked → disabling preference")
+
+                prefs.setHealthConnectEnabled(false)
+                walkingViewModel.setMethodEnabled(TrackingMethod.HEALTH_CONNECT, false)
+            }
         }
 
         if (prefs.isDeviceSensorEnabled()) {
-            walkingViewModel.setMethodEnabled(TrackingMethod.DEVICE_SENSOR, true)
-            startStepTrackingService(context) // ensure background resumes
+            val granted = ContextCompat.checkSelfPermission(
+                context,
+                Manifest.permission.ACTIVITY_RECOGNITION
+            ) == PackageManager.PERMISSION_GRANTED
+
+            Log.d(TAG, "Re-check sensor permission on launch: granted=$granted")
+
+            if (granted) {
+                walkingViewModel.setMethodEnabled(TrackingMethod.DEVICE_SENSOR, true)
+                startStepTrackingService(context)
+            } else {
+                Log.d(TAG, "Permission revoked → disabling sensor preference")
+
+                prefs.setDeviceSensorEnabled(false)
+                walkingViewModel.setMethodEnabled(TrackingMethod.DEVICE_SENSOR, false)
+            }
         }
 
         walkingViewModel.refreshToday()
@@ -88,19 +136,16 @@ fun WalkingRoute(
         },
         onToggleSensor = { enabled ->
             Log.d(TAG, "Device sensor toggle changed: enabled=$enabled")
+
             if (enabled) {
                 val granted = ContextCompat.checkSelfPermission(
                     context,
                     Manifest.permission.ACTIVITY_RECOGNITION
                 ) == PackageManager.PERMISSION_GRANTED
 
-                Log.d(TAG, "Device sensor permission already granted=$granted")
-
                 if (granted) {
                     prefs.setDeviceSensorEnabled(true)
-
                     startStepTrackingService(context)
-
                     walkingViewModel.setMethodEnabled(TrackingMethod.DEVICE_SENSOR, true)
                     walkingViewModel.refreshToday()
                 } else {
@@ -108,9 +153,7 @@ fun WalkingRoute(
                 }
             } else {
                 prefs.setDeviceSensorEnabled(false)
-
                 stopStepTrackingService(context)
-
                 walkingViewModel.setMethodEnabled(TrackingMethod.DEVICE_SENSOR, false)
                 walkingViewModel.refreshToday()
             }

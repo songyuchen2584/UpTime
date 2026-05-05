@@ -2,7 +2,7 @@ package com.example.uptime.walking.repository
 
 import android.content.Context
 import com.example.uptime.walking.TrackingPreferences
-import com.example.uptime.walking.WalkingRepository
+import com.example.uptime.walking.repository.WalkingRepository
 import com.example.uptime.walking.datasource.DeviceSensorStepsDataSource
 import com.example.uptime.walking.datasource.HealthConnectStepsDataSource
 

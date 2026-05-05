@@ -103,9 +103,11 @@ fun WalkingScreen(
                         onCheckedChange = if (sensorAvailable) { enabled ->
                             Log.d(TAG, "Device sensor switch clicked: enabled=$enabled")
                             onToggleSensor(enabled)
+
                         } else {
                             { _: Boolean -> Log.d(TAG, "Device sensor switch ignored because sensor is unavailable") }
-                        }
+                        },
+                        enabled = sensorAvailable
                     )
                 }
 

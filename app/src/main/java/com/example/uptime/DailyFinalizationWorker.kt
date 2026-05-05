@@ -19,7 +19,7 @@ import com.example.uptime.screentime.ScreenTimePreferences
 import com.example.uptime.screentime.repository.ScreenTimeRepository
 import com.example.uptime.walking.TrackingMethod
 import com.example.uptime.walking.TrackingPreferences
-import com.example.uptime.walking.WalkingRepository
+import com.example.uptime.walking.repository.WalkingRepository
 import com.example.uptime.walking.datasource.DeviceSensorStepsDataSource
 import com.example.uptime.walking.datasource.HealthConnectStepsDataSource
 import com.example.uptime.walking.repository.WalkingRepositoryProvider

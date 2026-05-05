@@ -104,6 +104,22 @@ class ScreenTimeViewModel(
 
                 val hasAccess = repository.hasUsageAccess()
 
+                // permission check for usage access
+                if (!hasAccess) {
+                    Log.d("ScreenTimeVM", "Usage Access missing. Clearing active screen time usage state.")
+
+                    _uiState.update {
+                        it.copy(
+                            hasUsageAccess = false,
+                            todayUsage = emptyList(),
+                            totalTrackedTimeMs = 0L,
+                            isLoading = false
+                        )
+                    }
+
+                    return@launch
+                }
+
                 Log.d(
                     TAG,
                     "Refresh inputs: activePackages=${activePackages.size}, " +

@@ -1,7 +1,10 @@
 package com.example.uptime.notification
 
+import android.Manifest
 import android.app.Application
 import android.content.Intent
+import android.content.pm.PackageManager
+import android.os.Build
 import android.util.Log
 import androidx.core.content.ContextCompat
 import androidx.lifecycle.AndroidViewModel
@@ -23,6 +26,16 @@ class NotificationSettingsViewModel(
         SharingStarted.WhileSubscribed(5000),
         NotificationSettings()
     )
+
+    private fun hasNotificationPermission(): Boolean {
+        val context = getApplication<Application>()
+
+        return Build.VERSION.SDK_INT < Build.VERSION_CODES.TIRAMISU ||
+                ContextCompat.checkSelfPermission(
+                    context,
+                    Manifest.permission.POST_NOTIFICATIONS
+                ) == PackageManager.PERMISSION_GRANTED
+    }
 
     fun setScreenWarningEnabled(enabled: Boolean) {
         Log.d(TAG, "setScreenWarningEnabled called: enabled=$enabled")
@@ -76,6 +89,17 @@ class NotificationSettingsViewModel(
 
     private fun syncService() {
         val context = getApplication<Application>()
+        // check notification permission first
+        if (!hasNotificationPermission()) {
+            viewModelScope.launch {
+                Log.d("NotificationVM", "Notification permission missing. Disabling notification preferences.")
+                prefs.setScreenWarningEnabled(false)
+                prefs.setWalkingReminderEnabled(false)
+            }
+            context.stopService(Intent(context, NotificationMonitorService::class.java))
+            return
+        }
+
         val enabled = settings.value.screenWarningEnabled ||
                 settings.value.walkingReminderEnabled
 

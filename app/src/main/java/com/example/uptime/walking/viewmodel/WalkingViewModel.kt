@@ -1,11 +1,12 @@
 package com.example.uptime.walking.viewmodel
 
 import android.app.Application
+import android.util.Log
 import androidx.lifecycle.AndroidViewModel
 import androidx.lifecycle.viewModelScope
 import com.example.uptime.walking.TrackingMethod
 import com.example.uptime.walking.TrackingPreferences
-import com.example.uptime.walking.WalkingRepository
+import com.example.uptime.walking.repository.WalkingRepository
 import com.example.uptime.walking.datasource.DeviceSensorStepsDataSource
 import com.example.uptime.walking.datasource.HealthConnectStepsDataSource
 import com.example.uptime.walking.model.WalkingStats
@@ -62,7 +63,29 @@ class WalkingViewModel(app: Application) : AndroidViewModel(app) {
 
     fun refreshToday() = viewModelScope.launch {
         _state.update { it.copy(loading = true, error = null) }
+
+        // check permissions before calling walking senors and health connect
         try {
+            val grantedPermissions = grantedHealthConnectPermissions()
+            val hasHealthConnectPermission =
+                grantedPermissions.containsAll(healthConnectPermissions)
+
+            if (!hasHealthConnectPermission &&
+                repository.isMethodEnabled(TrackingMethod.HEALTH_CONNECT)
+            ) {
+                Log.d("WalkingVM", "Health Connect permission revoked. Disabling local preference.")
+
+                repository.setMethodEnabled(TrackingMethod.HEALTH_CONNECT, false)
+            }
+
+            if (
+                repository.isMethodEnabled(TrackingMethod.DEVICE_SENSOR) &&
+                !deviceSensorSource.hasPermission()
+            ) {
+                Log.d("WalkingVM", "Activity Recognition permission revoked. Disabling sensor tracking.")
+                repository.setMethodEnabled(TrackingMethod.DEVICE_SENSOR, false)
+            }
+
             val now = System.currentTimeMillis()
             val startOfDay = LocalDate.now()
                 .atStartOfDay(ZoneId.systemDefault())
@@ -70,9 +93,27 @@ class WalkingViewModel(app: Application) : AndroidViewModel(app) {
                 .toEpochMilli()
 
             val stats = repository.getWalkingStats(startOfDay, now)
-            _state.update { it.copy(statsToday = stats, loading = false) }
+
+            _state.update {
+                it.copy(
+                    statsToday = stats,
+                    useHealthConnect = repository.isMethodEnabled(TrackingMethod.HEALTH_CONNECT),
+                    useDeviceSensor = repository.isMethodEnabled(TrackingMethod.DEVICE_SENSOR),
+                    loading = false,
+                    error = null
+                )
+            }
         } catch (t: Throwable) {
-            _state.update { it.copy(loading = false, error = t.message ?: "Unknown error") }
+            Log.e("WalkingVM", "Failed to refresh walking data", t)
+
+            _state.update {
+                it.copy(
+                    loading = false,
+                    error = "Unable to refresh walking data",
+                    useHealthConnect = repository.isMethodEnabled(TrackingMethod.HEALTH_CONNECT),
+                    useDeviceSensor = repository.isMethodEnabled(TrackingMethod.DEVICE_SENSOR)
+                )
+            }
         }
     }
 
