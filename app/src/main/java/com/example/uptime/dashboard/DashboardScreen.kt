@@ -63,6 +63,7 @@ import androidx.compose.runtime.getValue
 import androidx.compose.runtime.setValue
 import kotlinx.coroutines.flow.map
 import kotlinx.coroutines.launch
+import androidx.compose.ui.res.painterResource
 
 private val Context.dashboardOnboardingDataStore by preferencesDataStore(
     name = "dashboard_onboarding"
@@ -75,27 +76,32 @@ private val completedOnboardingTasksKey =
 enum class DashboardOnboardingTask(
     val title: String,
     val description: String,
-    val emoji: String
+    val icon: Int
 ) {
     WALKING(
         title = "Set up walking tracker",
         description = "Choose how UpTime tracks your walking progress.",
-        emoji = "🚶"
+        icon = R.drawable.directions_walk_24px
     ),
     SCREEN_TIME(
         title = "Set up screen time tracker",
         description = "Allow our app to track your screen time and select which apps you want to monitor.",
-        emoji = "📱"
+        icon = R.drawable.analytics_24px
     ),
     NOTIFICATIONS(
         title = "Set up notifications",
         description = "Enable reminders and goal warnings.",
-        emoji = "🔔"
+        icon = R.drawable.round_add_alert_24
     ),
     SIGN_IN(
         title = "Sign up",
         description = "Personalize your profile and experience.",
-        emoji = "👤"
+        icon = R.drawable.person_24px
+    ),
+    ROOM(
+        title = "Explore rooms",
+        description = "Visit other users' rooms and see their progress.",
+        icon = R.drawable.door_sliding_24px
     )
 }
 
@@ -139,7 +145,8 @@ fun DashboardScreen(
     onNavigateToWalkingProgress: () -> Unit,
     onNavigateToScreenTime: () -> Unit,
     onNavigateToNotifications: () -> Unit = {},
-    onNavigateToSignIn: () -> Unit = {}
+    onNavigateToSignIn: () -> Unit = {},
+    onNavigateToRoom: () -> Unit = {},
 ) {
     LaunchedEffect(Unit) {
         dashboardViewModel.refreshLiveStats(walkingViewModel)
@@ -202,7 +209,8 @@ fun DashboardScreen(
             onNavigateToWalkingProgress = onNavigateToWalkingProgress,
             onNavigateToScreenTime = onNavigateToScreenTime,
             onNavigateToNotifications = onNavigateToNotifications,
-            onNavigateToSignIn = onNavigateToSignIn
+            onNavigateToSignIn = onNavigateToSignIn,
+            onNavigateToRoom = onNavigateToRoom,
         )
 
         Spacer(modifier = Modifier.Companion.height(24.dp))
@@ -262,7 +270,8 @@ fun OnboardingChecklist(
     onNavigateToWalkingProgress: () -> Unit,
     onNavigateToScreenTime: () -> Unit,
     onNavigateToNotifications: () -> Unit,
-    onNavigateToSignIn: () -> Unit
+    onNavigateToSignIn: () -> Unit,
+    onNavigateToRoom: () -> Unit
 ) {
     val context = LocalContext.current
     val scope = rememberCoroutineScope()
@@ -319,6 +328,7 @@ fun OnboardingChecklist(
                             DashboardOnboardingTask.SCREEN_TIME -> onNavigateToScreenTime()
                             DashboardOnboardingTask.NOTIFICATIONS -> onNavigateToNotifications()
                             DashboardOnboardingTask.SIGN_IN -> onNavigateToSignIn()
+                            DashboardOnboardingTask.ROOM -> onNavigateToRoom()
                         }
                     },
                     onDismiss = {
@@ -355,9 +365,11 @@ fun OnboardingTaskRow(
                 .padding(14.dp),
             verticalAlignment = Alignment.Companion.CenterVertically
         ) {
-            Text(
-                text = task.emoji,
-                fontSize = 26.sp
+            Icon(
+                painter = painterResource(task.icon),
+                contentDescription = task.title,
+                modifier = Modifier.size(26.dp),
+                tint = MaterialTheme.colorScheme.primary
             )
 
             Spacer(modifier = Modifier.Companion.width(14.dp))

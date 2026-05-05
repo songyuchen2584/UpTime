@@ -186,6 +186,7 @@ fun AppScaffold(roomViewModel: RoomViewModel, dashboardViewModel: DashboardViewM
                                 onNavigateToScreenTime = { backStack.add(NavDestination.ScreenTime) },
                                 onNavigateToNotifications = { backStack.add(NavDestination.Notifications) },
                                 onNavigateToSignIn = { backStack.add(NavDestination.Profile) },
+                                onNavigateToRoom = { backStack.add(NavDestination.Room) },
                                 dashboardViewModel = dashboardViewModel
                             )
                             NavDestination.Streak -> StreakScreen(viewModel = dashboardViewModel)
@@ -296,7 +297,7 @@ fun TopBar(onSettingsClick: () -> Unit) {
         ),
         actions = {
             IconButton(onClick = onSettingsClick) {
-                Icon(painterResource(R.drawable.settings_24px), contentDescription = "Options")
+                Icon(painterResource(R.drawable.settings_24px), contentDescription = "Options", modifier = Modifier.size(30.dp))
             }
         }
     )
