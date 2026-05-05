@@ -1,11 +1,9 @@
 package com.example.uptime.room
 
-import android.R.attr.category
 import android.app.Application
 import android.util.Log
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.collectAsState
-import androidx.compose.runtime.getValue
 import androidx.lifecycle.AndroidViewModel
 import androidx.lifecycle.viewModelScope
 import androidx.room.Transaction
@@ -23,14 +21,12 @@ import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.SharingStarted
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asSharedFlow
-import kotlinx.coroutines.flow.collect
 import kotlinx.coroutines.flow.combine
 import kotlinx.coroutines.flow.distinctUntilChanged
 import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.flow.map
 import kotlinx.coroutines.flow.stateIn
 import kotlinx.coroutines.launch
-import kotlin.text.contains
 
 class RoomViewModel(application: Application, val userId: String) : AndroidViewModel(application) {
     private val db = UpTimeDatabase.Companion.getDatabase(application)
@@ -80,6 +76,20 @@ class RoomViewModel(application: Application, val userId: String) : AndroidViewM
             started = SharingStarted.WhileSubscribed(5000),
             initialValue = 0
         )
+
+    private var tutorialShownThisSession = false
+
+    val shouldShowOnboarding: StateFlow<Boolean> = roomState
+        .map { state ->
+            val isBrandNew = state?.placedRoomItems?.isEmpty() == true && state.placedAchievements.isEmpty()
+            isBrandNew && !tutorialShownThisSession
+        }
+        .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5000), false)
+
+    fun dismissTutorial() {
+        tutorialShownThisSession = true
+        _onboardingStep.value = OnboardingStep.NONE
+    }
 
     init {
         auth.addAuthStateListener { firebaseAuth ->
@@ -234,6 +244,37 @@ class RoomViewModel(application: Application, val userId: String) : AndroidViewM
 
     companion object {
         const val DAILY_COMPLETION_POINTS = 50
+    }
+
+    enum class OnboardingStep {
+        NONE,
+        WELCOME,
+        PLACING_ACHIEVEMENTS,
+        EDIT_MODE,
+        EXCHANGE,
+        VISITING_OTHERS,
+        REMINDER,
+        FINISHED
+    }
+    private val _onboardingStep = MutableStateFlow(OnboardingStep.NONE)
+    val onboardingStep: StateFlow<OnboardingStep> = _onboardingStep
+
+    fun startOnboarding() {
+        _onboardingStep.value = OnboardingStep.WELCOME
+    }
+
+    fun nextOnboardingStep() {
+        val next = OnboardingStep.entries.getOrNull(_onboardingStep.value.ordinal + 1)
+        if (next != null) {
+            _onboardingStep.value = next
+            if (next == OnboardingStep.FINISHED) {
+                completeOnboarding()
+            }
+        }
+    }
+
+    private fun completeOnboarding() {
+        _onboardingStep.value = OnboardingStep.NONE
     }
 
     fun addFriendById(userId: String){

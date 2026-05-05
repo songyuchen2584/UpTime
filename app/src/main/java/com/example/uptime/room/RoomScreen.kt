@@ -61,8 +61,7 @@ import androidx.compose.material3.SnackbarHost
 import androidx.compose.material3.SnackbarHostState
 import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
-import androidx.compose.material3.TextField
-import androidx.compose.material3.TextFieldDefaults
+import androidx.compose.material3.TextButton
 import androidx.compose.material3.adaptive.currentWindowAdaptiveInfo
 import androidx.compose.material3.windowsizeclass.ExperimentalMaterial3WindowSizeClassApi
 import androidx.compose.runtime.Composable
@@ -123,7 +122,6 @@ import com.example.uptime.room.catalogs.RoomLayoutCatalog
 import com.example.uptime.room.catalogs.RoomThemeCatalog
 import com.example.uptime.room.catalogs.TrophyCaseCatalog
 import com.example.uptime.room.catalogs.WoodThemeCatalog
-import com.google.firebase.auth.FirebaseAuth
 import kotlinx.coroutines.launch
 import kotlin.Int
 import kotlin.collections.filter
@@ -360,6 +358,15 @@ fun RoomScreen(
         ),
     )
 
+    val onboardingStep by roomViewModel.onboardingStep.collectAsState()
+    val autoTrigger by roomViewModel.shouldShowOnboarding.collectAsState()
+
+    LaunchedEffect(autoTrigger) {
+        if (autoTrigger) {
+            roomViewModel.startOnboarding()
+        }
+    }
+
     Box(modifier = Modifier.fillMaxSize().clickable(
         enabled = roomMode != RoomMode.Edit,
         onClick = { showMenu = !showMenu },
@@ -378,6 +385,14 @@ fun RoomScreen(
         )
 
         if (isShortLandscape && showMenu) {
+            if (roomMode == RoomMode.View) {
+                IconButton(onClick = { roomViewModel.startOnboarding() }) {
+                    Icon(
+                        painterResource(R.drawable.help_24px),
+                        contentDescription = "Show Tutorial"
+                    )
+                }
+            }
             // Side panel layout for short landscape
             if (roomMode != RoomMode.Edit && roomMode != RoomMode.Visit) {
                 Column(
@@ -412,6 +427,18 @@ fun RoomScreen(
                 }
             }
         } else if (showMenu) {
+            if (roomMode == RoomMode.View) {
+                IconButton(
+                    onClick = { roomViewModel.startOnboarding() }, modifier = Modifier.align(
+                        Alignment.TopStart
+                    ).padding(top = 32.dp)
+                ) {
+                    Icon(
+                        painterResource(R.drawable.help_24px),
+                        contentDescription = "Show Tutorial"
+                    )
+                }
+            }
         if (roomMode != RoomMode.Edit) {
             Row(
                 modifier = Modifier
@@ -574,6 +601,13 @@ fun RoomScreen(
                 VisitTrophyDisplay(roomState.placedAchievements)
             }
         }
+            if (onboardingStep != RoomViewModel.OnboardingStep.NONE) {
+                RoomOnboardingOverlay(
+                    step = onboardingStep,
+                    onNext = { roomViewModel.nextOnboardingStep() },
+                    onDismiss = { roomViewModel.dismissTutorial() }
+                )
+            }
     }
     if (showVisitorProfile && !roomViewModel.isOwner) {
             UserProfileOverlay(
@@ -624,6 +658,60 @@ fun RoomScreen(
 }
 
 @Composable
+fun RoomOnboardingOverlay(
+    step: RoomViewModel.OnboardingStep,
+    onNext: () -> Unit,
+    onDismiss: () -> Unit
+) {
+    if (step == RoomViewModel.OnboardingStep.NONE || step == RoomViewModel.OnboardingStep.FINISHED) return
+
+    Box(
+        modifier = Modifier
+            .fillMaxSize()
+            .background(Color.Black.copy(alpha = 0.6f))
+            .clickable(onClick = onNext),
+        contentAlignment = Alignment.Center
+    ) {
+        Column(
+            horizontalAlignment = Alignment.CenterHorizontally,
+            modifier = Modifier.padding(32.dp)
+        ) {
+            val text = when (step) {
+                RoomViewModel.OnboardingStep.WELCOME -> "Welcome to your Room! This is your personal space to decorate and customize."
+                RoomViewModel.OnboardingStep.EDIT_MODE -> "Use the 'Customize' button below to enter Edit Mode, where you can change your room's theme and displayed items."
+                RoomViewModel.OnboardingStep.PLACING_ACHIEVEMENTS -> "The Trophy Case displays all your hard-earned achievements. Make sure to show off the shiniest ones!"
+                RoomViewModel.OnboardingStep.EXCHANGE -> "Visit the Exchange shop to spend your points earned by completing streaks."
+                RoomViewModel.OnboardingStep.VISITING_OTHERS -> "Use the 'Visit' button to see how others are decorating. You can view your friends' rooms or visit a random user!"
+                RoomViewModel.OnboardingStep.REMINDER -> "Tap the '?' icon in the top left at any time to bring up this tutorial!"
+                else -> ""
+            }
+
+            Card(modifier = Modifier.height(100.dp)) {
+                Column(verticalArrangement = Arrangement.Center, modifier = Modifier.fillMaxHeight()) {
+                    Text(
+                        text = text,
+                        style = MaterialTheme.typography.bodyLarge,
+                        color = Color.White,
+                        textAlign = TextAlign.Center,
+                        modifier = Modifier.padding(8.dp)
+                    )
+                }
+            }
+
+            Spacer(modifier = Modifier.height(24.dp))
+
+            Button(onClick = onNext) {
+                Text(if (step == RoomViewModel.OnboardingStep.REMINDER) "Got it!" else "Next")
+            }
+
+            TextButton(onClick = onDismiss, modifier = Modifier.padding(top = 8.dp)) {
+                Text("Skip Tutorial", color = Color.White.copy(alpha = 0.6f))
+            }
+        }
+    }
+}
+
+@Composable
 fun RoomScaffold(
     state: RoomState,
     activeRoomTheme: RoomTheme,
@@ -666,7 +754,7 @@ fun RoomScaffold(
                         alpha = 0.6f
                     )
                 ),
-                modifier = Modifier.padding(top = 68.dp)
+                modifier = Modifier.padding(top = 46.dp)
             ) {
                 Text(
                     text = "Edit Mode",
