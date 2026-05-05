@@ -1,5 +1,6 @@
 package com.example.uptime.dashboard
 
+import android.content.Context
 import androidx.compose.animation.core.animateFloatAsState
 import androidx.compose.animation.core.tween
 import androidx.compose.foundation.Canvas
@@ -25,12 +26,14 @@ import androidx.compose.material3.Icon
 import androidx.compose.material3.LinearProgressIndicator
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
+import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.DisposableEffect
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.mutableFloatStateOf
 import androidx.compose.runtime.remember
+import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.geometry.Offset
@@ -38,12 +41,16 @@ import androidx.compose.ui.geometry.Size
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.StrokeCap
 import androidx.compose.ui.graphics.drawscope.Stroke
+import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.text.font.FontStyle
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
+import androidx.datastore.preferences.core.edit
+import androidx.datastore.preferences.core.stringSetPreferencesKey
+import androidx.datastore.preferences.preferencesDataStore
 import androidx.lifecycle.Lifecycle
 import androidx.lifecycle.LifecycleEventObserver
 import androidx.lifecycle.compose.LocalLifecycleOwner
@@ -55,6 +62,43 @@ import com.example.uptime.ui.theme.Coral40
 import com.example.uptime.walking.viewmodel.WalkingViewModel
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.setValue
+import kotlinx.coroutines.flow.map
+import kotlinx.coroutines.launch
+
+private val Context.dashboardOnboardingDataStore by preferencesDataStore(
+    name = "dashboard_onboarding"
+)
+
+private val completedOnboardingTasksKey =
+    stringSetPreferencesKey("completed_onboarding_tasks")
+
+// onboarding components
+enum class DashboardOnboardingTask(
+    val title: String,
+    val description: String,
+    val emoji: String
+) {
+    WALKING(
+        title = "Set up walking tracker",
+        description = "Choose how UpTime tracks your walking progress.",
+        emoji = "🚶"
+    ),
+    SCREEN_TIME(
+        title = "Set up screen time tracker",
+        description = "Allow our app to track your screen time and select which apps you want to monitor.",
+        emoji = "📱"
+    ),
+    NOTIFICATIONS(
+        title = "Set up notifications",
+        description = "Enable reminders and goal warnings.",
+        emoji = "🔔"
+    ),
+    SIGN_IN(
+        title = "Sign up",
+        description = "Personalize your profile and experience.",
+        emoji = "👤"
+    )
+}
 
 // UI state for the dashboard
 data class DashboardState(
@@ -94,7 +138,9 @@ fun DashboardScreen(
     walkingViewModel: WalkingViewModel = viewModel(),
     onNavigateToStreak: () -> Unit,
     onNavigateToWalkingProgress: () -> Unit,
-    onNavigateToScreenTime: () -> Unit
+    onNavigateToScreenTime: () -> Unit,
+    onNavigateToNotifications: () -> Unit = {},
+    onNavigateToSignIn: () -> Unit = {}
 ) {
     LaunchedEffect(Unit) {
         dashboardViewModel.refreshLiveStats(walkingViewModel)
@@ -149,6 +195,16 @@ fun DashboardScreen(
             bothGoalsMet = state.screenTimeUsed <= state.screenTimeGoal
                     && state.walkingDone >= state.walkingGoal,
             onClick = onNavigateToStreak
+        )
+
+        // onboarding checklist
+        Spacer(modifier = Modifier.Companion.height(16.dp))
+
+        OnboardingChecklist(
+            onNavigateToWalkingProgress = onNavigateToWalkingProgress,
+            onNavigateToScreenTime = onNavigateToScreenTime,
+            onNavigateToNotifications = onNavigateToNotifications,
+            onNavigateToSignIn = onNavigateToSignIn
         )
 
         Spacer(modifier = Modifier.Companion.height(24.dp))
@@ -211,6 +267,146 @@ fun DashboardScreen(
         }
 
         Spacer(modifier = Modifier.Companion.height(24.dp))
+    }
+}
+
+// onboarding composable
+@Composable
+fun OnboardingChecklist(
+    onNavigateToWalkingProgress: () -> Unit,
+    onNavigateToScreenTime: () -> Unit,
+    onNavigateToNotifications: () -> Unit,
+    onNavigateToSignIn: () -> Unit
+) {
+    val context = LocalContext.current
+    val scope = rememberCoroutineScope()
+
+    val completedTasks by context.dashboardOnboardingDataStore.data
+        .map { preferences ->
+            preferences[completedOnboardingTasksKey] ?: emptySet()
+        }
+        .collectAsState(initial = emptySet())
+
+    val visibleTasks = DashboardOnboardingTask.entries.filter {
+        it.name !in completedTasks
+    }
+
+    if (visibleTasks.isEmpty()) return
+
+    Card(
+        modifier = Modifier.Companion.fillMaxWidth(),
+        shape = RoundedCornerShape(20.dp),
+        colors = CardDefaults.cardColors(
+            containerColor = MaterialTheme.colorScheme.primaryContainer.copy(alpha = 0.65f)
+        )
+    ) {
+        Column(
+            modifier = Modifier.Companion.padding(20.dp)
+        ) {
+            Text(
+                text = "Finish setting up UpTime",
+                style = MaterialTheme.typography.titleMedium,
+                fontWeight = FontWeight.Companion.Bold,
+                color = MaterialTheme.colorScheme.onPrimaryContainer
+            )
+
+            Spacer(modifier = Modifier.Companion.height(4.dp))
+
+            Text(
+                text = "${visibleTasks.size} setup task${if (visibleTasks.size == 1) "" else "s"} remaining",
+                style = MaterialTheme.typography.bodySmall,
+                color = MaterialTheme.colorScheme.onPrimaryContainer.copy(alpha = 0.75f)
+            )
+
+            Spacer(modifier = Modifier.Companion.height(14.dp))
+
+            visibleTasks.forEach { task ->
+                OnboardingTaskRow(
+                    task = task,
+                    onClick = {
+                        scope.launch {
+                            markOnboardingTaskComplete(context, task)
+                        }
+
+                        when (task) {
+                            DashboardOnboardingTask.WALKING -> onNavigateToWalkingProgress()
+                            DashboardOnboardingTask.SCREEN_TIME -> onNavigateToScreenTime()
+                            DashboardOnboardingTask.NOTIFICATIONS -> onNavigateToNotifications()
+                            DashboardOnboardingTask.SIGN_IN -> onNavigateToSignIn()
+                        }
+                    },
+                    onDismiss = {
+                        scope.launch {
+                            markOnboardingTaskComplete(context, task)
+                        }
+                    }
+                )
+
+                Spacer(modifier = Modifier.Companion.height(10.dp))
+            }
+        }
+    }
+}
+
+@Composable
+fun OnboardingTaskRow(
+    task: DashboardOnboardingTask,
+    onClick: () -> Unit,
+    onDismiss: () -> Unit
+) {
+    Card(
+        modifier = Modifier.Companion
+            .fillMaxWidth()
+            .clickable(onClick = onClick),
+        shape = RoundedCornerShape(16.dp),
+        colors = CardDefaults.cardColors(
+            containerColor = MaterialTheme.colorScheme.surface.copy(alpha = 0.9f)
+        )
+    ) {
+        Row(
+            modifier = Modifier.Companion
+                .fillMaxWidth()
+                .padding(14.dp),
+            verticalAlignment = Alignment.Companion.CenterVertically
+        ) {
+            Text(
+                text = task.emoji,
+                fontSize = 26.sp
+            )
+
+            Spacer(modifier = Modifier.Companion.width(14.dp))
+
+            Column(
+                modifier = Modifier.Companion.weight(1f)
+            ) {
+                Text(
+                    text = task.title,
+                    style = MaterialTheme.typography.bodyMedium,
+                    fontWeight = FontWeight.Companion.SemiBold,
+                    color = MaterialTheme.colorScheme.onSurface
+                )
+
+                Text(
+                    text = task.description,
+                    style = MaterialTheme.typography.bodySmall,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant
+                )
+            }
+
+            TextButton(onClick = onDismiss) {
+                Text("Skip")
+            }
+        }
+    }
+}
+
+private suspend fun markOnboardingTaskComplete(
+    context: Context,
+    task: DashboardOnboardingTask
+) {
+    context.dashboardOnboardingDataStore.edit { preferences ->
+        val current = preferences[completedOnboardingTasksKey] ?: emptySet()
+        preferences[completedOnboardingTasksKey] = current + task.name
     }
 }
 
@@ -541,7 +737,6 @@ fun GoalRow(icon: Int, text: String, isDone: Boolean) {
         )
     }
 }
-
 
 @Composable
 fun QuoteCard(quote: Quote) {
