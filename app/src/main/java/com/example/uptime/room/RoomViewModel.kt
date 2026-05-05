@@ -79,23 +79,37 @@ class RoomViewModel(application: Application, val userId: String) : AndroidViewM
         }
 
         viewModelScope.launch {
-            if (isOwner) {
-                if (rsDao.getSettings( LOCAL_ID) == null) {
-                    rsDao.upsertRoomSettings(RoomSettings( LOCAL_ID))
-                }
-                if (invDao.getInventory( LOCAL_ID) == null) {
-                    invDao.upsertInventory(UserInventory( LOCAL_ID))
-                }
-            }
-        }
+            _currentUserId.collect { uid ->
+                if (isOwner && uid != null) {
+                    var localSettings = rsDao.getSettings("me")
+                    var localInv = invDao.getInventory("me")
 
-        viewModelScope.launch {
-            combine(currentSettings, currentInventory, currentUserId) { settings, inventory, uid ->
-                Triple(settings, inventory, uid)
-            }.collect { (settings, inventory, uid) ->
-                if (isOwner && settings != null && inventory != null && uid != null) {
-                    roomRepository.syncRoomSettings(uid, settings.copy(userId = uid))
-                    roomRepository.syncInventory(uid, inventory.copy(userId = uid))
+                    // If local is empty, try to fetch from cloud
+                    if (localSettings == null) {
+                        val remoteSettings = roomRepository.getRoomSettings(uid)
+                        if (remoteSettings != null) {
+                            rsDao.upsertRoomSettings(remoteSettings.copy(userId = "me"))
+                            localSettings = remoteSettings
+                        }
+                    }
+
+                    if (localInv == null) {
+                        val remoteInv = roomRepository.getUserInventory(uid)
+                        if (remoteInv != null) {
+                            invDao.upsertInventory(remoteInv.copy(userId = "me"))
+                            localInv = remoteInv
+                        }
+                    }
+
+                    // If BOTH are still null, it's a new user
+                    if (localSettings == null) {
+                        Log.d("RoomVM", "Creating default settings for new user")
+                        rsDao.upsertRoomSettings(RoomSettings(userId = "me"))
+                    }
+                    if (localInv == null) {
+                        Log.d("RoomVM", "Creating default inventory for new user")
+                        invDao.upsertInventory(UserInventory(userId = "me"))
+                    }
                 }
             }
         }
@@ -162,6 +176,7 @@ class RoomViewModel(application: Application, val userId: String) : AndroidViewM
                 }
             }
         }
+
         viewModelScope.launch {
             val uid = auth.currentUser?.uid
             if (isOwner && uid != null) {

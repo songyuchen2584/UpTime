@@ -19,6 +19,7 @@ fun UserProfileCard(
     onRemoveFriend: () -> Unit,
     onVisitRoom: () -> Unit,
     onDismiss: () -> Unit,
+    isAnon: Boolean,
     modifier: Modifier = Modifier
 ) {
     Card(
@@ -136,32 +137,37 @@ fun UserProfileCard(
                 }
 
                 // Add Friend / Remove Friend button
-                if (isFriend) {
-                    Button(
-                        onClick = onRemoveFriend,
-                        modifier = Modifier.weight(1f),
-                        colors = ButtonDefaults.buttonColors(containerColor = MaterialTheme.colorScheme.errorContainer, contentColor = MaterialTheme.colorScheme.onErrorContainer)
-                    ) {
-                        Icon(
-                            painterResource(R.drawable.remove_friend_24px),
-                            contentDescription = "Remove Friend",
-                            modifier = Modifier.size(18.dp)
-                        )
-                        Spacer(modifier = Modifier.width(6.dp))
-                        Text("Remove Friend", style = MaterialTheme.typography.labelSmall)
-                    }
-                } else {
-                    Button(
-                        onClick = onAddFriend,
-                        modifier = Modifier.weight(1f)
-                    ) {
-                        Icon(
-                            painterResource(R.drawable.add_friend_24px),
-                            contentDescription = "Add Friend",
-                            modifier = Modifier.size(18.dp)
-                        )
-                        Spacer(modifier = Modifier.width(6.dp))
-                        Text("Add Friend", style = MaterialTheme.typography.labelSmall)
+                if (!isAnon) {
+                    if (isFriend) {
+                        Button(
+                            onClick = onRemoveFriend,
+                            modifier = Modifier.weight(1f),
+                            colors = ButtonDefaults.buttonColors(
+                                containerColor = MaterialTheme.colorScheme.errorContainer,
+                                contentColor = MaterialTheme.colorScheme.onErrorContainer
+                            )
+                        ) {
+                            Icon(
+                                painterResource(R.drawable.remove_friend_24px),
+                                contentDescription = "Remove Friend",
+                                modifier = Modifier.size(18.dp)
+                            )
+                            Spacer(modifier = Modifier.width(6.dp))
+                            Text("Remove Friend", style = MaterialTheme.typography.labelSmall)
+                        }
+                    } else {
+                        Button(
+                            onClick = onAddFriend,
+                            modifier = Modifier.weight(1f)
+                        ) {
+                            Icon(
+                                painterResource(R.drawable.add_friend_24px),
+                                contentDescription = "Add Friend",
+                                modifier = Modifier.size(18.dp)
+                            )
+                            Spacer(modifier = Modifier.width(6.dp))
+                            Text("Add Friend", style = MaterialTheme.typography.labelSmall)
+                        }
                     }
                 }
             }

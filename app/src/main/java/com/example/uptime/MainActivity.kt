@@ -2,7 +2,6 @@ package com.example.uptime
 
 import android.app.Application
 import android.os.Bundle
-import android.util.Log
 import androidx.activity.ComponentActivity
 import androidx.activity.compose.BackHandler
 import androidx.activity.compose.setContent
@@ -65,7 +64,6 @@ import com.example.uptime.screentime.ScreenTimeRoute
 import com.example.uptime.streak.StreakScreen
 import com.example.uptime.ui.theme.UpTimeTheme
 import com.example.uptime.walking.WalkingRoute
-import com.google.firebase.auth.FirebaseAuth
 import kotlinx.coroutines.launch
 import kotlin.getValue
 import com.example.uptime.notification.NotificationSettingsRoute
@@ -189,7 +187,7 @@ fun AppScaffold(roomViewModel: RoomViewModel, dashboardViewModel: DashboardViewM
                                 dashboardViewModel = dashboardViewModel
                             )
                             NavDestination.Streak -> StreakScreen(viewModel = dashboardViewModel)
-                            NavDestination.Room -> RoomScreen(viewModel = roomViewModel,
+                            NavDestination.Room -> RoomScreen(roomViewModel = roomViewModel,
                                 onVisitRandomRoom = {
                                     roomViewModel.getRandomUserRoom { userId ->
                                         if (userId != null) {
@@ -235,7 +233,7 @@ fun AppScaffold(roomViewModel: RoomViewModel, dashboardViewModel: DashboardViewM
                             key = "room_${destination.userId}"
                         )
                         RoomScreen(
-                            viewModel = visitViewModel,
+                            roomViewModel = visitViewModel,
                             onVisitRandomRoom = {visitViewModel.getRandomUserRoom { userId ->
                             if (userId != null) {
                                 backStack.add(VisitRoom(userId))

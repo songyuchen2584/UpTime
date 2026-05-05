@@ -22,7 +22,8 @@ fun UserProfileOverlay(
     onAddFriend: () -> Unit,
     onRemoveFriend: () -> Unit,
     onVisitRoom: () -> Unit,
-    onDismiss: () -> Unit
+    onDismiss: () -> Unit,
+    isAnon: Boolean
 ) {
     AnimatedVisibility(
         visible = profile != null,
@@ -43,6 +44,7 @@ fun UserProfileOverlay(
                     onRemoveFriend = onRemoveFriend,
                     onVisitRoom = onVisitRoom,
                     onDismiss = onDismiss,
+                    isAnon = isAnon,
                     modifier = Modifier.padding(24.dp)
                 )
             }
