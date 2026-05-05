@@ -184,6 +184,8 @@ fun AppScaffold(roomViewModel: RoomViewModel, dashboardViewModel: DashboardViewM
                                 onNavigateToStreak = { backStack.add(NavDestination.Streak) },
                                 onNavigateToWalkingProgress = { backStack.add(NavDestination.Walking) },
                                 onNavigateToScreenTime = { backStack.add(NavDestination.ScreenTime) },
+                                onNavigateToNotifications = { backStack.add(NavDestination.Notifications) },
+                                onNavigateToSignIn = { backStack.add(NavDestination.Profile) },
                                 dashboardViewModel = dashboardViewModel
                             )
                             NavDestination.Streak -> StreakScreen(viewModel = dashboardViewModel)
