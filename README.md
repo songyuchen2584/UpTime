@@ -18,14 +18,16 @@ Built with Kotlin, Jetpack Compose, Room, and Firebase.
 - **Settings** — goal configuration, account management, screen time and walking goal navigation
 - **Cloud Sync** — room settings and inventory sync to Firestore, persists across reinstalls for signed-in users
 
+<br>
+
 <table>
   <tr>
-    <td><img width="301" height="601" alt="Dashboard" src="https://github.com/user-attachments/assets/59d72fa4-9c7c-4b03-ab8a-e880fa155be5" /></td>
-    <td><img width="300" alt="Room" src="https://github.com/user-attachments/assets/e6090d1e-eb06-481d-95ac-c6c494dd40e2" /></td>
-    <td><img width="300" alt="Friend's List" src="https://github.com/user-attachments/assets/d830117d-bacc-4fab-822a-7e7b1e97a3ca" /></td>
+    <td><img width="313" height="634" alt="Screenshot 2026-05-05 at 5 17 36 PM" src="https://github.com/user-attachments/assets/ef9880e9-4b2a-4947-9537-363019a7885b" /></td>
+    <td><img width="309" height="614" alt="Screenshot 2026-05-05 at 5 17 48 PM" src="https://github.com/user-attachments/assets/c5ba93fe-9cfb-4b27-acfd-5cac05e1fc80" /></td>
+    <td><img width="313" height="608" alt="Screenshot 2026-05-05 at 5 17 59 PM" src="https://github.com/user-attachments/assets/83e97f25-9036-4563-bf3a-7fceff31028b" /></td>
   </tr>
 </table>
-
+<br>
 
 
 ## Architecture
@@ -102,13 +104,16 @@ Each team member worked on feature branches, merging into `dev` for integration 
 ### Tool
 Claude (Anthropic)
 ChatGPT
+<br>
 
 ### How AI was used
 Used Claude for Room/ViewModel scaffolding (Entity, DAO, Database, ViewModel), Retrofit setup (QuoteService interface + Gson for ZenQuotes API) which we dropped eventually, Firebase Auth and Firestore integration (anonymous auth, email/password sign-up, friends list repository), UI iteration, debugging, and organizing parts of README.md.
+<br>
 
 ChatGPT was used to debug Android-specific issues, such as permission handling (e.g., understanding why permission dialogs stop appearing after repeated denials and implementing proper fallback behavior), but all suggestions were tested and adjusted to match the app’s architecture and ensure correct behavior.
 
 All AI-generated code was verified and tested on physical devices. 
+<br>
 
 ### Where it influenced the project
 - **Architecture**: Set up Room for local data and Firestore for cloud/social features.
@@ -118,6 +123,9 @@ All AI-generated code was verified and tested on physical devices.
 
 ### What AI accelerated
 Room database setup, Firebase Auth with anonymous-to-account linking, and Firestore friends system — each implemented in single sessions.
+<br>
 
+### Rejected suggestions
 **Rejected**: Hilt dependency injection (unfamiliar library, not necessary for our use case), DataStore for user preferences (stored goals directly in Room DailyLog entity instead. It was simpler and had one source of truth).
+
 
