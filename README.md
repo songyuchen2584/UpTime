@@ -2,18 +2,21 @@
 
 A streak-based Android app that links screen time reduction to physical activity. Users maintain daily streaks by staying under their screen time limit and completing their walking goal.
 
-Built with Kotlin, Jetpack Compose, Room, Firebase, and Retrofit.
+Built with Kotlin, Jetpack Compose, Room, and Firebase.
 
 ## Features
 
-- **Dashboard** — progress rings for screen time and walking, streak card, daily goals, motivational quote via Retrofit API
+- **Dashboard** — progress rings for screen time and walking, streak card, daily goals
 - **Screen Time Tracking** — tracks selected app usage via UsageStatsManager with app picker
 - **Walking Tracking** — step counter + Health Connect with background foreground service
-- **Streak System** — daily streak with monthly calendar view and weekly summary
-- **Room Customization** — isometric room with themes, trophy cases, and achievements
+- **Streak System** — daily streak with monthly calendar view (tap any day for details), weekly summary
+- **Room Customization** — isometric room with themes, wood finishes, trophy cases, achievements, and point-based shop
 - **Auth** — Firebase anonymous guest mode, email/password sign-up with guest-to-account linking
-- **Profile & Friends** — add/remove friends by email, view friends' streaks and trophies via Firestore
-- **Settings** — goal configuration, account management
+- **Profile & Friends** — customizable profile icons, add/remove friends by email, view friends' streaks/trophies, visit friends' rooms
+- **Notifications** — streak reminders, screen time warnings, walking goal alerts with customizable settings
+- **Onboarding** — dashboard setup checklist guiding users through walking, screen time, notifications, and sign-up configuration
+- **Settings** — goal configuration, account management, screen time and walking goal navigation
+- **Cloud Sync** — room settings and inventory sync to Firestore, persists across reinstalls for signed-in users
 
 <table>
   <tr>
@@ -96,20 +99,25 @@ Each team member worked on feature branches, merging into `dev` for integration 
 
 ## AI Usage
 
-Used Claude for Room/ViewModel scaffolding (Entity, DAO, Database, ViewModel following class lecture patterns), Retrofit setup (QuoteService interface + Gson for ZenQuotes API), Firebase Auth and Firestore integration (anonymous auth, email/password sign-up, friends list repository), debugging, and organizing some parts of README.md.
+### Tool
+Claude (Anthropic)
+ChatGPT
+
+### How AI was used
+Used Claude for Room/ViewModel scaffolding (Entity, DAO, Database, ViewModel), Retrofit setup (QuoteService interface + Gson for ZenQuotes API) which we dropped eventually, Firebase Auth and Firestore integration (anonymous auth, email/password sign-up, friends list repository), UI iteration, debugging, and organizing parts of README.md.
 
 ChatGPT was used to debug Android-specific issues, such as permission handling (e.g., understanding why permission dialogs stop appearing after repeated denials and implementing proper fallback behavior), but all suggestions were tested and adjusted to match the app’s architecture and ensure correct behavior.
 
-**Rejected**: Hilt dependency injection (unfamiliar library, not necessary for our use case), DataStore for user preferences (stored goals directly in Room DailyLog entity instead — simpler, one source of truth).
+All AI-generated code was verified and tested on physical devices. 
 
+### Where it influenced the project
+- **Architecture**: Set up Room for local data and Firestore for cloud/social features.
+- **Code**: Generated auth flow and friends system. 
+- **UX**: Iterated on dashboard layout, streak calendar, and profile screen.
+- **Debugging**: Identified Room/KSP version mismatch, API level fix, Firestore lookup failure on login, and Firestore room sync race condition (anonymous defaults overwriting cloud data on sign-in).
 
-## Stretch Goals
+### What AI accelerated
+Room database setup, Firebase Auth with anonymous-to-account linking, and Firestore friends system — each implemented in single sessions.
 
-| Goal                          | Notes                                                                  |
-| ----------------------------- | ---------------------------------------------------------------------- |
-| View friends' rooms           | Firestore room sync implemented, rendering friend's room state is next |
-| Room screenshot for profile   | Capture Canvas as bitmap, upload to Firebase Storage                   |
-| Weekly point rewards (50 pts) | Complete                                                               |
-| Notification system           | Streak reminders and screen time warnings in progress                  |
-| Cross-device data sync        | Firestore infrastructure in place, need to sync daily logs             |
-| Smartwatch companion          | Descoped — multiplied project scope                                    |
+**Rejected**: Hilt dependency injection (unfamiliar library, not necessary for our use case), DataStore for user preferences (stored goals directly in Room DailyLog entity instead. It was simpler and had one source of truth).
+
