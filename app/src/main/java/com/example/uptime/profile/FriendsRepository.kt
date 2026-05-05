@@ -15,7 +15,8 @@ data class FriendProfile(
     val name: String = "",
     val email: String = "",
     val streak: Int = 0,
-    val trophies: Int = 0
+    val trophies: Int = 0,
+    val profileIcon: String = "person"
 )
 
 class FriendsRepository {
@@ -35,7 +36,8 @@ class FriendsRepository {
                     "email" to email,
                     "streak" to streak,
                     "trophies" to trophies,
-                    "friends" to existing
+                    "friends" to existing,
+                    "profileIcon" to (getProfileIcon() ?: "person")
                 ),
                 SetOptions.merge()
             ).await()
@@ -46,7 +48,8 @@ class FriendsRepository {
                     "email" to email,
                     "streak" to streak,
                     "trophies" to trophies,
-                    "friends" to emptyList<String>()
+                    "friends" to emptyList<String>(),
+                    "profileIcon" to "person"
                 )
             ).await()
         }
@@ -179,7 +182,8 @@ class FriendsRepository {
                                 name = doc.getString("name") ?: "",
                                 email = doc.getString("email") ?: "",
                                 streak = (doc.getLong("streak") ?: 0).toInt(),
-                                trophies = (doc.getLong("trophies") ?: 0).toInt()
+                                trophies = (doc.getLong("trophies") ?: 0).toInt(),
+                                profileIcon = doc.getString("profileIcon") ?: "person"
                             )
                         }
                         trySend(friends)
@@ -250,5 +254,16 @@ class FriendsRepository {
     private suspend fun getFriendIdsFor(userId: String): List<String>? {
         val doc = db.collection("users").document(userId).get().await()
         return doc.get("friends") as? List<String>
+    }
+
+    suspend fun updateProfileIcon(iconId: String) {
+        val uid = currentUid() ?: return
+        db.collection("users").document(uid).update("profileIcon", iconId).await()
+    }
+
+    suspend fun getProfileIcon(): String? {
+        val uid = currentUid() ?: return null
+        val doc = db.collection("users").document(uid).get().await()
+        return doc.getString("profileIcon")
     }
 }

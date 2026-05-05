@@ -41,6 +41,11 @@ import java.time.format.TextStyle
 import java.util.Locale
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.setValue
+import androidx.compose.foundation.clickable
+import androidx.compose.material3.AlertDialog
+import androidx.compose.material3.TextButton
+import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.remember
 
 @Composable
 fun StreakScreen(viewModel: DashboardViewModel = viewModel()) {
@@ -60,6 +65,9 @@ fun StreakScreen(viewModel: DashboardViewModel = viewModel()) {
     val weeklyWalking = thisWeekLogs.sumOf { it.walkingMinutes }
     val weeklyScreenTime = thisWeekLogs.sumOf { it.screenTimeMinutes }
     val daysCompleted = thisWeekLogs.count { it.streakMaintained }
+
+    var selectedLog by remember { mutableStateOf<DailyLog?>(null) }
+    var selectedDate by remember { mutableStateOf<String?>(null) }
 
     Column(
         modifier = Modifier.Companion
@@ -86,9 +94,24 @@ fun StreakScreen(viewModel: DashboardViewModel = viewModel()) {
 
         Spacer(modifier = Modifier.Companion.height(16.dp))
 
-        MonthCalendarCard(logMap = logMap)
+        MonthCalendarCard(
+            logMap = logMap,
+            onDayClick = { dateStr, log ->
+                if (!LocalDate.parse(dateStr).isAfter(today)) {
+                    selectedDate = dateStr
+                    selectedLog = log ?: DailyLog(date = dateStr)
+                }
+            }
+        )
 
         Spacer(modifier = Modifier.Companion.height(24.dp))
+    }
+    selectedLog?.let { log ->
+        DayDetailDialog(
+            date = selectedDate ?: log.date,
+            log = log,
+            onDismiss = { selectedLog = null; selectedDate = null }
+        )
     }
 }
 
@@ -204,7 +227,7 @@ fun WeeklyStat(value: String, label: String) {
 }
 
 @Composable
-fun MonthCalendarCard(logMap: Map<String, DailyLog>) {
+fun MonthCalendarCard(logMap: Map<String, DailyLog>, onDayClick: (String, DailyLog?) -> Unit = { _, _ -> }) {
     val today = LocalDate.now()
     val currentMonth = YearMonth.from(today)
     val firstOfMonth = currentMonth.atDay(1)
@@ -279,7 +302,8 @@ fun MonthCalendarCard(logMap: Map<String, DailyLog>) {
                                 dayNumber = dayOfMonth.toString(),
                                 log = log,
                                 isToday = isToday,
-                                isFuture = isFuture
+                                isFuture = isFuture,
+                                onClick = { onDayClick(dateStr, log) }
                             )
                         } else {
                             // empty cell for padding
@@ -295,7 +319,7 @@ fun MonthCalendarCard(logMap: Map<String, DailyLog>) {
 }
 
 @Composable
-fun MonthDayCell(dayNumber: String, log: DailyLog?, isToday: Boolean, isFuture: Boolean) {
+fun MonthDayCell(dayNumber: String, log: DailyLog?, isToday: Boolean, isFuture: Boolean, onClick: () -> Unit = {}) {
     val hasData = log != null && (log.screenTimeMinutes > 0 || log.walkingMinutes > 0)
 
     val bgColor = when {
@@ -316,6 +340,7 @@ fun MonthDayCell(dayNumber: String, log: DailyLog?, isToday: Boolean, isFuture: 
         contentAlignment = Alignment.Companion.Center,
         modifier = Modifier.Companion
             .size(36.dp)
+            .clickable(enabled = !isFuture) { onClick() }
             .clip(CircleShape)
             .background(bgColor)
             .then(
@@ -334,4 +359,58 @@ fun MonthDayCell(dayNumber: String, log: DailyLog?, isToday: Boolean, isFuture: 
             color = textColor
         )
     }
+}
+
+@Composable
+fun DayDetailDialog(date: String, log: DailyLog, onDismiss: () -> Unit) {
+    val localDate = LocalDate.parse(date, DateTimeFormatter.ISO_LOCAL_DATE)
+    val dayLabel = localDate.dayOfWeek.getDisplayName(TextStyle.FULL, Locale.getDefault())
+    val monthLabel = localDate.month.getDisplayName(TextStyle.FULL, Locale.getDefault())
+
+    AlertDialog(
+        onDismissRequest = onDismiss,
+        title = {
+            Text("$dayLabel, $monthLabel ${localDate.dayOfMonth}")
+        },
+        text = {
+            Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
+                Row(
+                    modifier = Modifier.fillMaxWidth(),
+                    horizontalArrangement = Arrangement.SpaceBetween
+                ) {
+                    Text("Screen Time", style = MaterialTheme.typography.bodyMedium)
+                    Text("${log.screenTimeMinutes} / ${log.screenTimeGoal} min",
+                        style = MaterialTheme.typography.bodyMedium,
+                        fontWeight = FontWeight.Medium)
+                }
+                Row(
+                    modifier = Modifier.fillMaxWidth(),
+                    horizontalArrangement = Arrangement.SpaceBetween
+                ) {
+                    Text("Walking", style = MaterialTheme.typography.bodyMedium)
+                    Text("${log.walkingMinutes} / ${log.walkingGoal} min",
+                        style = MaterialTheme.typography.bodyMedium,
+                        fontWeight = FontWeight.Medium)
+                }
+                Row(
+                    modifier = Modifier.fillMaxWidth(),
+                    horizontalArrangement = Arrangement.SpaceBetween
+                ) {
+                    Text("Streak", style = MaterialTheme.typography.bodyMedium)
+                    Text(
+                        if (log.streakMaintained) "Maintained" else "Missed",
+                        style = MaterialTheme.typography.bodyMedium,
+                        fontWeight = FontWeight.Medium,
+                        color = if (log.streakMaintained) MaterialTheme.colorScheme.primary
+                        else MaterialTheme.colorScheme.error
+                    )
+                }
+            }
+        },
+        confirmButton = {
+            TextButton(onClick = onDismiss) {
+                Text("Close")
+            }
+        }
+    )
 }

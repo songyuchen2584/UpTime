@@ -22,7 +22,8 @@ data class AuthState(
     val isAnonymous: Boolean = true,
     val isLoading: Boolean = false,
     val error: String? = null,
-    val displayName: String? = null
+    val displayName: String? = null,
+    val profileIcon: String = "person"
 )
 
 class AuthViewModel(application: Application) : AndroidViewModel(application) {
@@ -48,6 +49,10 @@ class AuthViewModel(application: Application) : AndroidViewModel(application) {
                     if (name != null) {
                         _state.value = _state.value.copy(displayName = name)
                     }
+                    val icon = friendsRepository.getProfileIcon()
+                    if (icon != null) {
+                        _state.value = _state.value.copy(profileIcon = icon)
+                    }
                 }
             }
         } else {
@@ -55,6 +60,12 @@ class AuthViewModel(application: Application) : AndroidViewModel(application) {
         }
     }
 
+    fun updateProfileIcon(iconId: String) {
+        viewModelScope.launch {
+            friendsRepository.updateProfileIcon(iconId)
+            _state.value = _state.value.copy(profileIcon = iconId)
+        }
+    }
     fun addFriendById(userId: String){
         viewModelScope.launch {
             friendsRepository.addFriendById(userId)

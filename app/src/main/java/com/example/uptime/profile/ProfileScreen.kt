@@ -45,6 +45,23 @@ import com.example.uptime.room.RoomViewModel
 import kotlinx.coroutines.launch
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.setValue
+import androidx.compose.foundation.clickable
+
+fun getProfileIconRes(iconId: String): Int {
+    return when (iconId) {
+        "person" -> R.drawable.person_24px
+        "walk" -> R.drawable.directions_walk_24px
+        "streak" -> R.drawable.streak_24px
+        "trophy" -> R.drawable.trophy_24px
+        "plant" -> R.drawable.potted_plant_24px
+        "medal" -> R.drawable.medal_24px
+        "palette" -> R.drawable.palette_24px
+        "lamp" -> R.drawable.floor_lamp_24px
+        else -> R.drawable.person_24px
+    }
+}
+
+val profileIconOptions = listOf("person", "walk", "streak", "trophy", "plant", "medal", "palette", "lamp")
 
 @Composable
 fun ProfileScreen(
@@ -60,6 +77,7 @@ fun ProfileScreen(
     var showEditName by remember { mutableStateOf(false) }
     var editNameText by remember { mutableStateOf("") }
     var selectedFriend by remember { mutableStateOf<FriendProfile?>(null) }
+    var showIconPicker by remember { mutableStateOf(false) }
 
     Box {
         Column(
@@ -74,7 +92,9 @@ fun ProfileScreen(
             ProfileHeader(
                 isAnonymous = authState.isAnonymous,
                 displayName = authState.displayName,
-                email = authState.user?.email
+                email = authState.user?.email,
+                profileIcon = authState.profileIcon,
+                onIconClick = { if (!authState.isAnonymous) showIconPicker = true }
             )
             if (!authState.isAnonymous) {
                 TextButton(onClick = {
@@ -111,6 +131,43 @@ fun ProfileScreen(
                     },
                     dismissButton = {
                         TextButton(onClick = { showEditName = false }) {
+                            Text("Cancel")
+                        }
+                    }
+                )
+            }
+            if (showIconPicker) {
+                AlertDialog(
+                    onDismissRequest = { showIconPicker = false },
+                    title = { Text("Choose Icon") },
+                    text = {
+                        Row(
+                            modifier = Modifier.fillMaxWidth(),
+                            horizontalArrangement = Arrangement.SpaceEvenly
+                        ) {
+                            profileIconOptions.chunked(4).forEach { row ->
+                                Column(horizontalAlignment = Alignment.CenterHorizontally) {
+                                    row.forEach { iconId ->
+                                        IconButton(onClick = {
+                                            authViewModel.updateProfileIcon(iconId)
+                                            showIconPicker = false
+                                        }) {
+                                            Icon(
+                                                painterResource(getProfileIconRes(iconId)),
+                                                contentDescription = iconId,
+                                                modifier = Modifier.size(32.dp),
+                                                tint = if (iconId == authState.profileIcon)
+                                                    MaterialTheme.colorScheme.primary
+                                                else MaterialTheme.colorScheme.onSurfaceVariant
+                                            )
+                                        }
+                                    }
+                                }
+                            }
+                        }
+                    },
+                    confirmButton = {
+                        TextButton(onClick = { showIconPicker = false }) {
                             Text("Cancel")
                         }
                     }
@@ -191,7 +248,7 @@ fun ProfileScreen(
 }
 
 @Composable
-fun ProfileHeader(isAnonymous: Boolean, displayName: String?, email: String?) {
+fun ProfileHeader(isAnonymous: Boolean, displayName: String?, email: String?, profileIcon: String = "person", onIconClick: () -> Unit = {}) {
     Column(
         horizontalAlignment = Alignment.CenterHorizontally,
         modifier = Modifier.fillMaxWidth()
@@ -201,7 +258,9 @@ fun ProfileHeader(isAnonymous: Boolean, displayName: String?, email: String?) {
             colors = CardDefaults.cardColors(
                 containerColor = MaterialTheme.colorScheme.primary.copy(alpha = 0.12f)
             ),
-            modifier = Modifier.size(80.dp)
+            modifier = Modifier
+                .size(80.dp)
+                .clickable { onIconClick() }
         ) {
             Column(
                 modifier = Modifier.fillMaxSize(),
@@ -209,7 +268,7 @@ fun ProfileHeader(isAnonymous: Boolean, displayName: String?, email: String?) {
                 horizontalAlignment = Alignment.CenterHorizontally
             ) {
                 Icon(
-                    painterResource(R.drawable.person_24px),
+                    painterResource(getProfileIconRes(profileIcon)),
                     contentDescription = "Profile",
                     modifier = Modifier.size(40.dp),
                     tint = MaterialTheme.colorScheme.primary
@@ -456,7 +515,7 @@ fun FriendRow(friend: FriendProfile, onRemove: () -> Unit, onTap: () -> Unit,) {
                     horizontalAlignment = Alignment.CenterHorizontally
                 ) {
                     Icon(
-                        painterResource(R.drawable.person_24px),
+                        painterResource(getProfileIconRes(friend.profileIcon)),
                         contentDescription = null,
                         modifier = Modifier.size(18.dp),
                         tint = MaterialTheme.colorScheme.primary
