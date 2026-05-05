@@ -367,6 +367,46 @@ object AchievementCatalog {
             AchievementCategory.Exchange,
             AchievementSize.Large
         ),
+        Achievement(
+            "friend_1",
+            "Ride or Die",
+            "Add a friend!",
+            AchievementTier.Bronze,
+            AchievementCategory.Social,
+            AchievementSize.Small
+        ),
+        Achievement(
+            "friend_3",
+            "Three's a Crowd",
+            "Add three friends!",
+            AchievementTier.Bronze,
+            AchievementCategory.Social,
+            AchievementSize.Small
+        ),
+        Achievement(
+            "friend_10",
+            "Extrovert",
+            "Add ten friends!",
+            AchievementTier.Silver,
+            AchievementCategory.Social,
+            AchievementSize.Small
+        ),
+        Achievement(
+            "friend_25",
+            "Social Butterfly",
+            "Add 25 friends!",
+            AchievementTier.Gold,
+            AchievementCategory.Social,
+            AchievementSize.Small
+        ),
+        Achievement(
+            "friend_50",
+            "The More The Merrier",
+            "Add fifty friends!",
+            AchievementTier.Diamond,
+            AchievementCategory.Social,
+            AchievementSize.Small
+        ),
     )
 
     val streakAchievements: List<Achievement> = all.filter { it.category == AchievementCategory.Streak }

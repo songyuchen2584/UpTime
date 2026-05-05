@@ -88,6 +88,7 @@ import androidx.compose.ui.graphics.CompositingStrategy
 import androidx.compose.ui.graphics.Paint
 import androidx.compose.ui.graphics.Path
 import androidx.compose.ui.graphics.Shape
+import androidx.compose.ui.graphics.StrokeCap
 import androidx.compose.ui.graphics.drawOutline
 import androidx.compose.ui.graphics.drawscope.DrawScope
 import androidx.compose.ui.graphics.drawscope.Stroke
@@ -126,7 +127,10 @@ import kotlin.Int
 import kotlin.collections.filter
 import kotlin.collections.find
 import kotlin.collections.forEachIndexed
+import kotlin.collections.sortedBy
 import kotlin.math.absoluteValue
+import kotlin.math.cos
+import kotlin.math.sin
 
 // Placeholder data for now
 data class RoomItem(
@@ -184,6 +188,7 @@ enum class AchievementCategory {
     WalkingTime,
     ScreenTime,
     Exchange,
+    Social,
     Special,
     Secret
 }
@@ -369,7 +374,7 @@ fun RoomScreen(
                     modifier = Modifier
                         .align(Alignment.CenterEnd)
                         .padding(end = 8.dp),
-                    verticalArrangement = Arrangement.spacedBy(8.dp)
+                    verticalArrangement = Arrangement.spacedBy(36.dp)
                 ) {
                     AchievementsPanel(onClick = { activePanel = if (activePanel == RoomPanel.Achievements) null else RoomPanel.Achievements })
                     ExchangePanel(
@@ -728,13 +733,20 @@ fun RoomThemePickerRow(
     selectedThemeId: String,
     onThemeSelected: (String) -> Unit
 ) {
+    val sortedThemes = remember(allRoomThemes, unlockedRoomThemeIds) {
+        allRoomThemes.sortedWith(
+            compareByDescending<RoomThemeOption> { it.id in unlockedRoomThemeIds }
+                .thenBy { it.pointCost }
+        )
+    }
+
     LazyRow(
         modifier = modifier,
         contentPadding = PaddingValues(horizontal = 16.dp),
         horizontalArrangement = Arrangement.spacedBy(10.dp),
         verticalAlignment = Alignment.Bottom
     ) {
-        items(allRoomThemes) { option ->
+        items(sortedThemes) { option ->
             val isUnlocked = option.id in unlockedRoomThemeIds
             RoomThemeCard(
                 option = option,
@@ -754,13 +766,21 @@ fun WoodThemePickerRow(
     selectedThemeId: String,
     onThemeSelected: (String) -> Unit
 ) {
+    // Sort: Unlocked items first, then by point cost
+    val sortedWoodThemes = remember(allWoodThemes, unlockedWoodThemeIds) {
+        allWoodThemes.sortedWith(
+            compareByDescending<WoodThemeOption> { it.id in unlockedWoodThemeIds }
+                .thenBy { it.pointCost }
+        )
+    }
+
     LazyRow(
         modifier = modifier,
         contentPadding = PaddingValues(horizontal = 16.dp),
         horizontalArrangement = Arrangement.spacedBy(10.dp),
         verticalAlignment = Alignment.Bottom
     ) {
-        items(allWoodThemes) { option ->
+        items(sortedWoodThemes) { option ->
             val isUnlocked = option.id in unlockedWoodThemeIds
             WoodThemeCard(
                 option = option,
@@ -780,20 +800,33 @@ fun RoomItemPickerRow(
     modifier: Modifier,
     placedRoomItems: Map<String, String>
 ) {
+    val sortedItems = remember(allRoomItems, unlockedRoomItemIds) {
+        allRoomItems.sortedWith(
+            compareByDescending<RoomItem> { it.id in unlockedRoomItemIds }
+                .thenBy { it.pointCost }
+        )
+    }
+
     LazyRow(
         modifier = modifier,
         contentPadding = PaddingValues(horizontal = 16.dp),
         horizontalArrangement = Arrangement.spacedBy(10.dp),
         verticalAlignment = Alignment.Bottom
     ) {
-        items(allRoomItems) { item ->
+        items(sortedItems) { item ->
             val isUnlocked = item.id in unlockedRoomItemIds
             val isPlaced = item.id in placedRoomItems.values
             RoomItemCard(
                 item = item,
                 isUnlocked = isUnlocked,
                 isPlaced = isPlaced,
-                onSelect = {if (isPlaced && isUnlocked) viewModel.removeRoomItem(item.id) else if (isUnlocked) viewModel.placeRoomItem(item.id, item.category)}
+                onSelect = {
+                    if (isPlaced && isUnlocked) {
+                        viewModel.removeRoomItem(item.id)
+                    } else if (isUnlocked) {
+                        viewModel.placeRoomItem(item.id, item.category)
+                    }
+                }
             )
         }
     }
@@ -951,10 +984,10 @@ fun RoomItemCard(
             containerColor = MaterialTheme.colorScheme.surface.copy(alpha = 0.92f)
         ),
         elevation = CardDefaults.cardElevation(defaultElevation = 4.dp),
-        modifier = Modifier.width(80.dp)
+        modifier = Modifier.width(85.dp)
     ) {
         Column(
-            modifier = Modifier.padding(8.dp),
+            modifier = Modifier.padding(8.dp).fillMaxWidth(),
             horizontalAlignment = Alignment.CenterHorizontally,
             verticalArrangement = Arrangement.spacedBy(6.dp)
         ) {
@@ -966,6 +999,14 @@ fun RoomItemCard(
                     modifier = Modifier.size(16.dp)
                 )
             }
+
+            Text(
+                "${item.category.name} Item",
+                style = MaterialTheme.typography.labelSmall,
+                textAlign = TextAlign.Center,
+                color = if (isUnlocked) MaterialTheme.colorScheme.onSurface
+                else MaterialTheme.colorScheme.onSurface.copy(alpha = 0.4f)
+            )
 
             Text(
                 item.name,
@@ -1054,6 +1095,7 @@ fun DefaultRoomCanvas(
             drawPlacedWallItems(
                 placedRoomItems = placedRoomItems,
                 woodTheme = woodTheme,
+                roomTheme = theme,
                 canvasWidth = w,
                 canvasHeight = h,
                 iconPath = lightningPath
@@ -1352,6 +1394,7 @@ fun DefaultRoomCanvas(
             drawPlacedItems(
                 placedRoomItems = placedRoomItems,
                 woodTheme = woodTheme,
+                roomTheme = theme,
                 canvasWidth = w,
                 canvasHeight = h,
                 iconPath = lightningPath
@@ -1363,6 +1406,7 @@ fun DefaultRoomCanvas(
 private fun DrawScope.drawPlacedItems(
     placedRoomItems: Map<String, String>,
     woodTheme: WoodTheme,
+    roomTheme: RoomTheme,
     canvasWidth: Float,
     canvasHeight: Float,
     iconPath: Path
@@ -1387,6 +1431,7 @@ private fun DrawScope.drawPlacedItems(
 private fun DrawScope.drawPlacedWallItems(
     placedRoomItems: Map<String, String>,
     woodTheme: WoodTheme,
+    roomTheme: RoomTheme,
     canvasWidth: Float,
     canvasHeight: Float,
     iconPath: Path
@@ -1402,8 +1447,9 @@ private fun DrawScope.drawPlacedWallItems(
 
         when (itemId) {
             "poster_uptime" -> drawUptimePoster(cx, cy, iw, ih, woodTheme, iconPath)
-            "poster_band" -> drawBandPoster(cx, cy, iw, ih, woodTheme)
+            "poster_band" -> drawBandPoster(cx, cy, iw, ih, woodTheme, roomTheme)
             "poster_movie" -> drawMoviePoster(cx, cy, iw, ih, woodTheme)
+            "wall_clock" -> drawWallClock(cx, cy, iw, woodTheme, roomTheme)
             else -> drawGenericItem(cx, cy, iw, ih)
         }
     }
@@ -1757,7 +1803,8 @@ private fun DrawScope.drawUptimePoster(
 private fun DrawScope.drawBandPoster(
     cx: Float, cy: Float,
     width: Float, height: Float,
-    woodTheme: WoodTheme
+    woodTheme: WoodTheme,
+    roomTheme: RoomTheme
 ) {
     val left = cx - width / 2f
     val top = cy - height / 2f
@@ -1765,8 +1812,8 @@ private fun DrawScope.drawBandPoster(
     val bottom = cy + height / 2f
 
     val bg = Color(0xFF28283F)
-    val accent1 = Color(0xFF009688)
-    val accent2 = Color(0xFF8BC34A)
+    val accent1 = roomTheme.accentColor
+    val accent2 = roomTheme.wallColor
 
     val frameThickness = width * 0.06f
 
@@ -1821,12 +1868,12 @@ private fun DrawScope.drawBandPoster(
                         innerTop
                     ),
                     size = Size(stripeWidth, innerHeight),
-                    alpha = 0.3f
+                    alpha = 0.45f
                 )
             }
         }
 
-        // Central abstract "band logo" shape (circle + cut)
+        // Central abstract shape
         val center = Offset(cx, cy - innerHeight * 0.1f)
         val r = innerWidth * 0.18f
 
@@ -1932,7 +1979,6 @@ private fun DrawScope.drawMoviePoster(
             size = Size(innerWidth, innerHeight - (horizonY - innerTop))
         )
 
-
         // Shark
         val peakHeight = innerHeight * 0.56f
         drawCircle(
@@ -1989,6 +2035,110 @@ private fun DrawScope.drawMoviePoster(
             size = Size(innerWidth, innerHeight - (horizonY - innerTop))
         )
     }
+}
+
+private fun DrawScope.drawWallClock(
+    cx: Float, cy: Float,
+    size: Float,
+    woodTheme: WoodTheme,
+    roomTheme: RoomTheme
+) {
+    val radius = size / 2f
+    val frameThickness = size * 0.1f
+    val innerRadius = radius - frameThickness
+
+    // Shadow
+    drawCircle(
+        color = Color.Black.copy(alpha = 0.15f),
+        radius = radius,
+        center = Offset(cx + 4f, cy + 4f)
+    )
+
+    // Frame
+    drawCircle(
+        color = woodTheme.woodFront,
+        radius = radius,
+        center = Offset(cx, cy)
+    )
+
+    // Frame Top highlight
+    drawArc(
+        color = woodTheme.woodTop,
+        startAngle = 180f,
+        sweepAngle = 180f,
+        useCenter = true,
+        topLeft = Offset(cx - radius, cy - radius),
+        size = Size(size, size)
+    )
+
+    // Clock Face
+    drawCircle(
+        color = Color.White,
+        radius = innerRadius,
+        center = Offset(cx, cy)
+    )
+    drawCircle(
+        color = roomTheme.accentColor.copy(alpha = 0.3f),
+        radius = innerRadius * 0.925f,
+        center = Offset(cx, cy),
+        style = Stroke(width = 4f)
+    )
+
+    // Hours
+    for (i in 0 until 12) {
+        val angle = i * 30f
+        val angleRad = Math.toRadians(angle.toDouble())
+        val startDist = innerRadius * 0.8f
+        val endDist = innerRadius * 0.92f
+
+        val startX = cx + cos(angleRad).toFloat() * startDist
+        val startY = cy + sin(angleRad).toFloat() * startDist
+        val endX = cx + cos(angleRad).toFloat() * endDist
+        val endY = cy + sin(angleRad).toFloat() * endDist
+
+        drawLine(
+            color = if (i % 3 == 0) Color.DarkGray else Color.LightGray,
+            start = Offset(startX, startY),
+            end = Offset(endX, endY),
+            strokeWidth = if (i % 3 == 0) 4f else 2f,
+            cap = StrokeCap.Round
+        )
+    }
+
+    // Hands
+
+    // Hour Hand
+    val hourAngle = Math.toRadians(-60.0)
+    drawLine(
+        color = Color(0xFF2D2D2D),
+        start = Offset(cx, cy),
+        end = Offset(
+            cx + cos(hourAngle).toFloat() * innerRadius * 0.5f,
+            cy + sin(hourAngle).toFloat() * innerRadius * 0.5f
+        ),
+        strokeWidth = 6f,
+        cap = StrokeCap.Round
+    )
+
+    // Minute Hand
+    val minuteAngle = Math.toRadians(-150.0)
+    drawLine(
+        color = Color.DarkGray,
+        start = Offset(cx, cy),
+        end = Offset(
+            cx + cos(minuteAngle).toFloat() * innerRadius * 0.75f,
+            cy + sin(minuteAngle).toFloat() * innerRadius * 0.75f
+        ),
+        strokeWidth = 4f,
+        cap = StrokeCap.Round
+    )
+
+    // Center Pin
+    drawCircle(
+        color = woodTheme.woodTop,
+        radius = innerRadius * 0.08f,
+        center = Offset(cx, cy)
+    )
 }
 
 private fun DrawScope.drawGenericItem(cx: Float, cy: Float, width: Float, height: Float) {
@@ -3045,17 +3195,26 @@ fun ItemCell(
                 Icon(
                     painterResource(item.icon),
                     contentDescription = item.name,
-                    tint = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.45f),
+                    tint = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.55f),
                     modifier = Modifier.size(40.dp)
                 )
-                Spacer(modifier = Modifier.height(8.dp))
+                Spacer(modifier = Modifier.height(10.dp))
+                Text(
+                    item.category.name,
+                    style = MaterialTheme.typography.labelSmall,
+                    fontWeight = FontWeight.SemiBold,
+                    textAlign = TextAlign.Center,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.6f)
+                )
+
+                Spacer(modifier = Modifier.height(10.dp))
 
                 Text(
                     item.name,
                     style = MaterialTheme.typography.labelMedium,
                     fontWeight = FontWeight.SemiBold,
                     textAlign = TextAlign.Center,
-                    color = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.3f)
+                    color = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.75f)
                 )
                 Spacer(modifier = Modifier.weight(0.5f))
 
@@ -3112,7 +3271,7 @@ fun RoomThemeCell(
                 Icon(
                     painterResource(R.drawable.room_theme_24px),
                     contentDescription = roomThemeOption.name,
-                    tint = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.45f),
+                    tint = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.55f),
                     modifier = Modifier.size(40.dp)
                 )
                 Spacer(modifier = Modifier.height(8.dp))
@@ -3199,7 +3358,7 @@ fun WoodThemeCell(
                 Icon(
                     painterResource(R.drawable.shelves_24px),
                     contentDescription = woodThemeOption.name,
-                    tint = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.45f),
+                    tint = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.55f),
                     modifier = Modifier.size(40.dp)
                 )
                 Spacer(modifier = Modifier.height(8.dp))
@@ -3332,6 +3491,7 @@ fun AchievementsDisplay(
                 AchievementCategory.WalkingTime to "Walking",
                 AchievementCategory.ScreenTime to "Screen Time",
                 AchievementCategory.Exchange to "Exchange",
+                AchievementCategory.Social to "Social",
                 AchievementCategory.Special to "Special",
                 AchievementCategory.Secret to "Secret"
             )

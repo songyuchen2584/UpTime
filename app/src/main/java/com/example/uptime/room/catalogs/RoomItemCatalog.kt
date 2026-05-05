@@ -51,5 +51,14 @@ object RoomItemCatalog {
             widthFraction = 0.12f,
             heightFraction = 0.275f
         ),
+        RoomItem(
+            id = "wall_clock",
+            name = "Wall Clock",
+            icon = R.drawable.clock_24px,
+            category = RoomItemCategory.Wall,
+            pointCost = 50,
+            widthFraction = 0.13f,
+            heightFraction = 0.0f
+        )
     )
 }

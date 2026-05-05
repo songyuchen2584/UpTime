@@ -5,6 +5,7 @@ import android.app.Application
 import android.util.Log
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.collectAsState
+import androidx.compose.runtime.getValue
 import androidx.lifecycle.AndroidViewModel
 import androidx.lifecycle.viewModelScope
 import androidx.room.Transaction
@@ -22,6 +23,7 @@ import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.SharingStarted
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asSharedFlow
+import kotlinx.coroutines.flow.collect
 import kotlinx.coroutines.flow.combine
 import kotlinx.coroutines.flow.distinctUntilChanged
 import kotlinx.coroutines.flow.first
@@ -70,6 +72,14 @@ class RoomViewModel(application: Application, val userId: String) : AndroidViewM
     val roomState: StateFlow<RoomState?> = _roomState
 
     private var restoreCompleted = false
+
+    val friendCount: StateFlow<Int> = friendsRepository.observeFriends()
+        .map { it.size }
+        .stateIn(
+            scope = viewModelScope,
+            started = SharingStarted.WhileSubscribed(5000),
+            initialValue = 0
+        )
 
     init {
         auth.addAuthStateListener { firebaseAuth ->
@@ -132,6 +142,12 @@ class RoomViewModel(application: Application, val userId: String) : AndroidViewM
         viewModelScope.launch {
             statsRepository.userStats.collect { stats ->
                 checkAndUnlockAchievements(stats)
+            }
+        }
+
+        viewModelScope.launch {
+            friendCount.collect { count ->
+                checkFriendAchievements(count)
             }
         }
 
@@ -296,7 +312,33 @@ class RoomViewModel(application: Application, val userId: String) : AndroidViewM
         )
     }
 
-    private fun meetsCondition(achievement: Achievement, stats: UserStatsRepository.UserStats, isEndOfDay: Boolean): Boolean {
+    private suspend fun checkFriendAchievements(
+        friendCount: Int
+    ) {
+        if (!isOwner) return
+        val inventory = invDao.getInventory(userId) ?: UserInventory(userId)
+        val alreadyUnlocked = inventory.unlockedAchievementIds
+
+        val newlyUnlocked = AchievementCatalog.all
+            .filter { it.id !in alreadyUnlocked }
+            .filter { meetsFriendCondition(it, friendCount) }
+            .map { it.id }
+
+        if (newlyUnlocked.isEmpty()) return
+
+        invDao.upsertInventory(
+            inventory.copy(unlockedAchievementIds = alreadyUnlocked + newlyUnlocked)
+        )
+        _newlyUnlocked.emit(
+            newlyUnlocked.mapNotNull { id -> AchievementCatalog.all.find { it.id == id } }
+        )
+    }
+
+    private fun meetsCondition(
+        achievement: Achievement,
+        stats: UserStatsRepository.UserStats,
+        isEndOfDay: Boolean
+    ): Boolean {
         return when (achievement.id) {
             // Walking
             "walk_60" -> stats.totalWalkingMins >= 60
@@ -330,6 +372,22 @@ class RoomViewModel(application: Application, val userId: String) : AndroidViewM
 
             // Special
             "start" -> true
+
+            else -> false
+        }
+    }
+
+    private fun meetsFriendCondition(
+        achievement: Achievement,
+        friendCount: Int
+    ): Boolean {
+        return when (achievement.id) {
+            // Social
+            "friend_1" -> friendCount >= 1
+            "friend_3" -> friendCount >= 3
+            "friend_10" -> friendCount >= 10
+            "friend_25" -> friendCount >= 25
+            "friend_50" -> friendCount >= 50
 
             else -> false
         }

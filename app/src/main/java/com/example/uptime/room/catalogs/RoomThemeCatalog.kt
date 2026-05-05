@@ -55,6 +55,36 @@ object RoomThemeCatalog {
             150
         ),
         RoomThemeOption(
+            "grey",
+            "Millennial",
+            RoomTheme(Color(0xFF4F4F4F), Color(0xFF414141), Color(0xFF8A8A8A)),
+            25
+        ),
+        RoomThemeOption(
+            "conflicted",
+            "Conflicted",
+            RoomTheme(Color(0xFF883D39), Color(0xFF2B1D36), Color(0xFF3C5286)),
+            200
+        ),
+        RoomThemeOption(
+            "olive",
+            "Olive",
+            RoomTheme(Color(0xFF474A2C), Color(0xFF636940), Color(0xFF5E9B6B)),
+            75
+        ),
+        RoomThemeOption(
+            "regal",
+            "Regal",
+            RoomTheme(Color(0xFF4A1942), Color(0xFFD5CAD2), Color(0xFF893168)),
+            200
+        ),
+        RoomThemeOption(
+            "blatant",
+            "Blatant",
+            RoomTheme(Color(0xFFFFD166), Color(0xFF5A2C77), Color(0xFFEF476F)),
+            25
+        ),
+        RoomThemeOption(
             "opulent",
             "Opulent",
             RoomTheme(Color(0xFF542970), Color(0xFFD99D43), Color(0xFFE0AE65)),
