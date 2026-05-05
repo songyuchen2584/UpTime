@@ -691,7 +691,6 @@ fun RoomOnboardingOverlay(
                     Text(
                         text = text,
                         style = MaterialTheme.typography.bodyLarge,
-                        color = Color.White,
                         textAlign = TextAlign.Center,
                         modifier = Modifier.padding(8.dp)
                     )
