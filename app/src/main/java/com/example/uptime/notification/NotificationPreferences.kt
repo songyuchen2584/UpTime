@@ -48,9 +48,10 @@ class NotificationPreferences(private val context: Context) {
         }
     }
 
+    // ensure the screen warning threshold is between 1 and 30 minutes
     suspend fun setScreenWarningThreshold(minutes: Int) {
         context.notificationDataStore.edit {
-            it[Keys.SCREEN_WARNING_THRESHOLD] = minutes.coerceAtLeast(1)
+            it[Keys.SCREEN_WARNING_THRESHOLD] = minutes.coerceIn(1,30)
         }
     }
 }

@@ -100,7 +100,7 @@ enum class DashboardOnboardingTask(
     ),
     ROOM(
         title = "Explore rooms",
-        description = "Visit other users' rooms and see their progress.",
+        description = "Customize your room and explore other users' rooms and see their progress.",
         icon = R.drawable.door_sliding_24px
     )
 }
