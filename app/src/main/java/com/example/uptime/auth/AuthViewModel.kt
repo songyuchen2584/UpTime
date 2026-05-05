@@ -43,7 +43,7 @@ class AuthViewModel(application: Application) : AndroidViewModel(application) {
                 displayName = currentUser.displayName
             )
             // load name from Firestore if not in Firebase Auth
-            if (!currentUser.isAnonymous && currentUser.displayName.isNullOrBlank()) {
+            if (!currentUser.isAnonymous) {
                 viewModelScope.launch {
                     val name = friendsRepository.getCurrentUserName()
                     if (name != null) {

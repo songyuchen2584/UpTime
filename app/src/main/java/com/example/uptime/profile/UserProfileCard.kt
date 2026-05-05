@@ -73,7 +73,7 @@ fun UserProfileCard(
                     horizontalAlignment = Alignment.CenterHorizontally
                 ) {
                     Icon(
-                        painterResource(R.drawable.person_24px),
+                        painterResource(getProfileIconRes(profile.profileIcon)),
                         contentDescription = null,
                         modifier = Modifier.size(36.dp),
                         tint = MaterialTheme.colorScheme.primary

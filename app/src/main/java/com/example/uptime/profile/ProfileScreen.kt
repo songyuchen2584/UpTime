@@ -232,7 +232,8 @@ fun ProfileScreen(
 
         selectedFriend?.let { friend ->
             UserProfileOverlay(
-                profile = authViewModel.getFriendProfileById(friend.uid),
+                profile = authViewModel.getFriendProfileById(friend.uid)
+                    ?.copy(profileIcon = friend.profileIcon) ?: friend,
                 isFriend = friends.any { it.uid == friend.uid },
                 onAddFriend = {authViewModel.addFriendById(friend.uid)},
                 onRemoveFriend = {authViewModel.removeFriendById(friend.uid)},
