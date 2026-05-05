@@ -389,6 +389,7 @@ fun RoomScreen(
                 IconButton(onClick = { roomViewModel.startOnboarding() }) {
                     Icon(
                         painterResource(R.drawable.help_24px),
+                        tint = Color.White,
                         contentDescription = "Show Tutorial"
                     )
                 }
@@ -435,6 +436,7 @@ fun RoomScreen(
                 ) {
                     Icon(
                         painterResource(R.drawable.help_24px),
+                        tint = Color.White,
                         contentDescription = "Show Tutorial"
                     )
                 }

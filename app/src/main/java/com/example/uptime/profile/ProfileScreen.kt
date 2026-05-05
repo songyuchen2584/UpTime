@@ -122,6 +122,7 @@ fun ProfileScreen(
                         Button(
                             onClick = {
                                 authViewModel.updateName(editNameText)
+                                roomViewModel.updateDisplayName(editNameText)
                                 showEditName = false
                             },
                             enabled = editNameText.isNotBlank()

@@ -555,7 +555,7 @@ class RoomViewModel(application: Application, val userId: String) : AndroidViewM
             val current = rsDao.getSettings(userId) ?: RoomSettings(userId)
 
             val updated = current.copy(
-                displayName = newName
+                displayName = "$newName's Room"
             )
 
             rsDao.upsertRoomSettings(updated)
