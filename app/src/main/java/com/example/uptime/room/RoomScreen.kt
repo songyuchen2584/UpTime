@@ -792,7 +792,7 @@ fun RoomScaffold(
 
     if (showMenu) NameHeader(state)
 
-    ForDemo(viewModel, mode)
+    // ForDemo(viewModel, mode)
 }
 
 @Composable
