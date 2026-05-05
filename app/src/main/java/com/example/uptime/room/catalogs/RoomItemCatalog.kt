@@ -36,7 +36,7 @@ object RoomItemCatalog {
         RoomItem(
             id = "plant_pot",
             name = "Potted Plant",
-            icon = R.drawable.poster_24px,
+            icon = R.drawable.potted_plant_24px,
             category = RoomItemCategory.Floor,
             pointCost = 25,
             widthFraction = 0.12f,
@@ -44,8 +44,8 @@ object RoomItemCatalog {
         ),
         RoomItem(
             id = "lamp",
-            name = "Lamp",
-            icon = R.drawable.poster_24px,
+            name = "Floor Lamp",
+            icon = R.drawable.floor_lamp_24px,
             category = RoomItemCategory.Floor,
             pointCost = 75,
             widthFraction = 0.12f,

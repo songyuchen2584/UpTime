@@ -141,8 +141,9 @@ fun ProfileScreen(
                             onClick = onNavigateToSettings,
                             modifier = Modifier.fillMaxWidth()
                         ) {
-                            Text("Sign in to save your progress")
+                            Text("Sign in to save your progress!")
                         }
+                        Text("All your data will be lost if you uninstall the app.")
                     }
                 }
 
@@ -182,7 +183,8 @@ fun ProfileScreen(
                     selectedFriend = null
                     onVisitRoom(friend.uid)
                 },
-                onDismiss = { selectedFriend = null }
+                onDismiss = { selectedFriend = null },
+                isAnon = authState.isAnonymous
             )
         }
     }

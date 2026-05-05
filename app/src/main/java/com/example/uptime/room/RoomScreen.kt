@@ -110,6 +110,7 @@ import androidx.lifecycle.viewmodel.compose.viewModel
 import androidx.window.core.layout.WindowSizeClass
 import com.example.uptime.profile.FriendProfile
 import com.example.uptime.R
+import com.example.uptime.auth.AuthViewModel
 import com.example.uptime.profile.UserProfileOverlay
 import com.example.uptime.room.catalogs.AchievementCatalog
 import com.example.uptime.room.catalogs.MetalThemeCatalog
@@ -239,11 +240,17 @@ enum class AchievementSize { Small, Medium, Large }
 
 @OptIn(ExperimentalMaterial3WindowSizeClassApi::class)
 @Composable
-fun RoomScreen(viewModel: RoomViewModel = viewModel(), onVisitRandomRoom: () -> Unit, onVisitUserRoom: (String) -> Unit, onReturn: () -> Unit) {
+fun RoomScreen(
+    roomViewModel: RoomViewModel = viewModel(),
+    authViewModel: AuthViewModel = viewModel(),
+    onVisitRandomRoom: () -> Unit,
+    onVisitUserRoom: (String) -> Unit,
+    onReturn: () -> Unit
+) {
     val windowSizeClass = currentWindowAdaptiveInfo().windowSizeClass
     val isShortLandscape = windowSizeClass.isWidthAtLeastBreakpoint(WindowSizeClass.WIDTH_DP_MEDIUM_LOWER_BOUND)
             && !windowSizeClass.isHeightAtLeastBreakpoint(WindowSizeClass.HEIGHT_DP_MEDIUM_LOWER_BOUND)
-    val state by viewModel.roomState.collectAsState()
+    val state by roomViewModel.roomState.collectAsState()
 
     if (state == null) {
         RoomLoadingScreen()
@@ -262,21 +269,20 @@ fun RoomScreen(viewModel: RoomViewModel = viewModel(), onVisitRandomRoom: () -> 
         .find { it.id == roomState.selectedRoomLayoutId }?.trophyCaseId ?: "default"
 
     var roomMode by rememberSaveable { mutableStateOf(RoomMode.View) }
-    val currentUserId = FirebaseAuth.getInstance().currentUser?.uid
-    val isOwner = viewModel.userId == "me"
+    val isOwner = roomViewModel.userId == "me"
     var showVisitorProfile by remember { mutableStateOf(false) }
     var activePanel by rememberSaveable { mutableStateOf<RoomPanel?>(null) }
     var showRoomThemePicker by rememberSaveable { mutableStateOf(false) }
     var showWoodThemePicker by rememberSaveable { mutableStateOf(false) }
     var showRoomItemPicker by rememberSaveable { mutableStateOf(false) }
 
-    LaunchedEffect(viewModel.userId) {
+    LaunchedEffect(roomViewModel.userId) {
         if (isOwner) {roomMode = RoomMode.View; showVisitorProfile = false} else {roomMode = RoomMode.Visit;}
         Log.d("RoomScreen", "RoomMode is currently $roomMode")
         activePanel = null
     }
 
-    val friends by viewModel.friendsRepository.observeFriends().collectAsState(emptyList())
+    val friends by roomViewModel.friendsRepository.observeFriends().collectAsState(emptyList())
 
     val activeTrophyCaseSlots = TrophyCaseCatalog.all
         .find { it.id == trophyCaseId }?.shelfSlots ?: listOf(
@@ -353,7 +359,7 @@ fun RoomScreen(viewModel: RoomViewModel = viewModel(), onVisitRandomRoom: () -> 
             activeWoodTheme,
             activeTrophyCaseSlots,
             roomMode,
-            viewModel
+            roomViewModel
         )
 
         if (isShortLandscape) {
@@ -382,9 +388,9 @@ fun RoomScreen(viewModel: RoomViewModel = viewModel(), onVisitRandomRoom: () -> 
                 ) {
                     VisitPanel(onClick = { activePanel = if (activePanel == RoomPanel.Visit) null else RoomPanel.Visit })
                     if (roomMode == RoomMode.Visit) {
-                        val visitingId = viewModel.userId
+                        val visitingId = roomViewModel.userId
                         val isFriend = friends.any { it.uid == visitingId }
-                        FriendPanel(isFriend = isFriend, onClick = { if(isFriend) viewModel.removeFriendById(visitingId) else viewModel.addFriendById(visitingId) })
+                        FriendPanel(isFriend = isFriend, onClick = { if(isFriend) roomViewModel.removeFriendById(visitingId) else roomViewModel.addFriendById(visitingId) })
                         ProfilePanel(onClick = { showVisitorProfile = true })
                         ReturnPanel(onClick = onReturn)
                     }
@@ -404,15 +410,17 @@ fun RoomScreen(viewModel: RoomViewModel = viewModel(), onVisitRandomRoom: () -> 
                         else RoomPanel.Visit
                     })
                     if (roomMode == RoomMode.Visit) {
-                        val visitingId = viewModel.userId
+                        val visitingId = roomViewModel.userId
                         val isFriend = friends.any { it.uid == visitingId }
-                        FriendPanel(
-                            isFriend = isFriend,
-                            onClick = {
-                                if (isFriend) viewModel.removeFriendById(visitingId) else viewModel.addFriendById(
-                                    visitingId
-                                )
-                            })
+                        if (!authViewModel.state.collectAsState().value.isAnonymous) {
+                            FriendPanel(
+                                isFriend = isFriend,
+                                onClick = {
+                                    if (isFriend) roomViewModel.removeFriendById(visitingId) else roomViewModel.addFriendById(
+                                        visitingId
+                                    )
+                                })
+                        }
                         ProfilePanel(onClick = { showVisitorProfile = true })
                         ReturnPanel(onClick = onReturn)
                     }
@@ -503,7 +511,7 @@ fun RoomScreen(viewModel: RoomViewModel = viewModel(), onVisitRandomRoom: () -> 
                         .padding(bottom = 96.dp),
                     selectedThemeId = roomState.selectedRoomThemeId,
                     onThemeSelected = { themeId ->
-                        viewModel.selectRoomTheme(themeId)
+                        roomViewModel.selectRoomTheme(themeId)
                     }
                 )
             }
@@ -521,7 +529,7 @@ fun RoomScreen(viewModel: RoomViewModel = viewModel(), onVisitRandomRoom: () -> 
                         .padding(bottom = 96.dp),
                     selectedThemeId = roomState.selectedWoodThemeId,
                     onThemeSelected = { themeId ->
-                        viewModel.selectWoodTheme(themeId)
+                        roomViewModel.selectWoodTheme(themeId)
                     }
                 )
             }
@@ -533,7 +541,7 @@ fun RoomScreen(viewModel: RoomViewModel = viewModel(), onVisitRandomRoom: () -> 
                 modifier = Modifier.align(Alignment.BottomCenter)
             ) {
                 RoomItemPickerRow(
-                    viewModel = viewModel,
+                    viewModel = roomViewModel,
                     allRoomItems = RoomItemCatalog.all,
                     unlockedRoomItemIds = roomState.unlockedRoomItemIds,
                     modifier = Modifier
@@ -552,14 +560,15 @@ fun RoomScreen(viewModel: RoomViewModel = viewModel(), onVisitRandomRoom: () -> 
             }
         }
     }
-    if (showVisitorProfile && !viewModel.isOwner) {
+    if (showVisitorProfile && !roomViewModel.isOwner) {
             UserProfileOverlay(
-                profile = viewModel.getFriendProfileById(userId = viewModel.userId),
-                isFriend = friends.any { it.uid == viewModel.userId },
-                onAddFriend = { viewModel.addFriendById(viewModel.userId) },
-                onRemoveFriend = { viewModel.removeFriendById(viewModel.userId) },
+                profile = roomViewModel.getFriendProfileById(userId = roomViewModel.userId),
+                isFriend = friends.any { it.uid == roomViewModel.userId },
+                onAddFriend = { roomViewModel.addFriendById(roomViewModel.userId) },
+                onRemoveFriend = { roomViewModel.removeFriendById(roomViewModel.userId) },
                 onVisitRoom = { showVisitorProfile = false },
-                onDismiss = { showVisitorProfile = false }
+                onDismiss = { showVisitorProfile = false },
+                isAnon = authViewModel.state.collectAsState().value.isAnonymous
             )
         }
     }
@@ -575,7 +584,7 @@ fun RoomScreen(viewModel: RoomViewModel = viewModel(), onVisitRandomRoom: () -> 
                 allAchievements = AchievementCatalog.all,
                 unlockedAchievementIds = roomState.unlockedAchievementIds,
                 placedAchievements = roomState.placedAchievements,
-                viewModel = viewModel,
+                viewModel = roomViewModel,
                 onClose = { activePanel = null }
             )
             RoomPanel.Exchange -> ExchangeDisplay(
@@ -583,12 +592,12 @@ fun RoomScreen(viewModel: RoomViewModel = viewModel(), onVisitRandomRoom: () -> 
                 unlockedRoomThemeIds = roomState.unlockedRoomThemeIds,
                 unlockedRoomItemIds = roomState.unlockedRoomItemIds,
                 unlockedWoodThemeIds = roomState.unlockedWoodThemeIds,
-                viewModel = viewModel,
+                viewModel = roomViewModel,
                 onClose = { activePanel = null }
             )
             RoomPanel.Visit -> VisitDisplay(
                 friendsList = friends,
-                viewModel = viewModel,
+                authViewModel = authViewModel,
                 onVisitRandomRoom = {onVisitRandomRoom(); activePanel = null;
                     Log.d("RoomScreen", "Visiting a random user's room")},
                 onVisitUserRoom = onVisitUserRoom,
@@ -784,7 +793,7 @@ fun RoomItemPickerRow(
                 item = item,
                 isUnlocked = isUnlocked,
                 isPlaced = isPlaced,
-                onSelect = {if (isPlaced) viewModel.removeRoomItem(item.id) else viewModel.placeRoomItem(item.id, item.category)}
+                onSelect = {if (isPlaced && isUnlocked) viewModel.removeRoomItem(item.id) else if (isUnlocked) viewModel.placeRoomItem(item.id, item.category)}
             )
         }
     }
@@ -1524,43 +1533,65 @@ private fun DrawScope.drawFloorLamp(
     val poleW = width * 0.1f
     val shadeW = width * 0.85f
 
+    val ovalDepth = shadeW * 0.13f
+
     // Shadow
     drawOval(
         color = Color.Black.copy(alpha = 0.12f),
         topLeft = Offset(cx - width * 0.4f, baseY - 3f),
-        size = Size(width * 0.8f, 10f)
+        size = Size(width * 0.8f, 15f)
+    )
+
+    // Base
+    val baseTopY    = baseY - height * 0.07f
+    val baseHalfTop = width * 0.25f
+    val baseHalfBot = width * 0.35f
+
+    val basePath = Path().apply {
+        moveTo(cx - baseHalfTop, baseTopY)
+        lineTo(cx + baseHalfTop, baseTopY)
+        lineTo(cx + baseHalfBot, baseY)
+        // Curved bottom edge
+        cubicTo(
+            cx + baseHalfBot * 0.5f, baseY + ovalDepth * 0.6f,
+            cx - baseHalfBot * 0.5f, baseY + ovalDepth * 0.6f,
+            cx - baseHalfBot, baseY
+        )
+        close()
+    }
+    drawPath(basePath, color = metalDark)
+    drawOval(
+        color   = metalColor,
+        topLeft = Offset(cx - baseHalfTop, baseTopY - ovalDepth * 0.4f),
+        size    = Size(baseHalfTop * 2f, ovalDepth * 0.8f)
+    )
+    drawOval(
+        color   = Color.White.copy(alpha = 0.25f),
+        topLeft = Offset(cx - baseHalfTop * 0.7f, baseTopY - ovalDepth * 0.35f),
+        size    = Size(baseHalfTop * 1.4f, ovalDepth * 0.35f)
     )
 
     // Pole
     drawRoundRect(
         color = metalColor,
         topLeft = Offset(cx - poleW / 2f, poleTopY),
-        size = Size(poleW, baseY - height * 0.05f - poleTopY),
+        size = Size(poleW, baseTopY - poleTopY),
         cornerRadius = CornerRadius(poleW / 2f)
     )
     // Pole highlight
     drawRoundRect(
         color = Color.White.copy(alpha = 0.3f),
         topLeft = Offset(cx - poleW / 2f, poleTopY),
-        size = Size(poleW * 0.3f, baseY - height * 0.06f - poleTopY),
+        size = Size(poleW * 0.3f, baseTopY - poleTopY),
         cornerRadius = CornerRadius(poleW / 2f)
     )
 
-    // Base
-    val basePath = Path().apply {
-        moveTo(cx - width * 0.35f, baseY)
-        lineTo(cx + width * 0.35f, baseY)
-        lineTo(cx + width * 0.25f, baseY - height * 0.06f)
-        lineTo(cx - width * 0.25f, baseY - height * 0.06f)
-        close()
-    }
-    drawPath(basePath, color = metalDark)
-    // Base top highlight
-    drawLine(
-        color = metalColor,
-        start = Offset(cx - width * 0.25f, baseY - height * 0.06f),
-        end = Offset(cx + width * 0.25f, baseY - height * 0.06f),
-        strokeWidth = 2f
+
+    //  Shade bottom metal
+    drawOval(
+        color   = metalDark,
+        topLeft = Offset(cx - shadeW * 0.546f, shadeTop + shadeH - ovalDepth),
+        size    = Size(shadeW * 1.092f, ovalDepth * 2.175f)
     )
 
     //  Shade
@@ -1568,7 +1599,12 @@ private fun DrawScope.drawFloorLamp(
         moveTo(cx - shadeW * 0.3f, shadeTop)
         lineTo(cx + shadeW * 0.3f, shadeTop)
         lineTo(cx + shadeW * 0.5f, shadeTop + shadeH)
-        lineTo(cx - shadeW * 0.5f, shadeTop + shadeH)
+        // Curved bottom edge
+        cubicTo(
+            cx + shadeW * 0.25f, shadeTop + shadeH + ovalDepth,
+            cx - shadeW * 0.25f, shadeTop + shadeH + ovalDepth,
+            cx - shadeW * 0.5f, shadeTop + shadeH
+        )
         close()
     }
     drawPath(shadePath, color = shadeColor)
@@ -1581,20 +1617,23 @@ private fun DrawScope.drawFloorLamp(
         lineTo(cx + shadeW * 0.22f, shadeTop)
         close()
     }
-    drawPath(shadeSidePath, color = shadeDark.copy(alpha = 0.5f))
+    drawPath(shadeSidePath, color = shadeDark.copy(alpha = 0.45f))
 
-    //  Shade top and bottom
-    drawRoundRect(
-        color = metalDark,
-        topLeft = Offset(cx - shadeW * 0.32f, shadeTop - 3f),
-        size = Size(shadeW * 0.64f, 5f),
-        cornerRadius = CornerRadius(2f)
+    drawOval(
+        color   = shadeDark.copy(alpha = 0.7f),
+        topLeft = Offset(cx - shadeW * 0.3f, shadeTop - ovalDepth * 0.9f),
+        size    = Size(shadeW * 0.6f, ovalDepth * 1.1f)
     )
-    drawRoundRect(
+    drawOval(
         color = metalDark,
-        topLeft = Offset(cx - shadeW * 0.52f, shadeTop + shadeH - 2f),
-        size = Size(shadeW * 1.04f, 5f),
-        cornerRadius = CornerRadius(2f)
+        topLeft = Offset(cx - shadeW * 0.32f, shadeTop - ovalDepth * 0.85f),
+        size    = Size(shadeW * 0.64f, ovalDepth * 1.15f)
+    )
+    // Inner opening highlight
+    drawOval(
+        color   = Color.Black.copy(alpha = 0.3f),
+        topLeft = Offset(cx - shadeW * 0.18f, shadeTop - ovalDepth * 0.54f),
+        size    = Size(shadeW * 0.36f, ovalDepth * 0.7f)
     )
 }
 
@@ -2545,11 +2584,12 @@ private fun DrawScope.drawGrandTrophyModel(x: Float, floorY: Float, metalTheme: 
 @Composable
 fun VisitDisplay(
     friendsList: List<FriendProfile>,
-    viewModel: RoomViewModel,
+    authViewModel: AuthViewModel,
     onVisitRandomRoom: () -> Unit,
     onVisitUserRoom: (String) -> Unit,
     onClose: () -> Unit
 ) {
+    val authState by authViewModel.state.collectAsState()
     val snackbarHostState = remember { SnackbarHostState() }
     val scope = rememberCoroutineScope()
 
@@ -2597,7 +2637,16 @@ fun VisitDisplay(
                     )
                 }
                 HorizontalDivider()
-                if (friendsList.isEmpty()) {
+                if (authState.isAnonymous) {
+                    Text(
+                        text = "You aren't logged in. Sign up now to add friends!",
+                        style = MaterialTheme.typography.bodyMedium,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant,
+                        textAlign = TextAlign.Center,
+                        modifier = Modifier.fillMaxWidth().padding(6.dp)
+                    )
+                }
+                else if (friendsList.isEmpty()) {
                     Text(
                         text = "No friends yet. Visit a random user's Room and add them!",
                         style = MaterialTheme.typography.bodyMedium,
