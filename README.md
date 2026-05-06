@@ -128,4 +128,6 @@ Room database setup, Firebase Auth with anonymous-to-account linking, and Firest
 ### Rejected suggestions
 **Rejected**: Hilt dependency injection (unfamiliar library, not necessary for our use case), DataStore for user preferences (stored goals directly in Room DailyLog entity instead. It was simpler and had one source of truth).
 
-
+#### Testing account (Has Points for Testing Room Purchases):
+- Email: grader01@gmail.com
+- Password: 123456
